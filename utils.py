@@ -3,10 +3,13 @@ import traceback
 from dataclasses import dataclass, field
 from functools import wraps
 from pprint import pprint
-from typing import Literal, Callable
+from typing import Literal, Callable, Sequence
 
+import pandas as pd
 from telegram import Update
 from telegram.ext import ContextTypes
+
+MAX_MSG_LEN = 7000
 
 
 @dataclass
@@ -53,6 +56,12 @@ class Question:
         return f'[{self.num_id}] {self.text}'
 
 
+CHAT_DATA_KEYS_DEFAULTS = {
+    'state': State(None),
+    'cur_answers': list()
+}
+
+
 def questions_to_str(qs: list[Question], exclude_null=False, default_val='Unknown Quest') -> list[str]:
     if exclude_null:
         return list(map(str, qs))
@@ -67,12 +76,24 @@ def questions_to_str(qs: list[Question], exclude_null=False, default_val='Unknow
     return str_list
 
 
-MAX_MSG_LEN = 7000
+def merge_to_existing_column(state, df: pd.DataFrame, new_col: Sequence, col_index: str):
+    existing_col = df[col_index]
+    res_col = pd.DataFrame(
+        new_col,
+        index=df.index[:len(state.cur_answers)],
+        columns=[col_index]
+    )
 
-CHAT_DATA_KEYS_DEFAULTS = {
-    'state': State(None),
-    'cur_answers': list()
-}
+    # new_col_list = list()
+    for i in range(len(existing_col)):
+        old_val = existing_col[i]
+        new_val = res_col.iloc[:, 0][i]
+
+        res_val = old_val if pd.isnull(new_val) else new_val
+
+        res_col.iloc[:, 0][i] = res_val
+
+    return res_col
 
 
 def get_divided_long_message(text, max_size) -> [str, str]:
