@@ -1,10 +1,13 @@
 import asyncio
+import copy
 import dataclasses
 import os
 import datetime
-import sys
-from typing import Callable
+
 import pandas as pd
+
+from typing import Callable
+from io import BytesIO
 
 import telegram
 from telegram import Update
@@ -13,22 +16,11 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 from questions import questions_list, questions_objects, Question
 from utils import handler_decorator, wrapped_send_text, questions_to_str, merge_to_existing_column, State, \
-    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, BACKUP_CSV_FNAME, SKIP_QUEST
+    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, BACKUP_CSV_FNAME, SKIP_QUEST, df_to_markdown, write_df_to_csv, \
+    add_question_indices_to_df_index
 
 
 async def ask_question(q: Question, send_message_f: Callable):
-    # buttons = [
-    #     *q.inline_keyboard_answers,
-    #     SKIP_QUEST,
-    #     STOP_ASKING
-    # ]
-
-    # reply_markup = telegram.ReplyKeyboardMarkup.from_row(
-    #     list(map(str, buttons)),
-    #     one_time_keyboard=True,
-    #     resize_keyboard=True
-    # )
-
     buttons = [
         q.inline_keyboard_answers,
         [SKIP_QUEST, STOP_ASKING]
@@ -51,37 +43,101 @@ def get_answers_df() -> pd.DataFrame:
     return pd.read_csv(BACKUP_CSV_FNAME, index_col=0)
 
 
-async def send_answers_df(update: Update):
-    await update.message.reply_document(document=BACKUP_CSV_FNAME)
+async def send_pretty_df(
+        update: Update,
+        df: pd.DataFrame,
+        send_csv=False,
+        send_img=True,
+        send_text=False
+):
+    async def send_img_func(text: str, bold=True):
+        indent = 5
+        indent_point = (indent, indent)
 
+        bg_color = (200, 200, 200)
+        fg_color = (0, 0, 0)
+
+        from PIL import Image, ImageDraw, ImageFont
+        if bold:
+            font = ImageFont.truetype("SourceCodePro-Bold.otf", 16)
+        else:
+            font = ImageFont.truetype("SourceCodePro-Regular.otf", 16)
+
+        x1, y1, x2, y2 = ImageDraw.Draw(Image.new('RGB', (0, 0))).textbbox(indent_point, text, font)
+
+        img = Image.new('RGB', (x2 + indent, y2 + indent), bg_color)
+        d = ImageDraw.Draw(img)
+
+        d.text(
+            indent_point,
+            text,
+            font=font,
+            fill=fg_color,
+        )
+
+        bio = BytesIO()
+        bio.name = 'img.png'
+
+        img.save(bio, 'png')
+        bio.seek(0)
+
+        bio2 = copy.copy(bio)
+        try:
+            await update.message.reply_photo(bio)
+        except telegram.error.BadRequest:
+            await update.message.reply_document(bio2)
+
+    async def send_text_func(text: str):
+        html_table_text = f'<pre>\n{text}\n</pre>'
+
+        await wrapped_send_text(
+            update.message.reply_text,
+            text=html_table_text,
+            parse_mode=ParseMode.HTML
+        )
+
+    async def send_csv_func(text: str):
+        bio = BytesIO()
+        bio.name = 'answers_df.csv'
+        bio.write(text)
+        bio.seek(0)
+
+        await update.message.reply_document(document=bio)
+
+    table_text = df_to_markdown(df)
+    table_text_transposed = df_to_markdown(df, transpose=True)
+
+    if send_csv:
+        await send_csv_func(table_text)
+    if send_img:
+        await send_img_func(table_text)
+        await send_img_func(table_text_transposed)
+    if send_text:
+        await send_text_func(table_text)
+
+
+async def send_answers_df_to_chat(
+        update: Update,
+        add_question_indices=False,
+        send_csv=False,
+        send_img=True,
+        send_text=False,
+):
     answers_df = get_answers_df()
 
-    # Prettify table look by adding questions indexes
-    indices = list()
-    for ind_str in answers_df.index:
-        question_num_id = 0
-        for i in range(len(questions_objects)):
-            if questions_objects[i].name == ind_str:
-                indices.append(i)
-                break
+    if add_question_indices:
+        answers_df = add_question_indices_to_df_index(
+            answers_df,
+            questions_objects
+        )
 
-        # answers_df = answers_df.rename(index={
-        #     ind_str: f'[{question_num_id}] {ind_str}'
-        # })
-
-    answers_df.insert(0, 'ind', indices)
-
-    html_table_text = f'<pre>{answers_df.to_markdown()}</pre>'
-
-    await wrapped_send_text(
-        update.message.reply_text,
-        text=html_table_text,
-        parse_mode=ParseMode.HTML
+    await send_pretty_df(
+        update,
+        answers_df,
+        send_csv=send_csv,
+        send_img=send_img,
+        send_text=send_text
     )
-
-    # import imgkit
-    #
-    # imgkit.from_string(html_table_text, 'out.png')
 
 
 async def on_end_asking(state: State, update: Update):
@@ -110,12 +166,11 @@ async def on_end_asking(state: State, update: Update):
     answers_df[day_index] = res_col
 
     # Writing back to file
-    with open(BACKUP_CSV_FNAME, 'w') as file:
-        df_csv = answers_df.to_csv()
-        file.write(df_csv)
+    write_df_to_csv(BACKUP_CSV_FNAME, answers_df)
 
-    await send_answers_df(update)
     state.reset()
+
+    await send_answers_df_to_chat(update, send_csv=True)
 
 
 @handler_decorator
@@ -228,7 +283,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @handler_decorator
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_answers_df(update)
+    await send_answers_df_to_chat(update)
 
     quests_str: list[str] = questions_to_str(questions_objects)
 

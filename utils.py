@@ -12,7 +12,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from questions import Question
+from questions import Question, questions_objects
 
 
 class MyException(Exception):
@@ -70,6 +70,31 @@ CHAT_DATA_KEYS_DEFAULTS = {
     'state': State(None),
     'cur_answers': list()
 }
+
+
+def add_question_indices_to_df_index(df: pd.DataFrame, questions_objects: list[Question]):
+    # Prettify table look by adding questions ids to index
+    indices = list()
+
+    for ind_str in df.index:
+        for i in range(len(questions_objects)):
+            if questions_objects[i].name == ind_str:
+                # s = '{:2} | {}'.format(str(i), ind_str)
+
+                formatter_string = f"{{:2}} | {{}}"
+                s = formatter_string.format(str(i), ind_str)
+                indices.append(s)
+                break
+
+    # Setting new index column
+    df = df.reset_index()
+    df = df.drop('index', axis=1)
+
+    new_index_name = 'i  | name'
+
+    df.insert(0, new_index_name, indices)
+    df = df.set_index(new_index_name)
+    return df
 
 
 def questions_to_str(
@@ -166,3 +191,23 @@ def get_nth_delta_day(n: int = 0) -> datetime.date:
 STOP_ASKING = 'Stop asking'
 BACKUP_CSV_FNAME = 'backup.csv'
 SKIP_QUEST = 'Skip question'
+
+
+def df_to_markdown(df: pd.DataFrame, transpose=False):
+    if transpose:
+        df = df.T
+
+    text = df.to_markdown(
+        tablefmt='rounded_grid',
+        numalign='left',
+        stralign='left',
+    )
+    text = text.replace(' nan ', ' --- ')
+    text = text.replace(':00', '   ')
+    return text
+
+
+def write_df_to_csv(fname: str, df: pd.DataFrame):
+    with open(fname, 'w') as file:
+        df_csv = df.to_csv()
+        file.write(df_csv)
