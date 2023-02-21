@@ -19,13 +19,21 @@ class MyException(Exception):
     pass
 
 
-ASK_WRONG_FORMAT = MyException('\n'.join([
-    '`=== /ask: wrong format ===`',
-    'Examples:',
-    '`{:18}` For today'.format('/ask'),
-    '`{:18}` Specific day (isoformat)'.format('/ask d 2023-01-01'),
-    '`{:18}` Yesterday'.format('/ask d -1'),
-]))
+def ask_format_example():
+    return '\n'.join([
+        'Examples:',
+        '`{:18}` For today, all questions'.format('/ask'),
+        '`{:18}` Specific day (isoformat)'.format('/ask -d=2023-01-01'),
+        '`{:18}` Yesterday'.format('/ask -d=-1'),
+        '`{:18}` Specify questions to ask'.format('/ask -q=1,2,3'),
+        '`{:18}` Multiple args'.format('/ask -q=1,2,3 -d=2023-01-01'),
+    ])
+
+
+ASK_WRONG_FORMAT = MyException(
+    '`=== /ask: wrong format ===`\n' +
+    ask_format_example()
+)
 
 MAX_MSG_LEN = 7000
 

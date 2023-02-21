@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import datetime
 from typing import Callable
@@ -114,24 +115,45 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await on_end_asking(state, update)
 
 
-def ask_parse_args(context_args) -> list[int] | datetime.date | None:
+@dataclasses.dataclass
+class AskParseResult:
+    questions_ids: list[int] | None
+    day: datetime.date | None
+
+
+def ask_parse_args(context_args) -> AskParseResult:
+    res = AskParseResult(None, None)
+
     if len(context_args) == 0:
-        return None
+        return res
 
-    if all(map(lambda x: x.isdigit(), list(''.join(context_args)))):
-        return list(map(int, context_args))
+    if len(context_args) > 2:
+        raise ASK_WRONG_FORMAT
 
-    if context_args[0] == 'd':
+    for arg in context_args:
         try:
-            return datetime.date.fromisoformat(context_args[1])
-        except ValueError:
-            try:
-                days_delta = int(context_args[1])
-                return get_nth_delta_day(days_delta)
-            except ValueError:
-                raise ASK_WRONG_FORMAT
+            if arg.startswith('-d'):
+                val = arg[3:]
 
-    raise ASK_WRONG_FORMAT
+                try:
+                    val = datetime.date.fromisoformat(val)
+                    res.day = val
+                except Exception:
+                    val = int(val)
+                    res.day = get_nth_delta_day(val)
+
+            elif arg.startswith('-q'):
+                val = arg[3:]
+                val = val.split(',')
+                val = list(map(int, val))
+
+                res.questions_ids = val
+            else:
+                raise Exception
+        except Exception:
+            raise ASK_WRONG_FORMAT
+
+    return res
 
 
 @handler_decorator
@@ -140,14 +162,14 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print('command: ask')
 
-    parsed = ask_parse_args(context.args)
-    if isinstance(parsed, list):
-        state.include_ids = parsed
+    parsed: AskParseResult = ask_parse_args(context.args)
+    if parsed.questions_ids:
+        state.include_ids = parsed.questions_ids
     else:
         state.include_ids = list(range(len(questions_list)))
 
-    if isinstance(parsed, datetime.date):
-        state.cur_asking_day = str(parsed)
+    if parsed.day:
+        state.cur_asking_day = str(parsed.day)
     else:
         state.cur_asking_day = str(get_nth_delta_day(0))  # today
 

@@ -49,6 +49,10 @@ questions_list = [
     ['fish_eat', "Рыба?", *binary],
     ['vegetables_eat', "Овощи?", *ternary],
     ['sugar_eat', "Сладкое?", *ternary],
+
+    # .
+    ['not_x_big', "not X?", *binary],
+    ['not_x_small', "not (x)?", *binary],
 ]
 
 
