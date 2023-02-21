@@ -70,7 +70,7 @@ class Question:
     name: str
 
     text: str
-    inline_keyboard_answers: list[str | int]
+    inline_keyboard_answers: list[str]
     answer_mapping_func: Optional[Callable] = None
 
     def __str__(self):
@@ -79,5 +79,7 @@ class Question:
 
 
 # questions_list.sort(key=lambda x: x[0])
+for q in questions_list:
+    q[2] = list(map(str, q[2]))
 
 questions_objects = [Question(*i) for i in questions_list]

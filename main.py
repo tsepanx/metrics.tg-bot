@@ -111,21 +111,21 @@ async def send_pretty_df(
     async def send_csv_func(text: str):
         bio = BytesIO()
         bio.name = 'answers_df.csv'
-        bio.write(text)
+        bio.write(bytes(text, 'utf-8'))
         bio.seek(0)
 
         await update.message.reply_document(document=bio)
 
-    table_text = df_to_markdown(df, transpose=transpose_table)
-    # table_text_transposed = df_to_markdown(df, transpose=True)
+    md_text = df_to_markdown(df, transpose=transpose_table)
+    csv_text = df.to_csv()
 
     if send_csv:
-        await send_csv_func(table_text)
+        await send_csv_func(csv_text)
     if send_img:
-        await send_img_func(table_text)
+        await send_img_func(md_text)
         # await send_img_func(table_text_transposed)
     if send_text:
-        await send_text_func(table_text)
+        await send_text_func(md_text)
 
 
 async def send_answers_df_to_chat(
