@@ -1,3 +1,4 @@
+import datetime
 import functools
 import traceback
 from dataclasses import dataclass, field
@@ -8,9 +9,23 @@ from typing import Literal, Sequence
 import pandas
 import pandas as pd
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from questions import Question
+
+
+class MyException(Exception):
+    pass
+
+
+ASK_WRONG_FORMAT = MyException('\n'.join([
+    '`=== /ask: wrong format ===`',
+    'Examples:',
+    '`{:18}` For today'.format('/ask'),
+    '`{:18}` Specific day (isoformat)'.format('/ask d 2023-01-01'),
+    '`{:18}` Yesterday'.format('/ask d -1'),
+]))
 
 MAX_MSG_LEN = 7000
 
@@ -21,12 +36,14 @@ class State:
     include_ids: list[int] = field(default_factory=list)
     cur_id_ind: int | None = None
     cur_answers: list[str] = field(default_factory=list)
+    cur_asking_day: str | None = None
 
     def reset(self):
         self.current_state = None
         self.include_ids = list()
         self.cur_answers = list()
         self.cur_id_ind = 0
+        self.cur_asking_day = None
 
     def get_current_question(self, quests: list[Question]):
         try:
@@ -49,29 +66,13 @@ CHAT_DATA_KEYS_DEFAULTS = {
 
 def questions_to_str(
         qs: list[Question],
-        # exclude_null=False,
-        # default_val='Unknown Quest'
 ) -> list[str]:
-    # if exclude_null:
-    #     return list(map(str, qs))
-
     str_list = ['{} {}'.format(i, str(qs[i])) for i in range(len(qs))]
 
-    # for q in qs:
-    #     str_list[q.number] = q.__str__()
-
-    # str_list = list(map(str, qs))
     return str_list
 
 
 def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Series:
-    # res_col = pd.DataFrame(
-    #     new_col,
-    #     # index=df.index[:len(state.cur_answers)],
-    #     index=index_str,
-    #     columns=[col_index]
-    # )
-
     index = old_col.index.union(new_col.index)
     res_col = pd.Series(index=index)
 
@@ -82,22 +83,7 @@ def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Serie
         res_val = old_val if pd.isnull(new_val) else new_val
         res_col[i_str] = res_val
 
-        # res_col.iloc[:, 0][i_str] = res_val
-
     return res_col
-
-
-def fill_index(df: pd.DataFrame, new_index: list[str]):
-    raise DeprecationWarning('In favor of pd.reindex')
-    # res_df = df
-    #
-    # for row_name in new_index:
-    #     if res_df.T.get(row_name) is None:
-    #         res_df = res_df.T.assign(**{
-    #             row_name: pd.Series()
-    #         }).T
-    #
-    # return res_df
 
 
 def get_divided_long_message(text, max_size) -> [str, str]:
@@ -137,10 +123,6 @@ def to_list(func):
     return wrapper
 
 
-class MyException(Exception):
-    pass
-
-
 def handler_decorator(func):
     """
     Wrapper over each handler
@@ -159,8 +141,20 @@ def handler_decorator(func):
         try:
             await func(update, context, *args, **kwargs)
         except MyException as e:
-            await wrapped_send_text(update.message.reply_text, text=str(e))
+            await wrapped_send_text(update.message.reply_text, text=str(e), parse_mode=ParseMode.MARKDOWN)
         except Exception:
             await wrapped_send_text(update.message.reply_text, text=traceback.format_exc())
 
     return wrapper
+
+
+def get_nth_delta_day(n: int = 0) -> datetime.date:
+    date = datetime.date.today() + datetime.timedelta(days=n)
+    return date
+
+    # return str(date)
+
+
+STOP_ASKING = 'Stop asking'
+BACKUP_CSV_FNAME = 'backup.csv'
+SKIP_QUEST = 'Skip question'
