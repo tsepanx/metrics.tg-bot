@@ -1,6 +1,8 @@
+import asyncio
 import dataclasses
 import os
 import datetime
+import sys
 from typing import Callable
 import pandas as pd
 
@@ -15,14 +17,25 @@ from utils import handler_decorator, wrapped_send_text, questions_to_str, merge_
 
 
 async def ask_question(q: Question, send_message_f: Callable):
+    # buttons = [
+    #     *q.inline_keyboard_answers,
+    #     SKIP_QUEST,
+    #     STOP_ASKING
+    # ]
+
+    # reply_markup = telegram.ReplyKeyboardMarkup.from_row(
+    #     list(map(str, buttons)),
+    #     one_time_keyboard=True,
+    #     resize_keyboard=True
+    # )
+
     buttons = [
-        *q.inline_keyboard_answers,
-        SKIP_QUEST,
-        STOP_ASKING
+        q.inline_keyboard_answers,
+        [SKIP_QUEST, STOP_ASKING]
     ]
 
-    reply_markup = telegram.ReplyKeyboardMarkup.from_row(
-        list(map(str, buttons)),
+    reply_markup = telegram.ReplyKeyboardMarkup(
+        buttons,
         one_time_keyboard=True,
         resize_keyboard=True
     )
@@ -58,11 +71,17 @@ async def send_answers_df(update: Update):
 
     answers_df.insert(0, 'ind', indices)
 
+    html_table_text = f'<pre>{answers_df.to_markdown()}</pre>'
+
     await wrapped_send_text(
         update.message.reply_text,
-        text=f'<pre>{answers_df.to_markdown()}</pre>',
+        text=html_table_text,
         parse_mode=ParseMode.HTML
     )
+
+    # import imgkit
+    #
+    # imgkit.from_string(html_table_text, 'out.png')
 
 
 async def on_end_asking(state: State, update: Update):
@@ -220,6 +239,13 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+@handler_decorator
+async def exit_command(update: Update, _):
+    await wrapped_send_text(update.message.reply_text, text='Exiting...')
+
+    asyncio.get_event_loop().stop()
+
+
 if __name__ == "__main__":
     if not os.path.exists(BACKUP_CSV_FNAME):
         with open(BACKUP_CSV_FNAME, 'w') as f:
@@ -240,7 +266,8 @@ if __name__ == "__main__":
 
     commands_funcs_mapping = {
         "ask": ask_command,
-        "list": list_command
+        "list": list_command,
+        "exitt": exit_command
     }
 
     for command_string, func in commands_funcs_mapping.items():
