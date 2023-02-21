@@ -59,9 +59,9 @@ async def send_pretty_df(
 
         from PIL import Image, ImageDraw, ImageFont
         if bold:
-            font = ImageFont.truetype("SourceCodePro-Bold.otf", 16)
+            font = ImageFont.truetype("fonts/SourceCodePro-Bold.otf", 16)
         else:
-            font = ImageFont.truetype("SourceCodePro-Regular.otf", 16)
+            font = ImageFont.truetype("fonts/SourceCodePro-Regular.otf", 16)
 
         x1, y1, x2, y2 = ImageDraw.Draw(Image.new('RGB', (0, 0))).textbbox(indent_point, text, font)
 
