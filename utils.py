@@ -75,7 +75,7 @@ CHAT_DATA_KEYS_DEFAULTS = {
 def questions_to_str(
         qs: list[Question],
 ) -> list[str]:
-    str_list = ['{} {}'.format(i, str(qs[i])) for i in range(len(qs))]
+    str_list = ['{:2} {}'.format(i, str(qs[i])) for i in range(len(qs))]
 
     return str_list
 

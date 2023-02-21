@@ -22,26 +22,35 @@ def float_to_time(s: str) -> datetime.time:
     return datetime.time(hour=hrs, minute=mins)
 
 
+def time_from_both_formats(s: str) -> datetime.time:
+    try:
+        t = str_to_time(s)
+    except Exception:
+        t = float_to_time(s)
+
+    return t
+
+
 questions_list = [
     [
-        'sleep_1_start', "Отбой (время)",
+        'sleep_1_start', "(H) Отбой (время)",
         # [22, 23, 24, 25], float_to_time
-        ["22:00", "23:00", "00:00", "01:00"], str_to_time
+        ["22:00", "23:00", "00:00", "01:00"], time_from_both_formats
     ],
     [
-        'sleep_2_end', "Подъем (время)",
+        'sleep_2_end', "(H) Подъем (время)",
         # [7.5, 8, 9, 10, 11, 12], float_to_time
-        ["08:00", "09:00", "10:00", "11:00", "12:00"], str_to_time
+        ["08:00", "09:00", "10:00", "11:00", "12:00"], time_from_both_formats
     ],
 
-    ['sleep_hrs', "Sleep hours (h-w-gt3)", [7.5, 8, 8.5, 9]],
+    ['sleep_hrs', "(H) Sleep hours (hours) (h-w-gt3)", [7.5, 8, 8.5, 9], time_from_both_formats],
     ['sleep_score', 'Sleep score (h-w-gt3)', [50, 75, 100]],
     ['steps_cnt', 'Steps count  (h-w-gt3)', [6000, 8000, 10000, 20000]],
-    ['hrs_active', 'Hours active  (h-w-gt3)', [0, 1, 2, 6, 8, 12]],
-    ['mins_activity', "Minutes activity (h-w-gt3)", [0, 15, 30, 45]],
+    ['hrs_active', '(H) Hours active  (h-w-gt3)', [0, 1, 2, 6, 8, 12], time_from_both_formats],
+    ['mins_activity', "(H) Minutes activity (h-w-gt3)", [0, .15, .30, .45], time_from_both_formats],
 
-    ['sport_trainings', 'Спорт. тренировки (часы)?', [0, 1, 1.5, 2]],
-    ['walking', "Прогулка (часы)?", [0, 0.5, 1, 1.5]],
+    ['sport_trainings', '(H) Спорт. тренировки (часы)?', [0, 1, 1.5, 2], time_from_both_formats],
+    ['walking', "(H) Прогулка (часы)?", [0, 0.5, 1, 1.5], time_from_both_formats],
 
     # Meal
     ['oatmeal_eat', "Овсянка?", *binary],

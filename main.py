@@ -23,7 +23,8 @@ async def ask_question(q: Question, send_message_f: Callable):
 
     reply_markup = telegram.ReplyKeyboardMarkup.from_row(
         list(map(str, buttons)),
-        one_time_keyboard=True
+        one_time_keyboard=True,
+        resize_keyboard=True
     )
 
     await wrapped_send_text(
@@ -41,6 +42,22 @@ async def send_answers_df(update: Update):
     await update.message.reply_document(document=BACKUP_CSV_FNAME)
 
     answers_df = get_answers_df()
+
+    # Prettify table look by adding questions indexes
+    indices = list()
+    for ind_str in answers_df.index:
+        question_num_id = 0
+        for i in range(len(questions_objects)):
+            if questions_objects[i].name == ind_str:
+                indices.append(i)
+                break
+
+        # answers_df = answers_df.rename(index={
+        #     ind_str: f'[{question_num_id}] {ind_str}'
+        # })
+
+    answers_df.insert(0, 'ind', indices)
+
     await wrapped_send_text(
         update.message.reply_text,
         text=f'<pre>{answers_df.to_markdown()}</pre>',
