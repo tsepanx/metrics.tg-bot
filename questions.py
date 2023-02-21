@@ -24,12 +24,12 @@ def float_to_time(s: str) -> datetime.time:
 
 questions_list = [
     [
-        'sleep_start', "Отбой (время)",
+        'sleep_1_start', "Отбой (время)",
         # [22, 23, 24, 25], float_to_time
         ["22:00", "23:00", "00:00", "01:00"], str_to_time
     ],
     [
-        'sleep_end', "Подъем (время)",
+        'sleep_2_end', "Подъем (время)",
         # [7.5, 8, 9, 10, 11, 12], float_to_time
         ["08:00", "09:00", "10:00", "11:00", "12:00"], str_to_time
     ],
@@ -65,6 +65,6 @@ class Question:
         return '{:15} {}'.format(self.name, self.text)
 
 
-questions_list.sort(key=lambda x: x[0])
+# questions_list.sort(key=lambda x: x[0])
 
 questions_objects = [Question(*i) for i in questions_list]
