@@ -10,9 +10,10 @@ from typing import Callable
 from io import BytesIO
 
 import telegram
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, PicklePersistence
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, PicklePersistence, \
+    CallbackQueryHandler
 
 from questions import questions_list, questions_objects, Question
 from utils import handler_decorator, wrapped_send_text, questions_to_str, merge_to_existing_column, State, \
@@ -48,7 +49,8 @@ async def send_pretty_df(
         df: pd.DataFrame,
         send_csv=False,
         send_img=True,
-        send_text=False
+        send_text=False,
+        transpose_table=False,
 ):
     async def send_img_func(text: str, bold=True):
         indent = 5
@@ -82,10 +84,20 @@ async def send_pretty_df(
         bio.seek(0)
 
         bio2 = copy.copy(bio)
+
+        if not transpose_table:
+            keyboard = [[InlineKeyboardButton("Get transposed table", callback_data="transpose")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            message_object = update.message
+        else:
+            reply_markup = None
+            message_object = update.callback_query.message
+
         try:
-            await update.message.reply_photo(bio)
+            await message_object.reply_photo(bio, reply_markup=reply_markup)
         except telegram.error.BadRequest:
-            await update.message.reply_document(bio2)
+            await message_object.reply_document(bio2, reply_markup=reply_markup)
 
     async def send_text_func(text: str):
         html_table_text = f'<pre>\n{text}\n</pre>'
@@ -104,14 +116,14 @@ async def send_pretty_df(
 
         await update.message.reply_document(document=bio)
 
-    table_text = df_to_markdown(df)
-    table_text_transposed = df_to_markdown(df, transpose=True)
+    table_text = df_to_markdown(df, transpose=transpose_table)
+    # table_text_transposed = df_to_markdown(df, transpose=True)
 
     if send_csv:
         await send_csv_func(table_text)
     if send_img:
         await send_img_func(table_text)
-        await send_img_func(table_text_transposed)
+        # await send_img_func(table_text_transposed)
     if send_text:
         await send_text_func(table_text)
 
@@ -122,6 +134,7 @@ async def send_answers_df_to_chat(
         send_csv=False,
         send_img=True,
         send_text=False,
+        transpose_table=False,
 ):
     answers_df = get_answers_df()
 
@@ -136,7 +149,8 @@ async def send_answers_df_to_chat(
         answers_df,
         send_csv=send_csv,
         send_img=send_img,
-        send_text=send_text
+        send_text=send_text,
+        transpose_table=transpose_table
     )
 
 
@@ -301,6 +315,21 @@ async def exit_command(update: Update, _):
     asyncio.get_event_loop().stop()
 
 
+async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'transpose':
+        await send_answers_df_to_chat(
+            update,
+            add_question_indices=False,
+            send_csv=False,
+            send_img=True,
+            send_text=True,
+            transpose_table=True
+        )
+
+
 if __name__ == "__main__":
     if not os.path.exists(BACKUP_CSV_FNAME):
         with open(BACKUP_CSV_FNAME, 'w') as f:
@@ -329,4 +358,5 @@ if __name__ == "__main__":
         app.add_handler(CommandHandler(command_string, func))
 
     app.add_handler(MessageHandler(filters.TEXT, plaintext_handler))
+    app.add_handler(CallbackQueryHandler(on_inline_button))
     app.run_polling()
