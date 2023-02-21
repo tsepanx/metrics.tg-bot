@@ -159,7 +159,6 @@ async def on_end_asking(state: State, update: Update):
     day_index = state.cur_asking_day
 
     answers_df = get_answers_df()
-    # answers_df = answers_df.T  # We transpose it to operate with columns
 
     # Create empty col if it does not exist
     if answers_df.get(day_index) is None:
