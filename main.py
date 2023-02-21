@@ -44,7 +44,7 @@ def get_answers_df() -> pd.DataFrame:
     return pd.read_csv(BACKUP_CSV_FNAME, index_col=0)
 
 
-async def send_pretty_df(
+async def send_df_in_formats(
         update: Update,
         df: pd.DataFrame,
         send_csv=False,
@@ -86,13 +86,13 @@ async def send_pretty_df(
         bio2 = copy.copy(bio)
 
         if not transpose_table:
-            keyboard = [[InlineKeyboardButton("Get transposed table", callback_data="transpose")]]
+            keyboard = [[InlineKeyboardButton("transposed table IMG", callback_data="transpose")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            message_object = update.message
+            # message_object = update.message
         else:
             reply_markup = None
-            message_object = update.callback_query.message
+            # message_object = update.callback_query.message
 
         try:
             await message_object.reply_photo(bio, reply_markup=reply_markup)
@@ -103,7 +103,7 @@ async def send_pretty_df(
         html_table_text = f'<pre>\n{text}\n</pre>'
 
         await wrapped_send_text(
-            update.message.reply_text,
+            message_object.reply_text,
             text=html_table_text,
             parse_mode=ParseMode.HTML
         )
@@ -114,10 +114,15 @@ async def send_pretty_df(
         bio.write(bytes(text, 'utf-8'))
         bio.seek(0)
 
-        await update.message.reply_document(document=bio)
+        await message_object.reply_document(document=bio)
 
     md_text = df_to_markdown(df, transpose=transpose_table)
     csv_text = df.to_csv()
+
+    if not transpose_table:
+        message_object = update.message
+    else:
+        message_object = update.callback_query.message
 
     if send_csv:
         await send_csv_func(csv_text)
@@ -128,23 +133,35 @@ async def send_pretty_df(
         await send_text_func(md_text)
 
 
-async def send_answers_df_to_chat(
+async def send_answers_df(
         update: Update,
-        add_question_indices=False,
         send_csv=False,
         send_img=True,
         send_text=False,
         transpose_table=False,
+        with_question_indices=True,
+        sort_by_quest_indices=True,
+        with_fulltext=False,
 ):
     answers_df = get_answers_df()
 
-    if add_question_indices:
-        answers_df = add_question_indices_to_df_index(
-            answers_df,
-            questions_objects
-        )
+    # if with_question_indices:
+    answers_df = add_question_indices_to_df_index(
+        answers_df,
+        questions_objects
+    )
 
-    await send_pretty_df(
+    if sort_by_quest_indices:
+        answers_df = answers_df.sort_values('i')
+
+    # 'i' column was used just for sorting
+    if not with_question_indices:
+        answers_df = answers_df.drop('i', axis=1)
+
+    if not with_fulltext:
+        answers_df = answers_df.drop('fullname', axis=1)
+
+    await send_df_in_formats(
         update,
         answers_df,
         send_csv=send_csv,
@@ -174,7 +191,11 @@ async def on_end_asking(state: State, update: Update):
 
     answers_df = answers_df.reindex(answers_df.index.union(index_str))
     # Sort by columns
-    answers_df = answers_df.reindex(sorted(answers_df.columns), axis=1)
+    columns_order = sorted(
+        answers_df.columns,
+        key=lambda x: '!' + x if not x.startswith('20') else x
+    )
+    answers_df = answers_df.reindex(columns_order, axis=1)
 
     answers_df[day_index] = res_col
 
@@ -183,7 +204,7 @@ async def on_end_asking(state: State, update: Update):
 
     state.reset()
 
-    await send_answers_df_to_chat(update, send_csv=True)
+    await send_answers_df(update, send_csv=True)
 
 
 @handler_decorator
@@ -296,15 +317,15 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @handler_decorator
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_answers_df_to_chat(update)
+    await send_answers_df(update)
 
-    quests_str: list[str] = questions_to_str(questions_objects)
-
-    await wrapped_send_text(
-        update.message.reply_text,
-        text='<pre>' + '\n'.join(quests_str) + '</pre>',
-        parse_mode=ParseMode.HTML
-    )
+    # quests_str: list[str] = questions_to_str(questions_objects)
+    #
+    # await wrapped_send_text(
+    #     update.message.reply_text,
+    #     text='<pre>' + '\n'.join(quests_str) + '</pre>',
+    #     parse_mode=ParseMode.HTML
+    # )
 
 
 @handler_decorator
@@ -319,22 +340,27 @@ async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == 'transpose':
-        await send_answers_df_to_chat(
+        await send_answers_df(
             update,
-            add_question_indices=False,
             send_csv=False,
             send_img=True,
-            send_text=True,
-            transpose_table=True
+            send_text=False,
+            transpose_table=True,
+            with_question_indices=False,
         )
 
 
 if __name__ == "__main__":
     if not os.path.exists(BACKUP_CSV_FNAME):
         with open(BACKUP_CSV_FNAME, 'w') as f:
+            q_names = list(map(lambda x: x.name, questions_objects))
+            q_texts = list(map(lambda x: x.text, questions_objects))
+
             init_answers_df = pd.DataFrame(
-                index=list(map(lambda x: x.name, questions_objects))
+                index=q_names
             )
+            init_answers_df.insert(0, 'fulltext', q_texts)
+
             f.write(init_answers_df.to_csv())
 
     TOKEN = open('.token').read()

@@ -73,27 +73,29 @@ CHAT_DATA_KEYS_DEFAULTS = {
 
 
 def add_question_indices_to_df_index(df: pd.DataFrame, questions_objects: list[Question]):
-    # Prettify table look by adding questions ids to index
+    """
+    Prettify table look by adding questions ids to index
+    """
     indices = list()
 
     for ind_str in df.index:
         for i in range(len(questions_objects)):
             if questions_objects[i].name == ind_str:
-                # s = '{:2} | {}'.format(str(i), ind_str)
-
-                formatter_string = f"{{:2}} | {{}}"
-                s = formatter_string.format(str(i), ind_str)
-                indices.append(s)
+                # s = str(i)
+                indices.append(i)
                 break
 
     # Setting new index column
-    df = df.reset_index()
-    df = df.drop('index', axis=1)
+    # df = df.reset_index()
+    # df = df.drop('index', axis=1)
 
-    new_index_name = 'i  | name'
+    # new_index_name = 'i  | name'
 
-    df.insert(0, new_index_name, indices)
-    df = df.set_index(new_index_name)
+    # df.insert(0, new_index_name, indices)
+    # df = df.set_index(new_index_name)
+
+    df.insert(0, 'i', indices)
+
     return df
 
 
