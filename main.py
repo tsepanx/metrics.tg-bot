@@ -8,8 +8,8 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, PicklePersistence
 
-from questions import questions_list, questions_objects
-from utils import handler_decorator, wrapped_send_text, questions_to_str, Question, merge_to_existing_column, State
+from questions import questions_list, questions_objects, Question
+from utils import handler_decorator, wrapped_send_text, questions_to_str, merge_to_existing_column, State
 
 DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
 PERIODICAL_FETCHING_TIME = datetime.time(hour=18, tzinfo=DEFAULT_TZ)
@@ -47,22 +47,22 @@ async def on_end_asking(state: State, update: Update):
     today = str(datetime.date.today())  # index of target col
 
     answers_df = pd.read_csv(BACKUP_CSV_FNAME, index_col=0)
-    answers_df = answers_df.T  # We transpose it to operate with columns
+    # answers_df = answers_df.T  # We transpose it to operate with columns
 
     # Create empty col if it does not exist
     if answers_df.get(today) is None:
         answers_df = answers_df.assign(**{today: pd.Series()})
 
-    # Adding new column to DataFrame
-    answers_df[today] = merge_to_existing_column(
-        state,
-        answers_df,
-        state.cur_answers,
-        today
-    )
+    index_str: list[str] = list(map(
+        lambda x: questions_objects[x].name,
+        state.include_ids
+    ))
 
-    # Transposing back
-    answers_df = answers_df.T
+    new_col = pd.Series(state.cur_answers, index=index_str)
+    res_col = merge_to_existing_column(answers_df[today], new_col)
+
+    answers_df = answers_df.reindex(answers_df.index.union(index_str))
+    answers_df[today] = res_col
 
     # Writing back to file
     with open(BACKUP_CSV_FNAME, 'w') as file:
@@ -96,7 +96,8 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await on_end_asking(state, update)
             return
 
-        state.cur_answers[q.num_id] = user_ans
+        # state.cur_answers[state.include_ids[state.cur_id_ind]] = user_ans
+        state.cur_answers[state.cur_id_ind] = user_ans
         print(q.text, ": ", user_ans)
 
         state.cur_id_ind += 1
@@ -117,11 +118,12 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) > 0:
         state.include_ids = list(map(int, context.args))
     else:
-        state.include_ids = list(range(1, len(questions_list) + 1))
+        state.include_ids = list(range(len(questions_list)))
 
     state.cur_id_ind = 0
     state.current_state = 'ask'
-    state.cur_answers = [None for _ in range(max(state.include_ids) + 1)]
+    # state.cur_answers = [None for _ in range(max(state.include_ids) + 1)]
+    state.cur_answers = [None for _ in range(len(state.include_ids))]
 
     q = state.get_current_question(questions_objects)
     await ask_question(q, update.message.reply_text)
@@ -129,11 +131,12 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @handler_decorator
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    quests_str: list[str] = questions_to_str(questions_objects, default_val='-')
+    quests_str: list[str] = questions_to_str(questions_objects)
 
     return await wrapped_send_text(
         update.message.reply_text,
-        text='\n'.join(quests_str)
+        text='<pre>' + '\n'.join(quests_str) + '</pre>',
+        parse_mode=ParseMode.HTML
     )
 
 
@@ -141,7 +144,7 @@ if __name__ == "__main__":
     if not os.path.exists(BACKUP_CSV_FNAME):
         with open(BACKUP_CSV_FNAME, 'w') as f:
             init_answers_df = pd.DataFrame(
-                columns=questions_to_str(questions_objects)
+                index=list(map(lambda x: x.name, questions_objects))
             )
             f.write(init_answers_df.to_csv())
 

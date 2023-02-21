@@ -3,11 +3,14 @@ import traceback
 from dataclasses import dataclass, field
 from functools import wraps
 from pprint import pprint
-from typing import Literal, Callable, Sequence
+from typing import Literal, Sequence
 
+import pandas
 import pandas as pd
 from telegram import Update
 from telegram.ext import ContextTypes
+
+from questions import Question
 
 MAX_MSG_LEN = 7000
 
@@ -25,35 +28,17 @@ class State:
         self.cur_answers = list()
         self.cur_id_ind = 0
 
-    def get_current_question(self, quests: list):
+    def get_current_question(self, quests: list[Question]):
         try:
             q_id = self.include_ids[self.cur_id_ind]
 
-            return list(filter(lambda x: x.num_id == q_id, quests))[0]
+            return quests[q_id]
+            # return list(filter(lambda x: x.number == q_id, quests))[0]
         except IndexError:
             to_raise = MyException(f'No such question with given index: {self.cur_id_ind}')
             self.cur_id_ind += 1
 
             raise to_raise
-
-
-@dataclass
-class Question:
-    num_id: int
-    text: str
-    # Ел ли ты сегодня овсянку?
-    # Сколько часов ты спал?
-    inline_keyboard_answers: list[str | int]
-
-    answer_mapping_func: Callable
-
-    # Да, Нет -> 1 if x == 'Да' else 0
-    # 0, 1, 2 ... 8, 8.5, 9... -> float(x)
-    # 0, 1, 2 -> x * 5
-    # 1, ... 10 -> (x - 1) / 9
-
-    def __str__(self):
-        return f'[{self.num_id}] {self.text}'
 
 
 CHAT_DATA_KEYS_DEFAULTS = {
@@ -62,38 +47,57 @@ CHAT_DATA_KEYS_DEFAULTS = {
 }
 
 
-def questions_to_str(qs: list[Question], exclude_null=False, default_val='Unknown Quest') -> list[str]:
-    if exclude_null:
-        return list(map(str, qs))
+def questions_to_str(
+        qs: list[Question],
+        # exclude_null=False,
+        # default_val='Unknown Quest'
+) -> list[str]:
+    # if exclude_null:
+    #     return list(map(str, qs))
 
-    max_id = max(qs, key=lambda x: x.num_id).num_id
+    str_list = ['{} {}'.format(i, str(qs[i])) for i in range(len(qs))]
 
-    str_list = [f'[{i}] {default_val}' for i in range(max_id + 1)]
+    # for q in qs:
+    #     str_list[q.number] = q.__str__()
 
-    for q in qs:
-        str_list[q.num_id] = q.__str__()
-
+    # str_list = list(map(str, qs))
     return str_list
 
 
-def merge_to_existing_column(state, df: pd.DataFrame, new_col: Sequence, col_index: str):
-    existing_col = df[col_index]
-    res_col = pd.DataFrame(
-        new_col,
-        index=df.index[:len(state.cur_answers)],
-        columns=[col_index]
-    )
+def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Series:
+    # res_col = pd.DataFrame(
+    #     new_col,
+    #     # index=df.index[:len(state.cur_answers)],
+    #     index=index_str,
+    #     columns=[col_index]
+    # )
 
-    # new_col_list = list()
-    for i in range(len(existing_col)):
-        old_val = existing_col[i]
-        new_val = res_col.iloc[:, 0][i]
+    index = old_col.index.union(new_col.index)
+    res_col = pd.Series(index=index)
+
+    for i_str in index:
+        old_val = old_col.get(i_str, None)
+        new_val = new_col.get(i_str, None)
 
         res_val = old_val if pd.isnull(new_val) else new_val
+        res_col[i_str] = res_val
 
-        res_col.iloc[:, 0][i] = res_val
+        # res_col.iloc[:, 0][i_str] = res_val
 
     return res_col
+
+
+def fill_index(df: pd.DataFrame, new_index: list[str]):
+    raise DeprecationWarning('In favor of pd.reindex')
+    # res_df = df
+    #
+    # for row_name in new_index:
+    #     if res_df.T.get(row_name) is None:
+    #         res_df = res_df.T.assign(**{
+    #             row_name: pd.Series()
+    #         }).T
+    #
+    # return res_df
 
 
 def get_divided_long_message(text, max_size) -> [str, str]:
