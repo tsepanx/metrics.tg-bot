@@ -85,9 +85,13 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.chat_data["state"]
 
     if state.current_state == 'ask':
-        q = state.get_current_question(questions_objects)
+        q: Question = state.get_current_question(questions_objects)
 
         user_ans = update.message.text
+
+        if user_ans not in [SKIP_QUEST, STOP_ASKING]:
+            if q.answer_mapping_func:
+                user_ans = q.answer_mapping_func(user_ans)
 
         if user_ans == SKIP_QUEST:
             user_ans = None
