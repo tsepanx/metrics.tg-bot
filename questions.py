@@ -52,11 +52,10 @@ def time_or_hours(s: str) -> datetime.time:
 
 hours_1_buttons = ["00:00", "00:30", "01:00", "01:30"]
 
-
-class QuestionType(enum.Enum):
-    HOURS = time_or_hours
-    BINARY = binary
-    DECIMAL_GRADE = decimal_grade
+# class QuestionType(enum.Enum):
+#     HOURS = time_or_hours
+#     BINARY = binary
+#     DECIMAL_GRADE = decimal_grade
 
 
 questions_list = [
@@ -113,3 +112,36 @@ class Question:
 #     q[2] = list(map(str, q[2]))
 
 questions_objects = [Question(*i) for i in questions_list]
+
+if __name__ == "__main__":
+    import psycopg2
+
+    conn = psycopg2.connect(
+        dbname='postgres',
+        user='postgres',
+        password='',
+        host='localhost'
+    )
+
+    cursor = conn.cursor()
+
+    for q in questions_objects:
+        # s =
+        cursor.execute(
+            "INSERT INTO question(name, fulltext, suggested_answers_list, type_id) VALUES (%s, %s, %s, %s);",
+            (q.name, q.text, q.inline_keyboard_answers, 1)
+        )
+
+    conn.commit()
+
+    # for q in questions_objects:
+    #     s += f"('{q.name}', {q.text}, {q.inline_keyboard_answers}),\n".replace('[', '[')
+    #
+    # s = s[:-2]
+    # s += ';'
+
+    # print(s)
+    #
+    # cursor.execute(s)
+
+    conn.close()
