@@ -198,17 +198,14 @@ def handler_decorator(func):
 
         print('Chat id:', update.effective_chat.id)
 
-        if user_data.answers_df is None:
-            fname = answers_df_backup_fname(update.effective_chat.id)
+        answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
 
-            if os.path.exists(fname):
-                print(f'Restoring answers_df from file: {fname}')
-                user_data.answers_df = pd.read_csv(fname, index_col=0)
-            else:
-                print(f'Creating default answers_df for user: {update.effective_chat.id}')
-                user_data.answers_df = create_default_answers_df()
+        if os.path.exists(answers_df_fname):
+            print(f'Restoring answers_df from file: {answers_df_fname}')
+            user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
         else:
-            print('answers_df is stored in Persistence data')
+            print(f'Creating default answers_df for user: {update.effective_chat.id}')
+            user_data.answers_df = create_default_answers_df()
 
         print('answers_df shape:', user_data.answers_df.shape)
         print('answers_df cols:', list(user_data.answers_df.columns))

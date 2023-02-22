@@ -14,7 +14,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 from questions import questions_list, questions_objects, Question
 from utils import handler_decorator, wrapped_send_text, merge_to_existing_column, AskingState, \
-    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, add_question_indices_to_df_index, USER_DATA_KEY, UserData, answers_df_backup_fname, \
+    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, add_question_indices_to_df_index, USER_DATA_KEY, \
+    UserData, answers_df_backup_fname, \
     send_df_in_formats
 
 
@@ -77,69 +78,81 @@ async def send_answers_df(
     )
 
 
-def update_answers_df(
-        df: pd.DataFrame,
-        state: AskingState,
-        sort_columns=True,
-        sort_rows_by_q_index=True,
-) -> pd.DataFrame:
-    # Ended question list
-    day_index = state.asking_day
+async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
+    def update_answers_df(
+            df: pd.DataFrame,
+            state: AskingState,
+            sort_columns=True,
+            sort_rows_by_q_index=True,
+    ) -> pd.DataFrame:
 
-    # Create empty col if it does not exist
-    if df.get(day_index) is None:
-        df = df.assign(**{day_index: pd.Series()})
+        old_shape = df.shape
 
-    index_str: list[str] = list(map(
-        lambda x: questions_objects[x].name,
-        state.include_ids
-    ))
+        # Ended question list
+        day_index = state.asking_day
 
-    new_col = pd.Series(state.cur_answers, index=index_str)
-    res_col = merge_to_existing_column(df[day_index], new_col)
+        # Create empty col if it does not exist
+        if df.get(day_index) is None:
+            df = df.assign(**{day_index: pd.Series()})
 
-    df = df.reindex(df.index.union(index_str))
+        index_str: list[str] = list(map(
+            lambda x: questions_objects[x].name,
+            state.include_ids
+        ))
 
-    if sort_columns:
-        columns_order = sorted(
-            df.columns,
-            key=lambda x: '!' + x if not x.startswith('20') else x
-        )
-        df = df.reindex(columns_order, axis=1)
+        new_col = pd.Series(state.cur_answers, index=index_str)
+        res_col = merge_to_existing_column(df[day_index], new_col)
 
-    if sort_rows_by_q_index:
-        if 'i' not in df.columns:
-            df = add_question_indices_to_df_index(df, questions_objects)
+        df = df.reindex(df.index.union(index_str))
 
-        df = df.sort_values('i')
-        df = df.drop('i', axis=1)
+        if sort_columns:
+            columns_order = sorted(
+                df.columns,
+                key=lambda x: '!' + x if not x.startswith('20') else x
+            )
+            df = df.reindex(columns_order, axis=1)
 
-    df[day_index] = res_col
-    return df
+        if sort_rows_by_q_index:
+            if 'i' not in df.columns:
+                df = add_question_indices_to_df_index(df, questions_objects)
+
+            df = df.sort_values('i')
+            df = df.drop('i', axis=1)
+
+        df[day_index] = res_col
+
+        new_shape = df.shape
+
+        print('Updating answers_df')
+        if old_shape == new_shape:
+            print(f'shape not changed: {old_shape}')
+        else:
+            print(f'shape changed!\noldshape: {old_shape}\nnew shape: {new_shape}')
+
+        return df
+
+    user_data.answers_df = update_answers_df(
+        user_data.answers_df,
+        user_data.state
+    )
+
+    # TODO grubber collector check
+    user_data.state = None
+
+    if save_csv:
+        fname_backup = answers_df_backup_fname(update.effective_chat.id)
+
+        user_data.answers_df.to_csv(fname_backup)
+
+    await send_answers_df(
+        update,
+        user_data.answers_df,
+        send_csv=True
+    )
 
 
 @handler_decorator
 async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
-        user_data.answers_df = update_answers_df(
-            user_data.answers_df,
-            user_data.state
-        )
-
-        # TODO grubber collector check
-        user_data.state = None
-
-        if save_csv:
-            fname_backup = answers_df_backup_fname(update.effective_chat.id)
-
-            user_data.answers_df.to_csv(fname_backup)
-
-        await send_answers_df(
-            update,
-            user_data.answers_df,
-            send_csv=True
-        )
-
     # state = context.chat_data["state"]
     user_data: UserData = context.chat_data[USER_DATA_KEY]
     state = user_data.state
