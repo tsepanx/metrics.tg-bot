@@ -16,7 +16,7 @@ from questions import questions_list, questions_objects, Question
 from utils import handler_decorator, wrapped_send_text, merge_to_existing_column, AskingState, \
     ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, add_question_indices_to_df_index, USER_DATA_KEY, \
     UserData, answers_df_backup_fname, \
-    send_df_in_formats
+    send_df_in_formats, MyException
 
 
 async def send_ask_question(q: Question, send_message_f: Callable):
@@ -34,7 +34,8 @@ async def send_ask_question(q: Question, send_message_f: Callable):
     await wrapped_send_text(
         send_message_f,
         q.text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN
     )
 
 
@@ -164,8 +165,11 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_ans = update.message.text
 
         if user_ans not in [SKIP_QUEST, STOP_ASKING]:
-            if q.answer_mapping_func:
-                user_ans = q.answer_mapping_func(user_ans)
+            try:
+                if q.answer_mapping_func:
+                    user_ans = q.answer_mapping_func(user_ans)
+            except Exception:
+                raise MyException('Error parsing answer, try again')
 
         if user_ans == SKIP_QUEST:
             user_ans = None
@@ -181,6 +185,7 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state.cur_id_ind += 1
 
         if state.cur_id_ind < len(state.include_ids):
+
             q = state.get_current_question(questions_objects)
             await send_ask_question(q, update.message.reply_text)
         else:
@@ -234,20 +239,34 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_data.state is not None:
         pass  # Existing command is in action
 
-    # user_data.state = AskingState()
-
     print('command: ask')
-
     parsed: AskParseResult = ask_parse_args(context.args)
-    if parsed.questions_ids:
-        include_ids = parsed.questions_ids
-    else:
-        include_ids = list(range(len(questions_list)))
 
     if parsed.day:
         asking_day = str(parsed.day)
     else:
         asking_day = str(get_nth_delta_day(0))  # today
+
+    answers_df = user_data.answers_df
+
+    if parsed.questions_ids:
+        include_ids = parsed.questions_ids
+    else:
+        all_ids = list(range(len(questions_list)))
+
+        if asking_day in answers_df.columns:
+            day_values = answers_df[asking_day].isnull().reset_index().drop('index', axis=1)
+
+            # Filter to get index of only null values
+            include_ids = list(day_values.apply(
+                lambda x: None if bool(x[0]) is False else 1,
+                axis=1).dropna().index
+            )
+        else:
+            include_ids = all_ids
+
+        if len(include_ids) == 0:
+            include_ids = all_ids
 
     user_data.state = AskingState(
         include_ids=include_ids,

@@ -3,9 +3,9 @@ import enum
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-binary = ["Да", "Нет"], lambda x: (1 if x == "Да" else 0) * 100
-ternary = [0, 1, 2], lambda x: int(float(x) * 50)
-decimal_grade = list(range(0, 10 + 1)), lambda x: int(float(x) * 10)
+binary = ["Да", "Нет"], lambda x: 1 if x == "Да" else 0
+# ternary = [0, 1, 2], lambda x: int(float(x) * 50)
+decimal_grade = list(range(0, 10 + 1)), lambda x: float(x) / 10
 
 
 def str_to_time(s: str) -> datetime.time:
@@ -61,12 +61,12 @@ class QuestionType(enum.Enum):
 
 questions_list = [
     [
-        'sleep_1_start', "(H) Отбой (время)",
+        'sleep_1_start', "`(H)` Отбой (время)",
         # [22, 23, 24, 25], float_to_time
         ["22:00", "23:00", "00:00", "01:00"], time_or_hours
     ],
     [
-        'sleep_2_end', "(H) Подъем (время)",
+        'sleep_2_end', "`(H)` Подъем (время)",
         # [7.5, 8, 9, 10, 11, 12], float_to_time
         ["08:00", "09:00", "10:00", "11:00", "12:00"], time_or_hours
     ],
