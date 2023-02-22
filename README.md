@@ -3,6 +3,8 @@
 ### TODO
 
 - `/ask missing`
+- Involve `groups`
+- Save `answers_df` in `State`
 
 #### Commands
 - `/add new_name; [0, 1, 2]; lambda x: x * 50`

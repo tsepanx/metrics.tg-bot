@@ -1,18 +1,19 @@
 import datetime
 import functools
+import os.path
 import traceback
-from dataclasses import dataclass, field
 from functools import wraps
 from pprint import pprint
-from typing import Literal, Sequence
 
-import pandas
 import pandas as pd
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from questions import Question, questions_objects
+
+
+answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
 
 
 class MyException(Exception):
@@ -38,20 +39,21 @@ ASK_WRONG_FORMAT = MyException(
 MAX_MSG_LEN = 7000
 
 
-@dataclass
-class State:
-    current_state: Literal['ask'] | None
-    include_ids: list[int] = field(default_factory=list)
-    cur_id_ind: int | None = None
-    cur_answers: list[str] = field(default_factory=list)
-    cur_asking_day: str | None = None
+# @dataclass
+class AskingState:
+    include_ids: list[int]
+    asking_day: str
 
-    def reset(self):
-        self.current_state = None
-        self.include_ids = list()
-        self.cur_answers = list()
+    cur_id_ind: int
+    cur_answers: list[str | None]
+
+    def __init__(self, include_ids: list, asking_day: str):
+        self.include_ids = include_ids
+        self.asking_day = asking_day
+
         self.cur_id_ind = 0
-        self.cur_asking_day = None
+        # self.cur_answers = list()
+        self.cur_answers = [None for _ in range(len(include_ids))]
 
     def get_current_question(self, quests: list[Question]):
         try:
@@ -66,9 +68,22 @@ class State:
             raise to_raise
 
 
+# @dataclass
+class UserData:
+    state: AskingState | None
+    answers_df: pd.DataFrame | None
+
+    def __init__(self):
+        self.state = None  # AskingState(None)
+        self.answers_df = None
+        # self.answers_df = create_default_answers_df()
+
+
+USER_DATA_KEY = 'data'
+
 CHAT_DATA_KEYS_DEFAULTS = {
-    'state': State(None),
-    'cur_answers': list()
+    # 'state': State(None),
+    USER_DATA_KEY: lambda: UserData()
 }
 
 
@@ -94,6 +109,7 @@ def add_question_indices_to_df_index(df: pd.DataFrame, questions_objects: list[Q
     # df.insert(0, new_index_name, indices)
     # df = df.set_index(new_index_name)
 
+    # noinspection PyTypeChecker
     df.insert(0, 'i', indices)
 
     return df
@@ -168,10 +184,30 @@ def handler_decorator(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         pprint(context.application.chat_data)
         pprint(context.bot_data)
+
         if update.message:
             for KEY in CHAT_DATA_KEYS_DEFAULTS:
                 if KEY not in context.chat_data or context.chat_data[KEY] is None:
-                    context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY]
+                    context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY].__call__()
+
+        user_data: UserData = context.chat_data[USER_DATA_KEY]
+
+        print('Chat id:', update.effective_chat.id)
+
+        if user_data.answers_df is None:
+            fname = answers_df_backup_fname(update.effective_chat.id)
+
+            if os.path.exists(fname):
+                print(f'Restoring answers_df from file: {fname}')
+                user_data.answers_df = pd.read_csv(fname, index_col=0)
+            else:
+                print(f'Creating default answers_df for user: {update.effective_chat.id}')
+                user_data.answers_df = create_default_answers_df()
+        else:
+            print('answers_df is stored in Persistence data')
+
+        print('answers_df shape:', user_data.answers_df.shape)
+        print('answers_df cols:', list(user_data.answers_df.columns))
 
         try:
             await func(update, context, *args, **kwargs)
@@ -191,7 +227,7 @@ def get_nth_delta_day(n: int = 0) -> datetime.date:
 
 
 STOP_ASKING = 'Stop asking'
-BACKUP_CSV_FNAME = 'backup.csv'
+# BACKUP_ANSWERS_FNAME = 'a.pkl'
 SKIP_QUEST = 'Skip question'
 
 
@@ -213,3 +249,19 @@ def write_df_to_csv(fname: str, df: pd.DataFrame):
     with open(fname, 'w') as file:
         df_csv = df.to_csv()
         file.write(df_csv)
+
+
+def create_default_answers_df() -> pd.DataFrame:
+    q_names = list(map(lambda x: x.name, questions_objects))
+    q_texts = list(map(lambda x: x.text, questions_objects))
+
+    init_answers_df = pd.DataFrame(
+        index=q_names
+    )
+
+    # noinspection PyTypeChecker
+    init_answers_df.insert(0, 'fulltext', q_texts)
+
+    # f.write(init_answers_df.to_csv())
+    # init_answers_df.to_pickle(BACKUP_ANSWERS_FNAME)
+    return init_answers_df

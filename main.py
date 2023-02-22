@@ -1,7 +1,6 @@
 import asyncio
 import copy
 import dataclasses
-import os
 import datetime
 
 import pandas as pd
@@ -16,12 +15,12 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
     CallbackQueryHandler
 
 from questions import questions_list, questions_objects, Question
-from utils import handler_decorator, wrapped_send_text, questions_to_str, merge_to_existing_column, State, \
-    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, BACKUP_CSV_FNAME, SKIP_QUEST, df_to_markdown, write_df_to_csv, \
-    add_question_indices_to_df_index
+from utils import handler_decorator, wrapped_send_text, merge_to_existing_column, AskingState, \
+    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, df_to_markdown, \
+    add_question_indices_to_df_index, USER_DATA_KEY, UserData, answers_df_backup_fname
 
 
-async def ask_question(q: Question, send_message_f: Callable):
+async def send_ask_question(q: Question, send_message_f: Callable):
     buttons = [
         q.inline_keyboard_answers,
         [SKIP_QUEST, STOP_ASKING]
@@ -38,10 +37,6 @@ async def ask_question(q: Question, send_message_f: Callable):
         q.text,
         reply_markup=reply_markup
     )
-
-
-def get_answers_df() -> pd.DataFrame:
-    return pd.read_csv(BACKUP_CSV_FNAME, index_col=0)
 
 
 async def send_df_in_formats(
@@ -108,10 +103,10 @@ async def send_df_in_formats(
             parse_mode=ParseMode.HTML
         )
 
-    async def send_csv_func(text: str):
+    async def send_csv_func(csv_str: str):
         bio = BytesIO()
         bio.name = 'answers_df.csv'
-        bio.write(bytes(text, 'utf-8'))
+        bio.write(bytes(csv_str, 'utf-8'))
         bio.seek(0)
 
         await message_object.reply_document(document=bio)
@@ -135,15 +130,21 @@ async def send_df_in_formats(
 
 async def send_answers_df(
         update: Update,
+        answers_df: pd.DataFrame,
         send_csv=False,
         send_img=True,
         send_text=False,
+        # save_csv=True,
         transpose_table=False,
         with_question_indices=True,
         sort_by_quest_indices=True,
-        with_fulltext=False,
+        with_fulltext=True,
 ):
-    answers_df = get_answers_df()
+    if not with_fulltext:
+        answers_df = answers_df.drop('fullname', axis=1)
+
+    # --- Adding temporary index column, to sort by it, and show it with table
+    # Important thing is not to save this col to df, because question number is not hardly associated with question
 
     # if with_question_indices:
     answers_df = add_question_indices_to_df_index(
@@ -158,8 +159,7 @@ async def send_answers_df(
     if not with_question_indices:
         answers_df = answers_df.drop('i', axis=1)
 
-    if not with_fulltext:
-        answers_df = answers_df.drop('fullname', axis=1)
+    # --- ---
 
     await send_df_in_formats(
         update,
@@ -171,15 +171,15 @@ async def send_answers_df(
     )
 
 
-async def on_end_asking(state: State, update: Update):
+def reconstruct_answers_df_with_new_answers(df: pd.DataFrame, state: AskingState) -> pd.DataFrame:
     # Ended question list
-    day_index = state.cur_asking_day
+    day_index = state.asking_day
 
-    answers_df = get_answers_df()
+    # answers_df = get_answers_df()
 
     # Create empty col if it does not exist
-    if answers_df.get(day_index) is None:
-        answers_df = answers_df.assign(**{day_index: pd.Series()})
+    if df.get(day_index) is None:
+        df = df.assign(**{day_index: pd.Series()})
 
     index_str: list[str] = list(map(
         lambda x: questions_objects[x].name,
@@ -187,31 +187,48 @@ async def on_end_asking(state: State, update: Update):
     ))
 
     new_col = pd.Series(state.cur_answers, index=index_str)
-    res_col = merge_to_existing_column(answers_df[day_index], new_col)
+    res_col = merge_to_existing_column(df[day_index], new_col)
 
-    answers_df = answers_df.reindex(answers_df.index.union(index_str))
+    df = df.reindex(df.index.union(index_str))
     # Sort by columns
     columns_order = sorted(
-        answers_df.columns,
+        df.columns,
         key=lambda x: '!' + x if not x.startswith('20') else x
     )
-    answers_df = answers_df.reindex(columns_order, axis=1)
+    df = df.reindex(columns_order, axis=1)
 
-    answers_df[day_index] = res_col
-
-    # Writing back to file
-    write_df_to_csv(BACKUP_CSV_FNAME, answers_df)
-
-    state.reset()
-
-    await send_answers_df(update, send_csv=True)
+    df[day_index] = res_col
+    return df
 
 
 @handler_decorator
 async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.chat_data["state"]
+    async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
+        user_data.answers_df = reconstruct_answers_df_with_new_answers(
+            user_data.answers_df,
+            user_data.state
+        )
 
-    if state.current_state == 'ask':
+        # TODO grubber collector check
+        user_data.state = None
+
+        if save_csv:
+            fname_backup = answers_df_backup_fname(update.effective_chat.id)
+
+            user_data.answers_df.to_csv(fname_backup)
+
+        await send_answers_df(
+            update,
+            user_data.answers_df,
+            send_csv=True
+        )
+
+    # state = context.chat_data["state"]
+    user_data: UserData = context.chat_data[USER_DATA_KEY]
+    state = user_data.state
+
+    # if state.current_state == 'ask':
+    if isinstance(state, AskingState):
         q: Question = state.get_current_question(questions_objects)
 
         user_ans = update.message.text
@@ -224,7 +241,7 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_ans = None
 
         if user_ans == STOP_ASKING:
-            await on_end_asking(state, update)
+            await on_end_asking(user_data, update)
             return
 
         # state.cur_answers[state.include_ids[state.cur_id_ind]] = user_ans
@@ -235,97 +252,103 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if state.cur_id_ind < len(state.include_ids):
             q = state.get_current_question(questions_objects)
-            await ask_question(q, update.message.reply_text)
+            await send_ask_question(q, update.message.reply_text)
         else:
-            await on_end_asking(state, update)
-
-
-@dataclasses.dataclass
-class AskParseResult:
-    questions_ids: list[int] | None
-    day: datetime.date | None
-
-
-def ask_parse_args(context_args) -> AskParseResult:
-    res = AskParseResult(None, None)
-
-    if len(context_args) == 0:
-        return res
-
-    if len(context_args) > 2:
-        raise ASK_WRONG_FORMAT
-
-    for arg in context_args:
-        try:
-            if arg.startswith('-d'):
-                val = arg[3:]
-
-                try:
-                    val = datetime.date.fromisoformat(val)
-                    res.day = val
-                except Exception:
-                    val = int(val)
-                    res.day = get_nth_delta_day(val)
-
-            elif arg.startswith('-q'):
-                val = arg[3:]
-                val = val.split(',')
-                val = list(map(int, val))
-
-                res.questions_ids = val
-            else:
-                raise Exception
-        except Exception:
-            raise ASK_WRONG_FORMAT
-
-    return res
+            await on_end_asking(user_data, update)
 
 
 @handler_decorator
 async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.chat_data["state"]
+    @dataclasses.dataclass
+    class AskParseResult:
+        questions_ids: list[int] | None
+        day: datetime.date | None
+
+    def ask_parse_args(context_args) -> AskParseResult:
+        res = AskParseResult(None, None)
+
+        if len(context_args) == 0:
+            return res
+
+        if len(context_args) > 2:
+            raise ASK_WRONG_FORMAT
+
+        for arg in context_args:
+            try:
+                if arg.startswith('-d'):
+                    val = arg[3:]
+
+                    try:
+                        val = datetime.date.fromisoformat(val)
+                        res.day = val
+                    except Exception:
+                        val = int(val)
+                        res.day = get_nth_delta_day(val)
+
+                elif arg.startswith('-q'):
+                    val = arg[3:]
+                    val = val.split(',')
+                    val = list(map(int, val))
+
+                    res.questions_ids = val
+                else:
+                    raise Exception
+            except Exception:
+                raise ASK_WRONG_FORMAT
+
+        return res
+
+    # state = context.chat_data["state"]
+    user_data = context.chat_data[USER_DATA_KEY]
+    
+    if user_data.state is not None:
+        pass  # Existing command is in action
+    
+    # user_data.state = AskingState()
 
     print('command: ask')
 
     parsed: AskParseResult = ask_parse_args(context.args)
     if parsed.questions_ids:
-        state.include_ids = parsed.questions_ids
+        include_ids = parsed.questions_ids
     else:
-        state.include_ids = list(range(len(questions_list)))
+        include_ids = list(range(len(questions_list)))
 
     if parsed.day:
-        state.cur_asking_day = str(parsed.day)
+        asking_day = str(parsed.day)
     else:
-        state.cur_asking_day = str(get_nth_delta_day(0))  # today
+        asking_day = str(get_nth_delta_day(0))  # today
 
-    state.cur_id_ind = 0
-    state.current_state = 'ask'
+    # state.cur_id_ind = 0
+    # state.current_state = 'ask'
     # state.cur_answers = [None for _ in range(max(state.include_ids) + 1)]
-    state.cur_answers = [None for _ in range(len(state.include_ids))]
+    # state.cur_answers = [None for _ in range(len(state.include_ids))]
+    
+    user_data.state = AskingState(
+        include_ids=include_ids,
+        asking_day=asking_day
+    )
 
     await wrapped_send_text(
         update.message.reply_text,
         text=f'Asking  questions\n'
-             f'List: `{state.include_ids}`\n'
-             f'Day: `{state.cur_asking_day}`',
+             f'List: `{include_ids}`\n'
+             f'Day: `{asking_day}`',
         parse_mode=ParseMode.MARKDOWN
     )
 
-    q = state.get_current_question(questions_objects)
-    await ask_question(q, update.message.reply_text)
+    q = user_data.state.get_current_question(questions_objects)
+    await send_ask_question(q, update.message.reply_text)
 
 
 @handler_decorator
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_answers_df(update)
+    user_data = context.chat_data[USER_DATA_KEY]
 
-    # quests_str: list[str] = questions_to_str(questions_objects)
-    #
-    # await wrapped_send_text(
-    #     update.message.reply_text,
-    #     text='<pre>' + '\n'.join(quests_str) + '</pre>',
-    #     parse_mode=ParseMode.HTML
-    # )
+    await send_answers_df(
+        update,
+        user_data.answers_df
+    )
 
 
 @handler_decorator
@@ -336,12 +359,15 @@ async def exit_command(update: Update, _):
 
 
 async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_data = context.chat_data[USER_DATA_KEY]
+
     query = update.callback_query
     await query.answer()
 
     if query.data == 'transpose':
         await send_answers_df(
             update,
+            user_data.answers_df,
             send_csv=False,
             send_img=True,
             send_text=False,
@@ -351,18 +377,6 @@ async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
-    if not os.path.exists(BACKUP_CSV_FNAME):
-        with open(BACKUP_CSV_FNAME, 'w') as f:
-            q_names = list(map(lambda x: x.name, questions_objects))
-            q_texts = list(map(lambda x: x.text, questions_objects))
-
-            init_answers_df = pd.DataFrame(
-                index=q_names
-            )
-            init_answers_df.insert(0, 'fulltext', q_texts)
-
-            f.write(init_answers_df.to_csv())
-
     TOKEN = open('.token').read()
     print(TOKEN)
 
