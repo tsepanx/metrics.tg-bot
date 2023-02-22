@@ -1,28 +1,26 @@
 import asyncio
-import copy
 import dataclasses
 import datetime
 
 import pandas as pd
 
 from typing import Callable
-from io import BytesIO
 
 import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, PicklePersistence, \
-    CallbackQueryHandler
+    CallbackQueryHandler, Application
 
 from questions import questions_list, questions_objects, Question
 from utils import handler_decorator, wrapped_send_text, merge_to_existing_column, AskingState, \
-    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, df_to_markdown, \
-    add_question_indices_to_df_index, USER_DATA_KEY, UserData, answers_df_backup_fname
+    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, add_question_indices_to_df_index, USER_DATA_KEY, UserData, answers_df_backup_fname, \
+    send_df_in_formats
 
 
 async def send_ask_question(q: Question, send_message_f: Callable):
     buttons = [
-        q.inline_keyboard_answers,
+        list(map(str, q.inline_keyboard_answers)),
         [SKIP_QUEST, STOP_ASKING]
     ]
 
@@ -39,117 +37,22 @@ async def send_ask_question(q: Question, send_message_f: Callable):
     )
 
 
-async def send_df_in_formats(
-        update: Update,
-        df: pd.DataFrame,
-        send_csv=False,
-        send_img=True,
-        send_text=False,
-        transpose_table=False,
-):
-    async def send_img_func(text: str, bold=True):
-        indent = 5
-        indent_point = (indent, indent)
-
-        bg_color = (200, 200, 200)
-        fg_color = (0, 0, 0)
-
-        from PIL import Image, ImageDraw, ImageFont
-        if bold:
-            font = ImageFont.truetype("fonts/SourceCodePro-Bold.otf", 16)
-        else:
-            font = ImageFont.truetype("fonts/SourceCodePro-Regular.otf", 16)
-
-        x1, y1, x2, y2 = ImageDraw.Draw(Image.new('RGB', (0, 0))).textbbox(indent_point, text, font)
-
-        img = Image.new('RGB', (x2 + indent, y2 + indent), bg_color)
-        d = ImageDraw.Draw(img)
-
-        d.text(
-            indent_point,
-            text,
-            font=font,
-            fill=fg_color,
-        )
-
-        bio = BytesIO()
-        bio.name = 'img.png'
-
-        img.save(bio, 'png')
-        bio.seek(0)
-
-        bio2 = copy.copy(bio)
-
-        if not transpose_table:
-            keyboard = [[InlineKeyboardButton("transposed table IMG", callback_data="transpose")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            # message_object = update.message
-        else:
-            reply_markup = None
-            # message_object = update.callback_query.message
-
-        try:
-            await message_object.reply_photo(bio, reply_markup=reply_markup)
-        except telegram.error.BadRequest:
-            await message_object.reply_document(bio2, reply_markup=reply_markup)
-
-    async def send_text_func(text: str):
-        html_table_text = f'<pre>\n{text}\n</pre>'
-
-        await wrapped_send_text(
-            message_object.reply_text,
-            text=html_table_text,
-            parse_mode=ParseMode.HTML
-        )
-
-    async def send_csv_func(csv_str: str):
-        bio = BytesIO()
-        bio.name = 'answers_df.csv'
-        bio.write(bytes(csv_str, 'utf-8'))
-        bio.seek(0)
-
-        await message_object.reply_document(document=bio)
-
-    md_text = df_to_markdown(df, transpose=transpose_table)
-    csv_text = df.to_csv()
-
-    if not transpose_table:
-        message_object = update.message
-    else:
-        message_object = update.callback_query.message
-
-    if send_csv:
-        await send_csv_func(csv_text)
-    if send_img:
-        await send_img_func(md_text)
-        # await send_img_func(table_text_transposed)
-    if send_text:
-        await send_text_func(md_text)
-
-
 async def send_answers_df(
         update: Update,
         answers_df: pd.DataFrame,
         send_csv=False,
         send_img=True,
         send_text=False,
-        # save_csv=True,
         transpose_table=False,
         with_question_indices=True,
         sort_by_quest_indices=True,
-        with_fulltext=True,
 ):
     # Fix dirty function applying changes directly to passed DataFrame
     answers_df = answers_df.copy()
 
-    if not with_fulltext:
-        answers_df = answers_df.drop('fullname', axis=1)
-
     # --- Adding temporary index column, to sort by it, and show it with table
     # Important thing is not to save this col to df, because question number is not hardly associated with question
 
-    # if with_question_indices:
     answers_df = add_question_indices_to_df_index(
         answers_df,
         questions_objects
@@ -174,11 +77,14 @@ async def send_answers_df(
     )
 
 
-def reconstruct_answers_df_with_new_answers(df: pd.DataFrame, state: AskingState) -> pd.DataFrame:
+def update_answers_df(
+        df: pd.DataFrame,
+        state: AskingState,
+        sort_columns=True,
+        sort_rows_by_q_index=True,
+) -> pd.DataFrame:
     # Ended question list
     day_index = state.asking_day
-
-    # answers_df = get_answers_df()
 
     # Create empty col if it does not exist
     if df.get(day_index) is None:
@@ -193,12 +99,20 @@ def reconstruct_answers_df_with_new_answers(df: pd.DataFrame, state: AskingState
     res_col = merge_to_existing_column(df[day_index], new_col)
 
     df = df.reindex(df.index.union(index_str))
-    # Sort by columns
-    columns_order = sorted(
-        df.columns,
-        key=lambda x: '!' + x if not x.startswith('20') else x
-    )
-    df = df.reindex(columns_order, axis=1)
+
+    if sort_columns:
+        columns_order = sorted(
+            df.columns,
+            key=lambda x: '!' + x if not x.startswith('20') else x
+        )
+        df = df.reindex(columns_order, axis=1)
+
+    if sort_rows_by_q_index:
+        if 'i' not in df.columns:
+            df = add_question_indices_to_df_index(df, questions_objects)
+
+        df = df.sort_values('i')
+        df = df.drop('i', axis=1)
 
     df[day_index] = res_col
     return df
@@ -207,7 +121,7 @@ def reconstruct_answers_df_with_new_answers(df: pd.DataFrame, state: AskingState
 @handler_decorator
 async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
-        user_data.answers_df = reconstruct_answers_df_with_new_answers(
+        user_data.answers_df = update_answers_df(
             user_data.answers_df,
             user_data.state
         )
@@ -303,10 +217,10 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # state = context.chat_data["state"]
     user_data = context.chat_data[USER_DATA_KEY]
-    
+
     if user_data.state is not None:
         pass  # Existing command is in action
-    
+
     # user_data.state = AskingState()
 
     print('command: ask')
@@ -322,11 +236,6 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         asking_day = str(get_nth_delta_day(0))  # today
 
-    # state.cur_id_ind = 0
-    # state.current_state = 'ask'
-    # state.cur_answers = [None for _ in range(max(state.include_ids) + 1)]
-    # state.cur_answers = [None for _ in range(len(state.include_ids))]
-    
     user_data.state = AskingState(
         include_ids=include_ids,
         asking_day=asking_day
@@ -345,7 +254,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @handler_decorator
-async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.chat_data[USER_DATA_KEY]
 
     await send_answers_df(
@@ -379,6 +288,18 @@ async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def post_init(application: Application) -> None:
+    await application.bot.set_my_commands(
+        list(filter(
+            lambda x: x is not None,
+            (map(
+                lambda x: [x[0], x[1][1]] if len(x[1]) > 1 else None,
+                commands_mapping.items()
+            ))
+        ))
+    )
+
+
 if __name__ == "__main__":
     TOKEN = open('.token').read()
     print(TOKEN)
@@ -388,15 +309,17 @@ if __name__ == "__main__":
     app = ApplicationBuilder() \
         .persistence(persistence) \
         .token(TOKEN) \
+        .post_init(post_init) \
         .build()
 
-    commands_funcs_mapping = {
-        "ask": ask_command,
-        "list": list_command,
-        "exitt": exit_command
+    commands_mapping = {
+        "ask": (ask_command, 'Start asking'),
+        "stats": (stats_command, 'Get stats'),
+        "exitt": (exit_command,)
     }
 
-    for command_string, func in commands_funcs_mapping.items():
+    for command_string, value in commands_mapping.items():
+        func = value[0]
         app.add_handler(CommandHandler(command_string, func))
 
     app.add_handler(MessageHandler(filters.TEXT, plaintext_handler))

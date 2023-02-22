@@ -57,6 +57,7 @@ questions_list = [
     ['meat_eat', "Мясо?", *binary],
     ['fish_eat', "Рыба?", *binary],
     ['vegetables_eat', "Овощи?", *ternary],
+    ['nuts_eat', "Орехи?", *ternary],
     ['sugar_eat', "Сладкое?", *ternary],
 
     # .
@@ -79,7 +80,7 @@ class Question:
 
 
 # questions_list.sort(key=lambda x: x[0])
-for q in questions_list:
-    q[2] = list(map(str, q[2]))
+# for q in questions_list:
+#     q[2] = list(map(str, q[2]))
 
 questions_objects = [Question(*i) for i in questions_list]
