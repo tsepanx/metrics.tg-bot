@@ -283,6 +283,7 @@ async def exit_command(update: Update, _):
     asyncio.get_event_loop().stop()
 
 
+@handler_decorator
 async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.chat_data[USER_DATA_KEY]
 

@@ -241,7 +241,18 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
         stralign='left',
     )
     text = text.replace(' nan ', ' --- ')
+
+    text = text.replace('00:00:00', '0       ')
+    text = text.replace(':00:00', ':00   ')
     text = text.replace(':00', '   ')
+
+    # 00:00:00 -> 0
+    # 06:00:00 -> 06:00
+    # 12:34:00 -> 12:34
+
+    with open('file', 'w') as f:
+        f.write(text)
+
     return text
 
 
