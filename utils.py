@@ -227,7 +227,6 @@ def get_nth_delta_day(n: int = 0) -> datetime.date:
 
 
 STOP_ASKING = 'Stop asking'
-# BACKUP_ANSWERS_FNAME = 'a.pkl'
 SKIP_QUEST = 'Skip question'
 
 
@@ -245,10 +244,10 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     return text
 
 
-def write_df_to_csv(fname: str, df: pd.DataFrame):
-    with open(fname, 'w') as file:
-        df_csv = df.to_csv()
-        file.write(df_csv)
+# def write_df_to_csv(fname: str, df: pd.DataFrame):
+#     with open(fname, 'w') as file:
+#         df_csv = df.to_csv()
+#         file.write(df_csv)
 
 
 def create_default_answers_df() -> pd.DataFrame:

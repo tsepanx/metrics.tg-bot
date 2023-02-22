@@ -140,6 +140,9 @@ async def send_answers_df(
         sort_by_quest_indices=True,
         with_fulltext=True,
 ):
+    # Fix dirty function applying changes directly to passed DataFrame
+    answers_df = answers_df.copy()
+
     if not with_fulltext:
         answers_df = answers_df.drop('fullname', axis=1)
 
