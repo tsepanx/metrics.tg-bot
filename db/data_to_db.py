@@ -2,18 +2,6 @@ from questions import questions_objects
 import psycopg2
 
 
-def psql_conn():
-    import psycopg2
-
-    conn = psycopg2.connect(
-        dbname='postgres',
-        user='postgres',
-        password='',
-        host='localhost'
-    )
-    return conn
-
-
 def exists(pk: tuple, query: str):
     assert query.lower().startswith('select')
     cursor.execute(query)

@@ -128,6 +128,9 @@ def questions_to_str(
 
 
 def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Series:
+    """
+    Merge two pd.Series objects (with same length), replacing value with new, when possible
+    """
     index = old_col.index.union(new_col.index)
     res_col = pd.Series(index=index).astype(object)
 
