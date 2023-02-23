@@ -1,4 +1,7 @@
 import datetime
+import functools
+
+import numpy as np
 import psycopg
 import pandas as pd
 
@@ -13,6 +16,16 @@ def _psql_conn():
         host='localhost'
     )
     return conn
+
+
+def provide_conn(func):
+    # @functools.wraps
+    def wrapper(*args, **kwargs):
+        conn = _psql_conn()
+
+        return func(conn, *args, **kwargs)
+
+    return wrapper
 
 
 def _query_get(
@@ -41,14 +54,7 @@ def _exists(conn: psycopg.connection, pk: tuple, query: str):
     assert query.lower().startswith('select')
 
     res = _query_get(conn, query)
-    # res = list(map(lambda x: x[0], res))
-
-    # r = res[0]
     for r in res:
-        # r = r[1:]
-        # r = r[:-1]
-        # rs = r.split(',')
-
         eq = list(pk) == list(r)
 
         if eq:
@@ -76,6 +82,7 @@ def _get_answers_on_day(conn: psycopg.connection, day: str | datetime.date):
     return res
 
 
+@provide_conn
 def build_answers_df(
         conn: psycopg.connection,
         days_range=None,
@@ -97,12 +104,11 @@ def build_answers_df(
 
         if not len(res):
             if include_empty_cols:
-                res = [('', '')]
-            else:
-                continue
+                df[day] = pd.Series()
+            continue
 
         # Building pd.Series list of question_answer.answer_text with index as of question.name
-        answers_column: pd.Series = pd.DataFrame(res).set_index(0).iloc[:, 0]
+        answers_column = pd.DataFrame(res).set_index(0).iloc[:, 0]
         questions_names = answers_column.index
 
         df = df.reindex(df.index.union(questions_names))

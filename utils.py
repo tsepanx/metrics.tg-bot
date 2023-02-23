@@ -7,6 +7,7 @@ from functools import wraps
 from io import BytesIO
 from pprint import pprint
 
+import numpy as np
 import pandas as pd
 import telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -203,8 +204,15 @@ def handler_decorator(func):
 
         answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
 
-        if os.path.exists(answers_df_fname):
-            print(f'Restoring answers_df from file: {answers_df_fname}')
+        read_from_db = True
+
+        if read_from_db:
+            print(f'DB: Restoring answers_df')
+
+            from db.db import build_answers_df
+            user_data.answers_df = build_answers_df()
+        elif os.path.exists(answers_df_fname):
+            print(f'{answers_df_fname}: Restoring answers_df')
             user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
         else:
             print(f'Creating default answers_df for user: {update.effective_chat.id}')
@@ -237,6 +245,9 @@ SKIP_QUEST = 'Skip question'
 def df_to_markdown(df: pd.DataFrame, transpose=False):
     if transpose:
         df = df.T
+
+    # Replace None with np.nan for consistency
+    df = df.fillna(value=np.nan)
 
     text = df.to_markdown(
         tablefmt='rounded_grid',

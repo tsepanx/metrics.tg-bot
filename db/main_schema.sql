@@ -84,4 +84,7 @@ DELETE FROM question_answer
 
 -- DELETE FROM question_answer;
 
--- SELECT day_fk, question_fk FROM question_answer;
+SELECT day_fk, question_fk, answer_text FROM question_answer
+    WHERE
+        day_fk = '2023-02-23'
+;
