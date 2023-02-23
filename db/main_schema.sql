@@ -18,13 +18,14 @@ CREATE TABLE question_type (
 -- ALTER TABLE question_type ALTER COLUMN notation_str SET DEFAULT 'default_val';
 
 
+-- DROP TABLE question;
+
 CREATE TABLE question(
 --     pk SERIAL PRIMARY KEY,
-    name VARCHAR(50)
-            PRIMARY KEY,
+    name VARCHAR(50) PRIMARY KEY,
     num_int SERIAL,
     fulltext TEXT
-        DEFAULT num_int,
+        DEFAULT '',
     suggested_answers_list VARCHAR(50)[],
     type_id INTEGER
         DEFAULT 1
@@ -40,8 +41,6 @@ CREATE TABLE question(
 --         REFERENCES question_type(id)
 );
 
-ALTER TABLE question RENAME num_int TO order_int;
-
 -- DROP TABLE IF EXISTS day;
 CREATE TABLE day(
     date DATE PRIMARY KEY,
@@ -50,7 +49,7 @@ CREATE TABLE day(
         NOT NULL
 );
 
-DROP TABLE question_answer;
+-- DROP TABLE question_answer;
 CREATE TABLE question_answer(
     day_fk DATE
         REFERENCES day(date),
@@ -67,19 +66,12 @@ CREATE TABLE question_answer(
 --         REFERENCES question_type(id);
 
 
-INSERT INTO question_type(id, name, notation_str)
-VALUES
-    (0, 'plain', ''),
-    (1, 'int', '(D)'),
-    (2, 'binary', '(0/1)'),
-    (3, 'hours', '(H)');
-
 -- Show all answers for given day, sorted by q.num_int
 SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
     JOIN question q on q.name = qa.question_fk
     WHERE
         qa.day_fk = '2023-02-21'
-    ORDER BY qa.day_fk, q.order_int;
+    ORDER BY qa.day_fk, q.num_int;
 
 
 -- Delete all ross with 'NaN'/NULL answer values
@@ -88,3 +80,8 @@ DELETE FROM question_answer
     WHERE
         answer_text IS NULL
         OR answer_text = 'NaN';
+
+
+-- DELETE FROM question_answer;
+
+-- SELECT day_fk, question_fk FROM question_answer;

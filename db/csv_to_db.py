@@ -1,51 +1,37 @@
+import datetime
+
+import psycopg
+
 from questions import questions_objects
-import psycopg2
+
+from db import _psql_conn, _exists, _query_change
 
 
-def exists(pk: tuple, query: str):
-    assert query.lower().startswith('select')
-    cursor.execute(query)
-
-    res = cursor.fetchall()
-    res = list(map(lambda x: x[0], res))
-
-    # r = res[0]
-    for r in res:
-        r = r[1:]
-        r = r[:-1]
-        rs = r.split(',')
-
-        eq = list(pk) == list(rs)
-
-        if eq:
-            return True
-
-    return False
-
-
-def answers_df_to_db(cursor):
+def answers_df_to_db(conn: psycopg.connection):
     import pandas as pd
 
     fname = 'answers_df_backups/325805942.csv'
-
     df = pd.read_csv(fname, index_col=0)
 
     cols = list(df.columns)
     index = list(df.index)
 
-    for day in cols:
+    for day_str in cols:
         for i in range(len(index)):
-            col = df[day]
+            col = df[day_str]
             # print('{:20} {:20} {:10}'.format(day, index[i], col[i]))
 
-            day: str
             question_name: str = index[i]
             answer_value: str | None = col[i]
 
-            pk = (day, question_name)
-            is_exists = exists(
+            pk = (
+                datetime.date.fromisoformat(day_str),
+                question_name
+            )
+            is_exists = _exists(
+                conn,
                 pk,
-                'SELECT (day_fk, question_fk) FROM question_answer'
+                'SELECT day_fk, question_fk FROM question_answer'
             )
 
             if is_exists:
@@ -56,9 +42,10 @@ def answers_df_to_db(cursor):
                 if pd.isnull(answer_value):
                     answer_value = None
 
-                cursor.execute(
+                _query_change(
+                    conn,
                     "INSERT INTO question_answer(day_fk, question_fk, answer_text) VALUES (%s, %s, %s);",
-                    (day, question_name, answer_value)
+                    (day_str, question_name, answer_value)
                 )
 
 
@@ -71,11 +58,10 @@ def questions_list_to_db(cursor):
 
 
 if __name__ == "__main__":
-    conn = psql_conn()
-    cursor = conn.cursor()
+    conn = _psql_conn()
 
     # questions_list_to_db()
-    answers_df_to_db(cursor)
+    answers_df_to_db(conn)
 
     conn.commit()
     conn.close()
