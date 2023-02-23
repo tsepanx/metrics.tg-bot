@@ -44,16 +44,21 @@ CREATE TABLE question(
 
 -- DROP TABLE IF EXISTS day;
 CREATE TABLE day(
-    date DATE PRIMARY KEY
+    date DATE PRIMARY KEY,
+    display BOOLEAN
+        DEFAULT True
+        NOT NULL
 );
 
 DROP TABLE question_answer;
 CREATE TABLE question_answer(
-    day_fk DATE REFERENCES day(date),
-    question_fk VARCHAR REFERENCES question(name),
+    day_fk DATE
+        REFERENCES day(date),
+    question_fk VARCHAR
+        REFERENCES question(name),
+    CONSTRAINT pk PRIMARY KEY (day_fk, question_fk),
 
-    answer_text TEXT,
-    CONSTRAINT pk PRIMARY KEY (day_fk, question_fk)
+    answer_text TEXT
 );
 
 -- ALTER TABLE question
@@ -89,16 +94,16 @@ SELECT q.name, qt.notation_str, q.fulltext FROM question_type AS qt
         ON qt.id = q.type_id;
 
 -- Show all answers for given day, sorted by q.num_int
-SELECT qa.day_fk, qa.question_fk, qa.answer_text FROM question_answer AS qa
+SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
     JOIN question q on q.name = qa.question_fk
     WHERE
-        day_fk = '2023-02-21'
-    ORDER BY day_fk, q.num_int;
+        qa.day_fk = '2023-02-21'
+    ORDER BY qa.day_fk, q.num_int;
 
 
--- Delete all 'NaN' values
--- DELETE FROM question_answer
-SELECT * FROM question_answer
-       WHERE
---         answer_text = 'NaN'
-            answer_text IS NULL;
+-- Delete all ross with 'NaN'/NULL answer values
+DELETE FROM question_answer
+-- SELECT * FROM question_answer
+    WHERE
+        answer_text IS NULL
+        OR answer_text = 'NaN';
