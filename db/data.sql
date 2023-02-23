@@ -1,4 +1,11 @@
 
+
+INSERT INTO day(date) VALUES ('2023-02-20');
+INSERT INTO day(date) VALUES ('2023-02-21');
+INSERT INTO day(date) VALUES ('2023-02-22');
+INSERT INTO day(date) VALUES ('2023-02-23');
+INSERT INTO day(date) VALUES ('2023-02-24');
+
 INSERT INTO public.question(name,fulltext,suggested_answers_list, type_id) VALUES ('sleep_1_start', '`(H)` Отбой (время)', '{22:00,23:00,00:00,01:00}', 3);
 INSERT INTO public.question(name,fulltext,suggested_answers_list, type_id) VALUES ('sleep_2_end', '`(H)` Подъем (время)', '{08:00,09:00,10:00,11:00,12:00}', 3);
 INSERT INTO public.question(name,fulltext,suggested_answers_list, type_id) VALUES ('sleep_hrs', '`(H)` Sleep hours (hours) (h-w-gt3)', '{7.5,8,8.5,9}', 3);

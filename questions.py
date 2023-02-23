@@ -2,9 +2,14 @@ import datetime
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-binary = ["Да", "Нет"], lambda x: 1 if x == "Да" else 0
+
+def binary_f(x):
+    return 1 if x == "Да" else 0
+
+
+binary = ["Да", "Нет"], binary_f
+
 # ternary = [0, 1, 2], lambda x: int(float(x) * 50)
-decimal_grade = list(range(0, 10 + 1)), lambda x: float(x) / 10
 
 
 def str_to_time(s: str) -> datetime.time:
@@ -85,7 +90,7 @@ questions_list = [
 
     ['vegetables_eat', "`(Grams)` Овощи?", [0, 50, 100, 150]],
     ['nuts_eat', "`(Grams)` Орехи?", [0, 40, 80, 120]],
-    ['sugar_eat', "`(0-10)` Сладкое?", *decimal_grade],
+    ['sugar_eat', "`(0-10)` Сладкое?", list(range(0, 10 + 1))],
 
     # .
     ['x_big', "X?", *binary],

@@ -129,7 +129,7 @@ def questions_to_str(
 
 def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Series:
     index = old_col.index.union(new_col.index)
-    res_col = pd.Series(index=index)
+    res_col = pd.Series(index=index).astype(object)
 
     for i_str in index:
         old_val = old_col.get(i_str, None)

@@ -102,6 +102,9 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
         ))
 
         new_col = pd.Series(state.cur_answers, index=index_str)
+        # Needed to convert automatic conversion to numpy types (f.e. numpy.int64) to initial pythonic type back
+        new_col = new_col.astype(object)
+
         res_col = merge_to_existing_column(df[day_index], new_col)
 
         df = df.reindex(df.index.union(index_str))
@@ -261,7 +264,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             include_ids = list(day_values.apply(
                 lambda x: None if bool(x[0]) is False else 1,
                 axis=1).dropna().index
-            )
+                               )
         else:
             include_ids = all_ids
 

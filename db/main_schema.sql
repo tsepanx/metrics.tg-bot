@@ -25,9 +25,7 @@ CREATE TABLE question(
     num_int SERIAL,
     fulltext TEXT
         DEFAULT num_int,
-    suggested_answers_list TEXT
-        NOT NULL
-        DEFAULT '[,]',
+    suggested_answers_list VARCHAR(50)[],
     type_id INTEGER
         DEFAULT 1
         NOT NULL
@@ -41,6 +39,8 @@ CREATE TABLE question(
 --         FOREIGN KEY(type_id)
 --         REFERENCES question_type(id)
 );
+
+ALTER TABLE question RENAME num_int TO order_int;
 
 -- DROP TABLE IF EXISTS day;
 CREATE TABLE day(
@@ -66,18 +66,6 @@ CREATE TABLE question_answer(
 --         FOREIGN KEY (type_id)
 --         REFERENCES question_type(id);
 
--- ALTER TABLE question ALTER COLUMN suggested_answers_list TYPE VARCHAR(100);
--- ALTER TABLE question DROP COLUMN suggested_answers_list;
--- ALTER TABLE question ALTER COLUMN suggested_answers_list SET DEFAULT '[,]';
--- ALTER TABLE question ADD COLUMN suggested_answers_list TEXT NOT NULL DEFAULT '[,]';
-
-
-INSERT INTO day(date) VALUES ('2023-02-20');
-INSERT INTO day(date) VALUES ('2023-02-21');
-INSERT INTO day(date) VALUES ('2023-02-22');
-INSERT INTO day(date) VALUES ('2023-02-23');
-INSERT INTO day(date) VALUES ('2023-02-24');
-
 
 INSERT INTO question_type(id, name, notation_str)
 VALUES
@@ -85,20 +73,6 @@ VALUES
     (1, 'int', '(D)'),
     (2, 'binary', '(0/1)'),
     (3, 'hours', '(H)');
-
-
-
--- Print all questions list
-SELECT q.name, qt.notation_str, q.fulltext FROM question_type AS qt
-    JOIN question q
-        ON qt.id = q.type_id;
-
--- Show all answers for given day, sorted by q.num_int
-SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
-    JOIN question q on q.name = qa.question_fk
-    WHERE
-        qa.day_fk = '2023-02-21'
-    ORDER BY qa.day_fk, q.num_int;
 
 
 -- Delete all ross with 'NaN'/NULL answer values
