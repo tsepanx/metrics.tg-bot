@@ -1,6 +1,11 @@
 import datetime
-from dataclasses import dataclass
-from typing import Callable, Optional
+from dataclasses import (
+    dataclass
+)
+from typing import (
+    Callable,
+    Optional
+)
 
 
 def binary_f(x):

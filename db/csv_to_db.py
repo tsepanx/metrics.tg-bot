@@ -2,9 +2,14 @@ import datetime
 
 import psycopg
 
-from questions import questions_objects
-
-from db import _psql_conn, _exists, _query_change
+from db import (
+    _exists,
+    _psql_conn,
+    _query_change
+)
+from questions import (
+    questions_objects
+)
 
 
 def answers_df_to_db(conn: psycopg.connection):

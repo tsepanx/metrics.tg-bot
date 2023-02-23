@@ -66,6 +66,9 @@ CREATE TABLE question_answer(
 --         REFERENCES question_type(id);
 
 
+----------- SELECT OPERATIONS -----------
+
+
 -- Show all answers for given day, sorted by q.num_int
 SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
     JOIN question q on q.name = qa.question_fk
@@ -73,6 +76,13 @@ SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
         qa.day_fk = '2023-02-21'
     ORDER BY qa.day_fk, q.num_int;
 
+-- Print all questions list
+SELECT q.name, qt.notation_str, q.fulltext FROM question_type AS qt
+    JOIN question q
+        ON qt.id = q.type_id;
+
+
+----------- DELETE OPERATIONS -----------
 
 -- Delete all ross with 'NaN'/NULL answer values
 DELETE FROM question_answer

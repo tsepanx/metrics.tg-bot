@@ -1,11 +1,13 @@
 import datetime
 import functools
+from typing import (
+    Optional,
+    Sequence
+)
 
 import numpy as np
-import psycopg
 import pandas as pd
-
-from typing import Sequence, Optional
+import psycopg
 
 
 def _psql_conn():
@@ -118,11 +120,32 @@ def build_answers_df(
     return df
 
 
+@provide_conn
+def get_questions_names(
+        conn: psycopg.connection,
+) -> list[str]:
+    query = """
+        -- Print all questions list
+        SELECT q.name FROM question AS q
+            JOIN question_type qt
+                ON qt.id = q.type_id
+            ORDER BY q.num_int;
+    """
+
+    query_results = _query_get(conn, query)
+    first_col = list(map(lambda x: x[0], query_results))
+
+    return first_col
+
+
 if __name__ == "__main__":
-    conn = _psql_conn()
+    # conn = _psql_conn()
 
-    answers_df = build_answers_df(conn)
-    print(answers_df)
+    # answers_df = build_answers_df()
+    # print(answers_df)
 
-    conn.commit()
-    conn.close()
+    questions_list = get_questions_names()
+    print(questions_list)
+
+    # conn.commit()
+    # conn.close()

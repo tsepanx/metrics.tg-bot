@@ -3,19 +3,36 @@ import datetime
 import functools
 import os.path
 import traceback
-from functools import wraps
-from io import BytesIO
-from pprint import pprint
+from functools import (
+    wraps
+)
+from io import (
+    BytesIO
+)
+from pprint import (
+    pprint
+)
 
 import numpy as np
 import pandas as pd
 import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.constants import ParseMode
-from telegram.ext import ContextTypes
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update
+)
+from telegram.constants import (
+    ParseMode
+)
+from telegram.ext import (
+    ContextTypes
+)
 
-from questions import Question, questions_objects
-
+from db.db import (
+    get_questions_names
+)
+from questions import \
+    Question  # , questions_objects
 
 answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
 
@@ -76,6 +93,7 @@ class AskingState:
 class UserData:
     state: AskingState | None
     answers_df: pd.DataFrame | None
+    questions_names: list[str]
 
     def __init__(self):
         self.state = None  # AskingState(None)
@@ -91,17 +109,20 @@ CHAT_DATA_KEYS_DEFAULTS = {
 }
 
 
-def add_question_indices_to_df_index(df: pd.DataFrame, questions_objects: list[Question]):
+def add_questions_sequence_num_as_col(df: pd.DataFrame, questions_objects: list[Question]):
     """
+    Generate
     Prettify table look by adding questions ids to index
+
+    Assumes given @df has "questions names" as index
     """
-    indices = list()
+    sequential_numbers = list()
 
     for ind_str in df.index:
         for i in range(len(questions_objects)):
             if questions_objects[i].name == ind_str:
                 # s = str(i)
-                indices.append(i)
+                sequential_numbers.append(i)
                 break
 
     # Setting new index column
@@ -115,7 +136,7 @@ def add_question_indices_to_df_index(df: pd.DataFrame, questions_objects: list[Q
 
     df = df.copy()
     # noinspection PyTypeChecker
-    df.insert(0, 'i', indices)
+    df.insert(0, 'i', sequential_numbers)
 
     return df
 
@@ -209,7 +230,9 @@ def handler_decorator(func):
         if read_from_db:
             print(f'DB: Restoring answers_df')
 
-            from db.db import build_answers_df
+            from db.db import (
+                build_answers_df
+            )
             user_data.answers_df = build_answers_df()
         elif os.path.exists(answers_df_fname):
             print(f'{answers_df_fname}: Restoring answers_df')
@@ -275,15 +298,17 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
 
 
 def create_default_answers_df() -> pd.DataFrame:
-    q_names = list(map(lambda x: x.name, questions_objects))
-    q_texts = list(map(lambda x: x.text, questions_objects))
+    # q_names = list(map(lambda x: x.name, questions_objects))
+    # q_texts = list(map(lambda x: x.text, questions_objects))
+
+    questions_names = get_questions_names()
 
     init_answers_df = pd.DataFrame(
-        index=q_names
+        index=questions_names
     )
 
     # noinspection PyTypeChecker
-    init_answers_df.insert(0, 'fulltext', q_texts)
+    # init_answers_df.insert(0, 'fulltext', q_texts)
 
     # f.write(init_answers_df.to_csv())
     # init_answers_df.to_pickle(BACKUP_ANSWERS_FNAME)
@@ -305,7 +330,11 @@ async def send_df_in_formats(
         bg_color = (200, 200, 200)
         fg_color = (0, 0, 0)
 
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import (
+            Image,
+            ImageDraw,
+            ImageFont
+        )
 
         if bold:
             font = ImageFont.truetype("fonts/SourceCodePro-Bold.otf", 16)

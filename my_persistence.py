@@ -1,7 +1,19 @@
-from typing import Optional, Dict
+from typing import (
+    Dict,
+    Optional
+)
 
-from telegram.ext import BasePersistence
-from telegram.ext._utils.types import BD, CD, UD, CDCData, ConversationKey, ConversationDict
+from telegram.ext import (
+    BasePersistence
+)
+from telegram.ext._utils.types import (
+    BD,
+    CD,
+    UD,
+    CDCData,
+    ConversationDict,
+    ConversationKey
+)
 
 
 class MyPersistence(BasePersistence):
