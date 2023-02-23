@@ -1,5 +1,4 @@
 import datetime
-import enum
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -107,41 +106,4 @@ class Question:
         return '{:15} {}'.format(self.name, self.text)
 
 
-# questions_list.sort(key=lambda x: x[0])
-# for q in questions_list:
-#     q[2] = list(map(str, q[2]))
-
 questions_objects = [Question(*i) for i in questions_list]
-
-if __name__ == "__main__":
-    import psycopg2
-
-    conn = psycopg2.connect(
-        dbname='postgres',
-        user='postgres',
-        password='',
-        host='localhost'
-    )
-
-    cursor = conn.cursor()
-
-    for q in questions_objects:
-        # s =
-        cursor.execute(
-            "INSERT INTO question(name, fulltext, suggested_answers_list, type_id) VALUES (%s, %s, %s, %s);",
-            (q.name, q.text, q.inline_keyboard_answers, 1)
-        )
-
-    conn.commit()
-
-    # for q in questions_objects:
-    #     s += f"('{q.name}', {q.text}, {q.inline_keyboard_answers}),\n".replace('[', '[')
-    #
-    # s = s[:-2]
-    # s += ';'
-
-    # print(s)
-    #
-    # cursor.execute(s)
-
-    conn.close()
