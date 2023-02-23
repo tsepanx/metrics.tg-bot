@@ -112,7 +112,7 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
         if sort_columns:
             columns_order = sorted(
                 df.columns,
-                key=lambda x: '!' + x if not x.startswith('20') else x
+                key=lambda x: '!' + x if not isinstance(x, datetime.date) else x.isoformat()
             )
             df = df.reindex(columns_order, axis=1)
 
