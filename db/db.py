@@ -35,18 +35,25 @@ def _query_get(
         query: str,
         params: Optional[dict | Sequence] = tuple()
 ) -> Sequence:
-    with conn.cursor() as cur:
-        # if params:
-        cur.execute(query, params)
-        results = cur.fetchall()
-        return results
+    print('GET', query)
+    # with conn.cursor() as cur:
+    # if params:
+    # cur.execute(query, params)
+    # results = cur.fetchall()
+    # return results
+
+    cur = conn.cursor()
+    cur.execute(query, params)
+    results = cur.fetchall()
+    return results
 
 
-def _query_change(
+def _query_set(
         conn: psycopg.connection,
         query: str,
         params: Optional[dict | Sequence] = tuple()
 ):
+    print('SET', query)
     with conn.cursor() as cur:
         cur.execute(query, params)
         conn.commit()

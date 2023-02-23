@@ -5,7 +5,7 @@ import psycopg
 from db import (
     _exists,
     _psql_conn,
-    _query_change
+    _query_set
 )
 from questions import (
     questions_objects
@@ -47,7 +47,7 @@ def answers_df_to_db(conn: psycopg.connection):
                 if pd.isnull(answer_value):
                     answer_value = None
 
-                _query_change(
+                _query_set(
                     conn,
                     "INSERT INTO question_answer(day_fk, question_fk, answer_text) VALUES (%s, %s, %s);",
                     (day_str, question_name, answer_value)
