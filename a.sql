@@ -24,7 +24,7 @@ CREATE TABLE question(
             PRIMARY KEY,
     num_int SERIAL,
     fulltext TEXT
-        DEFAULT 'Question fulltext',
+        DEFAULT num_int,
     suggested_answers_list TEXT
         NOT NULL
         DEFAULT '[,]',
@@ -47,11 +47,12 @@ CREATE TABLE day(
     date DATE PRIMARY KEY
 );
 
+DROP TABLE question_answer;
 CREATE TABLE question_answer(
     day_fk DATE REFERENCES day(date),
     question_fk VARCHAR REFERENCES question(name),
 
-    answer_text TEXT NOT NULL DEFAULT '',
+    answer_text TEXT,
     CONSTRAINT pk PRIMARY KEY (day_fk, question_fk)
 );
 
@@ -96,7 +97,8 @@ SELECT qa.day_fk, qa.question_fk, qa.answer_text FROM question_answer AS qa
 
 
 -- Delete all 'NaN' values
-DELETE FROM question_answer
--- SELECT * FROM question_answer
+-- DELETE FROM question_answer
+SELECT * FROM question_answer
        WHERE
-        answer_text = 'NaN';
+--         answer_text = 'NaN'
+            answer_text IS NULL;

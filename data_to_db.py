@@ -52,7 +52,7 @@ def answers_df_to_db(cursor):
 
             day: str
             question_name: str = index[i]
-            answer_value: str = col[i]
+            answer_value: str | None = col[i]
 
             pk = (day, question_name)
             is_exists = exists(
@@ -64,6 +64,10 @@ def answers_df_to_db(cursor):
                 print('{:20} {:20}'.format('PK EXISTS', str(pk)))
             else:
                 print('{:20} {:20}'.format('=== INSERTING', str(pk)))
+
+                if pd.isnull(answer_value):
+                    answer_value = None
+
                 cursor.execute(
                     "INSERT INTO question_answer(day_fk, question_fk, answer_text) VALUES (%s, %s, %s);",
                     (day, question_name, answer_value)
