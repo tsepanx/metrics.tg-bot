@@ -119,7 +119,7 @@ def build_answers_df(
 def get_ordered_questions_names(
         conn: psycopg.connection,
 ) -> list[str]:
-    query = """SELECT name FROM question ORDER BY num_int;"""
+    query = """SELECT name FROM question WHERE is_activated = True ORDER BY num_int;"""
 
     query_results = _query_get(conn, query)
     first_col = list(map(lambda x: x[0], query_results))

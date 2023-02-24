@@ -24,6 +24,7 @@ from telegram.ext import (
     filters
 )
 
+import db.base
 from db import (
     QuestionDB,
     get_ordered_questions_names,
@@ -120,8 +121,13 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             day: str = state.asking_day
             question_name = corresponding_qnames[i]
 
+            if not answer:
+                continue
+
+            where_dict = {'day_fk': day, 'question_fk': question_name}
+
             update_or_insert_row(
-                {'day_fk': day, 'question_fk': question_name},
+                where_dict,
                 {'answer_text': answer},
                 'question_answer'
             )

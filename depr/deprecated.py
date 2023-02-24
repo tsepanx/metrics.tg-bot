@@ -1,7 +1,5 @@
 import datetime
 
-import pandas
-
 from db.high_level_methods import (
     get_ordered_questions_names
 )

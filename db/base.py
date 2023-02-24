@@ -10,6 +10,7 @@ from psycopg.sql import (
     Placeholder
 )
 
+
 # def build_template_sql(conn: psycopg.connection, query: str, tablename: str, names: Sequence[str]) -> str:
 #     """
 #     >>> q1 = SQL("INSERT INTO my_table ({}) VALUES ({})").format(
@@ -101,8 +102,8 @@ def get_where(
     if select_cols:
         template_query = "SELECT {} FROM {} WHERE ({}) = ({})"
         format_values = [
-            SQL(', ').join(map(Identifier, select_cols)),
-        ] + format_values
+                            SQL(', ').join(map(Identifier, select_cols)),
+                        ] + format_values
     else:
         template_query = "SELECT * FROM {} WHERE ({}) = ({})"
 
@@ -119,17 +120,22 @@ def get_where(
     return rows
 
 
-def exists(conn: psycopg.connection, where_dict: dict[str, any], tablename: str):
+def _exists(conn: psycopg.connection, where_dict: dict[str, any], tablename: str):
     return len(get_where(conn, where_dict, tablename)) > 0
+
+
+@provide_conn
+def exists(where_dict: dict[str, any], tablename: str):
+    return _exists(conn, where_dict, tablename)
 
 
 def _insert_row(conn: psycopg.connection, row_dict: dict[str, any], tablename: str):
     names = tuple(row_dict.keys())
 
     query = SQL("INSERT INTO {} ({}) VALUES ({});").format(
-        Identifier(tablename),                      # tablename
-        SQL(', ').join(map(Identifier, names)),     # (col1, col2)
-        SQL(', ').join(map(Placeholder, names))     # (%(col1)s, %(col1)s) -> ('val1', 'val2')
+        Identifier(tablename),  # tablename
+        SQL(', ').join(map(Identifier, names)),  # (col1, col2)
+        SQL(', ').join(map(Placeholder, names))  # (%(col1)s, %(col1)s) -> ('val1', 'val2')
     ).as_string(conn)
 
     try:
@@ -188,12 +194,11 @@ def update_or_insert_row(conn: psycopg.connection,
                          where_dict: dict[str, any],
                          set_dict: dict[str, any],
                          tablename: str):
-
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
     # assert set(where_dict).union(set(set_dict)) == columns_set
 
-    if exists(conn, where_dict, tablename):
+    if _exists(conn, where_dict, tablename):
         print(f"ROW {where_dict} IS UPDATED")
         _update_row(conn, where_dict, set_dict, tablename)
     else:
