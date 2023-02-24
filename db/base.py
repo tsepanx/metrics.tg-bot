@@ -51,7 +51,7 @@ def _query_get(
         query: str,
         params: Optional[dict | Sequence] = tuple()
 ) -> Sequence:
-    print(query)
+    print(query, params)
 
     cur = conn.cursor()
     cur.execute(query, params)
@@ -64,7 +64,7 @@ def _query_set(
         query: str,
         params: Optional[dict | Sequence] = tuple()
 ):
-    print(query)
+    print(query, params)
     with conn.cursor() as cur:
         cur.execute(query, params)
         conn.commit()

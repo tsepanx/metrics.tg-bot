@@ -2,9 +2,13 @@
 
 ### TODO
 
-- `/ask missing`
+- [ ] -> Optimize number of `SQL` requests
+  - Check whether any `table` changed to reload "db attrs"
+  - Check output requests, fix duplicate requests
 - Involve `groups`
-- Store `questions_objects` as file
+- [x] `DB` support (`PosgreSQL`)
+- [x] `/ask missing`
+- ~~Store `questions_objects` as file~~
 - [X] Save `answers_df` in `State`
 
 #### Commands

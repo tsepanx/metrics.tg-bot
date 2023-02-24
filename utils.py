@@ -65,6 +65,7 @@ class AskingState:
 
     cur_id_ind: int
     cur_answers: list[str | None]
+    __cur_question: QuestionDB | None
 
     def __init__(self, include_qnames: list, asking_day: str):
         self.include_qnames = include_qnames
@@ -73,35 +74,34 @@ class AskingState:
         self.cur_id_ind = 0
         # self.cur_answers = list()
         self.cur_answers = [None for _ in range(len(include_qnames))]
+        self.__cur_question = None
 
-    def get_current_question(self, qnames: list[str]) -> QuestionDB:
-        try:
-            q_name = self.include_qnames[self.cur_id_ind]
-            # q_name = qnames[q_id]
+    def get_current_question(self) -> QuestionDB:
+        cur_q_name = self.include_qnames[self.cur_id_ind]
 
-            q = db.get_question_by_name(q_name)
-            return q
-            # return list(filter(lambda x: x.number == q_id, quests))[0]
-        except IndexError:
-            to_raise = MyException(f'No such question with given index: {self.cur_id_ind}')
-            self.cur_id_ind += 1
+        if not self.__cur_question or cur_q_name != self.__cur_question.name:
+            self.__cur_question = db.get_question_by_name(cur_q_name)
 
-            raise to_raise
+        return self.__cur_question
 
 
 # @dataclass
 class UserData:
     state: AskingState | None
     answers_df: pd.DataFrame | None
-    questions_names: list[str]
+    questions_names: list[str] | None
 
     def __init__(self):
         self.state = None  # AskingState(None)
         self.answers_df = None
+        self.questions_names = None
         # self.answers_df = create_default_answers_df()
 
     def reload_answers_df_from_db(self):
         self.answers_df = db.build_answers_df()
+
+    def reload_qnames(self):
+        self.questions_names = db.get_ordered_questions_names()
 
 
 USER_DATA_KEY = 'data'
@@ -220,25 +220,23 @@ def handler_decorator(func):
         user_data: UserData = context.chat_data[USER_DATA_KEY]
 
         print('Chat id:', update.effective_chat.id)
+        # answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
 
-        answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
-
-        read_from_db = True
-
-        if read_from_db:
+        if user_data.answers_df is None:
             print(f'DB: Restoring answers_df')
             user_data.reload_answers_df_from_db()
-        elif os.path.exists(answers_df_fname):
-            print(f'{answers_df_fname}: Restoring answers_df')
-            user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
-        else:
-            print(f'Creating default answers_df for user: {update.effective_chat.id}')
-            user_data.answers_df = create_default_answers_df()
+        # elif os.path.exists(answers_df_fname):
+        #     print(f'{answers_df_fname}: Restoring answers_df')
+        #     user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
+        # else:
+        #     print(f'Creating default answers_df for user: {update.effective_chat.id}')
+        #     user_data.answers_df = create_default_answers_df()
 
         print('answers_df shape:', user_data.answers_df.shape)
         print('answers_df cols:', list(user_data.answers_df.columns))
 
-        user_data.questions_names = db.get_ordered_questions_names()
+        if not user_data.questions_names:
+            user_data.reload_qnames()
 
         try:
             await func(update, context, *args, **kwargs)
@@ -392,5 +390,3 @@ async def send_df_in_formats(
         # await send_img_func(table_text_transposed)
     if send_text:
         await send_text_func(md_text)
-
-

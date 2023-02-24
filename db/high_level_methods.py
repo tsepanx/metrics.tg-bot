@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+import functools
 from typing import (
     Callable,
     Optional,
@@ -59,10 +60,9 @@ class QuestionDB:
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
-
         qtype_answer_func_mapping = {
             # id: func <Callable>
-            0: None,  # plain
+            0: None,  # text
             1: lambda x: int(x),  # int
             2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,
             3: time_or_hours,
@@ -70,6 +70,12 @@ class QuestionDB:
         }
 
         return qtype_answer_func_mapping[self.type_id]
+
+    def get_qtype(self):
+        rows = provide_conn(get_where)({'id': self.type_id}, 'question_type')
+
+        obj = QuestionTypeDB(*rows[0])
+        return obj
 
 
 @provide_conn
@@ -146,4 +152,3 @@ def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Se
     )
 
     return rows
-

@@ -57,9 +57,11 @@ async def send_ask_question(q: QuestionDB, send_message_f: Callable):
         resize_keyboard=True
     )
 
+    question_text = f'<code>{q.get_qtype().notation_str}</code> {q.fulltext}'
+
     await wrapped_send_text(
         send_message_f,
-        q.fulltext,
+        question_text,
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -154,11 +156,11 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # state = context.chat_data["state"]
     user_data: UserData = context.chat_data[USER_DATA_KEY]
     state = user_data.state
-    qnames = user_data.questions_names
+    # qnames = user_data.questions_names
 
     # if state.current_state == 'ask':
     if isinstance(state, AskingState):
-        q: QuestionDB = state.get_current_question(qnames)
+        q: QuestionDB = state.get_current_question()
 
         user_ans = update.message.text
 
@@ -183,8 +185,7 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state.cur_id_ind += 1
 
         if state.cur_id_ind < len(state.include_qnames):
-
-            q = state.get_current_question(qnames)
+            q = state.get_current_question()
             await send_ask_question(q, update.message.reply_text)
         else:
             await on_end_asking(user_data, update)
@@ -267,7 +268,6 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(include_indices) == 0:
             include_indices = all_indices
 
-    qnames = get_ordered_questions_names()
     include_names = list(map(lambda x: qnames[x], include_indices))
 
     user_data.state = AskingState(
@@ -283,7 +283,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
-    q = user_data.state.get_current_question(qnames)
+    q = user_data.state.get_current_question()
     await send_ask_question(q, update.message.reply_text)
 
 
@@ -295,6 +295,19 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update,
         user_data.answers_df
     )
+
+
+def on_add_question(user_data: UserData):
+    user_data.questions_names = None
+
+    pass
+
+
+@handler_decorator
+async def add_question_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_data = context.chat_data[USER_DATA_KEY]
+
+    on_add_question(user_data)
 
 
 @handler_decorator
