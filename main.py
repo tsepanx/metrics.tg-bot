@@ -120,7 +120,7 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             day: str = state.asking_day
             question_name = corresponding_qnames[i]
 
-            if not answer:
+            if answer is None:
                 continue
 
             where_dict = {'day_fk': day, 'question_fk': question_name}
