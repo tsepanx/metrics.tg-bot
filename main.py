@@ -1,27 +1,54 @@
 import asyncio
 import dataclasses
 import datetime
+from typing import (
+    Callable
+)
 
 import pandas as pd
-
-from typing import Callable
-
 import telegram
-from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, PicklePersistence, \
-    CallbackQueryHandler, Application
+from telegram import (
+    Update
+)
+from telegram.constants import (
+    ParseMode
+)
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    PicklePersistence,
+    filters
+)
 
-from questions import questions_list, questions_objects, Question
-from utils import handler_decorator, wrapped_send_text, merge_to_existing_column, AskingState, \
-    ASK_WRONG_FORMAT, get_nth_delta_day, STOP_ASKING, SKIP_QUEST, add_question_indices_to_df_index, USER_DATA_KEY, \
-    UserData, answers_df_backup_fname, \
-    send_df_in_formats, MyException
+import db.base
+from db import (
+    QuestionDB,
+    get_ordered_questions_names,
+    update_or_insert_row
+)
+from utils import (
+    ASK_WRONG_FORMAT,
+    SKIP_QUEST,
+    STOP_ASKING,
+    USER_DATA_KEY,
+    AskingState,
+    MyException,
+    UserData,
+    answers_df_backup_fname,
+    get_nth_delta_day,
+    handler_decorator,
+    send_df_in_formats,
+    wrapped_send_text
+)
 
 
-async def send_ask_question(q: Question, send_message_f: Callable):
+async def send_ask_question(q: QuestionDB, send_message_f: Callable):
     buttons = [
-        list(map(str, q.inline_keyboard_answers)),
+        list(map(str, q.suggested_answers_list)),
         [SKIP_QUEST, STOP_ASKING]
     ]
 
@@ -33,9 +60,9 @@ async def send_ask_question(q: Question, send_message_f: Callable):
 
     await wrapped_send_text(
         send_message_f,
-        q.text,
+        q.fulltext,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode=ParseMode.HTML
     )
 
 
@@ -55,10 +82,13 @@ async def send_answers_df(
     # --- Adding temporary index column, to sort by it, and show it with table
     # Important thing is not to save this col to df, because question number is not hardly associated with question
 
-    answers_df = add_question_indices_to_df_index(
-        answers_df,
-        questions_objects
-    )
+    # answers_df = add_questions_sequence_num_as_col(
+    #     answers_df,
+    #     questions_objects
+    # )
+
+    i_col = list(range(len(answers_df.index)))
+    answers_df.insert(0, 'i', i_col)
 
     if sort_by_quest_indices:
         answers_df = answers_df.sort_values('i')
@@ -80,72 +110,37 @@ async def send_answers_df(
 
 
 async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
-    def update_answers_df(
-            df: pd.DataFrame,
-            state: AskingState,
-            sort_columns=True,
-            sort_rows_by_q_index=True,
-    ) -> pd.DataFrame:
+    def update_db(
+            state: AskingState
+    ):
+        answers = state.cur_answers
+        corresponding_qnames: list[str] = state.include_qnames
 
-        old_shape = df.shape
+        for i in range(len(answers)):
+            answer: str = answers[i]
+            day: str = state.asking_day
+            question_name = corresponding_qnames[i]
 
-        # Ended question list
-        day_index = state.asking_day
+            if not answer:
+                continue
 
-        # Create empty col if it does not exist
-        if df.get(day_index) is None:
-            df = df.assign(**{day_index: pd.Series()})
+            where_dict = {'day_fk': day, 'question_fk': question_name}
 
-        index_str: list[str] = list(map(
-            lambda x: questions_objects[x].name,
-            state.include_ids
-        ))
-
-        new_col = pd.Series(state.cur_answers, index=index_str)
-        # Needed to convert automatic conversion to numpy types (f.e. numpy.int64) to initial pythonic type back
-        new_col = new_col.astype(object)
-
-        res_col = merge_to_existing_column(df[day_index], new_col)
-
-        df = df.reindex(df.index.union(index_str))
-
-        if sort_columns:
-            columns_order = sorted(
-                df.columns,
-                key=lambda x: '!' + x if not isinstance(x, datetime.date) else x.isoformat()
+            update_or_insert_row(
+                where_dict,
+                {'answer_text': answer},
+                'question_answer'
             )
-            df = df.reindex(columns_order, axis=1)
 
-        if sort_rows_by_q_index:
-            if 'i' not in df.columns:
-                df = add_question_indices_to_df_index(df, questions_objects)
-
-            df = df.sort_values('i')
-            df = df.drop('i', axis=1)
-
-        df[day_index] = res_col
-
-        new_shape = df.shape
-
-        print('Updating answers_df')
-        if old_shape == new_shape:
-            print(f'shape not changed: {old_shape}')
-        else:
-            print(f'shape changed!\noldshape: {old_shape}\nnew shape: {new_shape}')
-
-        return df
-
-    user_data.answers_df = update_answers_df(
-        user_data.answers_df,
-        user_data.state
-    )
+    # Updating DataFrame is not needed anymore, as it will be restored from db: new_answers -> db -> build_answers_df
+    update_db(user_data.state)
 
     # TODO grubber collector check
     user_data.state = None
+    user_data.reload_answers_df_from_db()
 
     if save_csv:
         fname_backup = answers_df_backup_fname(update.effective_chat.id)
-
         user_data.answers_df.to_csv(fname_backup)
 
     await send_answers_df(
@@ -160,17 +155,18 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # state = context.chat_data["state"]
     user_data: UserData = context.chat_data[USER_DATA_KEY]
     state = user_data.state
+    qnames = user_data.questions_names
 
     # if state.current_state == 'ask':
     if isinstance(state, AskingState):
-        q: Question = state.get_current_question(questions_objects)
+        q: QuestionDB = state.get_current_question(qnames)
 
         user_ans = update.message.text
 
         if user_ans not in [SKIP_QUEST, STOP_ASKING]:
             try:
-                if q.answer_mapping_func:
-                    user_ans = q.answer_mapping_func(user_ans)
+                if q.answer_apply_func:
+                    user_ans = q.answer_apply_func(user_ans)
             except Exception:
                 raise MyException('Error parsing answer, try again')
 
@@ -181,15 +177,15 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await on_end_asking(user_data, update)
             return
 
-        # state.cur_answers[state.include_ids[state.cur_id_ind]] = user_ans
+        # state.cur_answers[state.include_qnames[state.cur_id_ind]] = user_ans
         state.cur_answers[state.cur_id_ind] = user_ans
-        print(q.text, ": ", user_ans)
+        print(q.fulltext, ": ", user_ans)
 
         state.cur_id_ind += 1
 
-        if state.cur_id_ind < len(state.include_ids):
+        if state.cur_id_ind < len(state.include_qnames):
 
-            q = state.get_current_question(questions_objects)
+            q = state.get_current_question(qnames)
             await send_ask_question(q, update.message.reply_text)
         else:
             await on_end_asking(user_data, update)
@@ -237,7 +233,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return res
 
     # state = context.chat_data["state"]
-    user_data = context.chat_data[USER_DATA_KEY]
+    user_data: UserData = context.chat_data[USER_DATA_KEY]
 
     if user_data.state is not None:
         pass  # Existing command is in action
@@ -251,40 +247,44 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asking_day = str(get_nth_delta_day(0))  # today
 
     answers_df = user_data.answers_df
+    qnames = user_data.questions_names
 
     if parsed.questions_ids:
-        include_ids = parsed.questions_ids
+        include_indices = parsed.questions_ids
     else:
-        all_ids = list(range(len(questions_list)))
+        all_indices = list(range(len(qnames)))
 
         if asking_day in answers_df.columns:
             day_values = answers_df[asking_day].isnull().reset_index().drop('index', axis=1)
 
             # Filter to get index of only null values
-            include_ids = list(day_values.apply(
+            include_indices = list(day_values.apply(
                 lambda x: None if bool(x[0]) is False else 1,
                 axis=1).dropna().index
-                               )
+                                   )
         else:
-            include_ids = all_ids
+            include_indices = all_indices
 
-        if len(include_ids) == 0:
-            include_ids = all_ids
+        if len(include_indices) == 0:
+            include_indices = all_indices
+
+    qnames = get_ordered_questions_names()
+    include_names = list(map(lambda x: qnames[x], include_indices))
 
     user_data.state = AskingState(
-        include_ids=include_ids,
+        include_qnames=include_names,
         asking_day=asking_day
     )
 
     await wrapped_send_text(
         update.message.reply_text,
         text=f'Asking  questions\n'
-             f'List: `{include_ids}`\n'
+             f'List: `{include_indices}`\n'
              f'Day: `{asking_day}`',
         parse_mode=ParseMode.MARKDOWN
     )
 
-    q = user_data.state.get_current_question(questions_objects)
+    q = user_data.state.get_current_question(qnames)
     await send_ask_question(q, update.message.reply_text)
 
 

@@ -66,13 +66,30 @@ CREATE TABLE question_answer(
 --         REFERENCES question_type(id);
 
 
+----------- SELECT OPERATIONS -----------
+
+
 -- Show all answers for given day, sorted by q.num_int
 SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
-    JOIN question q on q.name = qa.question_fk
+    JOIN question q
+        ON q.name = qa.question_fk
     WHERE
-        qa.day_fk = '2023-02-21'
+--         qa.day_fk = '2023-02-21' AND qa.question_fk
+        (day_fk, question_fk) = ('2023-02-21', 'walking')
     ORDER BY qa.day_fk, q.num_int;
 
+SELECT * FROM question AS q
+    WHERE
+        (name) = ('walking')
+;
+
+-- Print all questions list
+SELECT q.name, qt.notation_str, q.fulltext FROM question_type AS qt
+    JOIN question q
+        ON qt.id = q.type_id;
+
+
+----------- DELETE OPERATIONS -----------
 
 -- Delete all ross with 'NaN'/NULL answer values
 DELETE FROM question_answer
@@ -86,5 +103,9 @@ DELETE FROM question_answer
 
 SELECT day_fk, question_fk, answer_text FROM question_answer
     WHERE
-        day_fk = '2023-02-23'
-;
+        (day_fk, question_fk) = ('2023-02-23', 'weight');
+
+-- UPDATE question_answer SET (day_fk, answer_text) = ('2023-02-23', '66664')
+UPDATE question_answer SET (answer_text) = ('66664')
+    WHERE
+        (day_fk, question_fk) = ('2023-02-23', 'weight');
