@@ -10,7 +10,6 @@ from psycopg.sql import (
     Placeholder
 )
 
-
 # def build_template_sql(conn: psycopg.connection, query: str, tablename: str, names: Sequence[str]) -> str:
 #     """
 #     >>> q1 = SQL("INSERT INTO my_table ({}) VALUES ({})").format(

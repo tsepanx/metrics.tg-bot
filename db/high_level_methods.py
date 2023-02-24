@@ -2,21 +2,44 @@ import dataclasses
 import datetime
 from typing import (
     Callable,
-    Optional, Sequence
+    Optional,
+    Sequence
 )
 
 import pandas as pd
 import psycopg
 
 from db.base import (
-    get_where,
     _query_get,
+    get_where,
     provide_conn
 )
-from depr.questions import (
-    binary_f,
-    time_or_hours
-)
+
+
+def binary_f(x):
+    return 1 if x == "Да" else 0
+
+
+def time_or_hours(s: str) -> datetime.time:
+    def str_to_time(s: str) -> datetime.time:
+        t = datetime.time.fromisoformat(s)
+        return t
+        # return (t.hour * 60 + t.minute) / 60
+
+    def float_hrs_to_time(s: str) -> datetime.time:
+        f = float(s)
+
+        hrs = int(f) % 24
+        mins = int((f - int(f)) * 60)
+
+        return datetime.time(hour=hrs, minute=mins)
+
+    try:
+        t = str_to_time(s)
+    except Exception:
+        t = float_hrs_to_time(s)
+
+    return t
 
 
 @dataclasses.dataclass
@@ -40,9 +63,6 @@ class QuestionDB:
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
-        # conn = _psql_conn()
-        # qtype_row = _get_row(conn, {'id': self.type_id}, 'question_type')
-        # qtype = QuestionTypeDB(*qtype_row)
 
         qtype_answer_func_mapping = {
             # id: func <Callable>
@@ -130,3 +150,4 @@ def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Se
     )
 
     return rows
+

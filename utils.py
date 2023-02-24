@@ -29,7 +29,9 @@ from telegram.ext import (
 )
 
 import db
-from db import QuestionDB
+from db import (
+    QuestionDB
+)
 
 answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
 
