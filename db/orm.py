@@ -4,15 +4,14 @@
 #
 #     text: str
 #     inline_keyboard_answers: list[str]
-#     answer_mapping_func: Optional[Callable] = None
+#     answer_apply_func: Optional[Callable] = None
 #
 #     def __str__(self):
 #         # return f'[{self.number}] {self.text}'
 #         return '{:15} {}'.format(self.name, self.text)
 import dataclasses
-from pprint import pprint
 
-from db import _query_get, _psql_conn, _query_set
+# from db import _query_get, _psql_conn, _query_set
 
 
 class Table:
@@ -24,7 +23,7 @@ class Table:
 
 
 class ObjectsManager:
-    db_class: Table
+    db_class = None
     table_name: str
 
     def __init__(self, db_class, table_name: str):
@@ -46,8 +45,8 @@ class ObjectsManager:
         )
 
         for row in query_results:
-            q = self.db_class(*row)
-            obj_list.append(q)
+            obj = self.db_class(*row)
+            obj_list.append(obj)
 
         return obj_list
 
@@ -74,24 +73,8 @@ class ObjectsManager:
         obj = self.db_class(**kwargs)
         return obj
 
+    # def exists(self/):
 
-@dataclasses.dataclass
-class QuestionTypeDB:
-    id: int
-    name: str
-    notation_str: str
-
-
-@dataclasses.dataclass
-class QuestionDB:
-    name: str
-    num_int: int
-    fulltext: str
-    suggested_answers_list: list[str]
-
-    # type: QuestionTypeDB
-    type_id: int
-    is_activated: bool = True
 
 
 if __name__ == "__main__":
@@ -101,8 +84,9 @@ if __name__ == "__main__":
     #
     # print(om.get_all())
 
-    om2 = ObjectsManager(QuestionTypeDB, 'question_type')
+    # om2 = ObjectsManager(QuestionTypeDB, 'question_type')
     # pprint(om2.get_all())
 
-    qt = om2.create(id=44, name='name44', notation_str='notat44')
-    print(qt)
+    # qt = om2.create(id=44, name='name44', notation_str='notat44')
+    # print(qt)
+    pass

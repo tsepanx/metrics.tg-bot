@@ -28,11 +28,12 @@ from telegram.ext import (
     ContextTypes
 )
 
-from db.db import (
+import db
+from db.question import (
+    QuestionDB,
+    get_question,
     get_questions_names
 )
-from questions import \
-    Question  # , questions_objects
 
 answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
 
@@ -60,27 +61,28 @@ ASK_WRONG_FORMAT = MyException(
 MAX_MSG_LEN = 7000
 
 
-# @dataclass
 class AskingState:
-    include_ids: list[int]
+    include_qnames: list[str]
     asking_day: str
 
     cur_id_ind: int
     cur_answers: list[str | None]
 
-    def __init__(self, include_ids: list, asking_day: str):
-        self.include_ids = include_ids
+    def __init__(self, include_qnames: list, asking_day: str):
+        self.include_qnames = include_qnames
         self.asking_day = asking_day
 
         self.cur_id_ind = 0
         # self.cur_answers = list()
-        self.cur_answers = [None for _ in range(len(include_ids))]
+        self.cur_answers = [None for _ in range(len(include_qnames))]
 
-    def get_current_question(self, quests: list[Question]):
+    def get_current_question(self, qnames: list[str]) -> QuestionDB:
         try:
-            q_id = self.include_ids[self.cur_id_ind]
+            q_name = self.include_qnames[self.cur_id_ind]
+            # q_name = qnames[q_id]
 
-            return quests[q_id]
+            q = get_question(q_name)
+            return q
             # return list(filter(lambda x: x.number == q_id, quests))[0]
         except IndexError:
             to_raise = MyException(f'No such question with given index: {self.cur_id_ind}')
@@ -109,7 +111,10 @@ CHAT_DATA_KEYS_DEFAULTS = {
 }
 
 
-def add_questions_sequence_num_as_col(df: pd.DataFrame, questions_objects: list[Question]):
+def add_questions_sequence_num_as_col(
+        df: pd.DataFrame,
+        questions: list[QuestionDB]
+):
     """
     Generate
     Prettify table look by adding questions ids to index
@@ -118,9 +123,9 @@ def add_questions_sequence_num_as_col(df: pd.DataFrame, questions_objects: list[
     """
     sequential_numbers = list()
 
-    for ind_str in df.index:
-        for i in range(len(questions_objects)):
-            if questions_objects[i].name == ind_str:
+    for index_i in df.index:
+        for i in range(len(questions)):
+            if questions[i].name == index_i:
                 # s = str(i)
                 sequential_numbers.append(i)
                 break
@@ -139,14 +144,6 @@ def add_questions_sequence_num_as_col(df: pd.DataFrame, questions_objects: list[
     df.insert(0, 'i', sequential_numbers)
 
     return df
-
-
-def questions_to_str(
-        qs: list[Question],
-) -> list[str]:
-    str_list = ['{:2} {}'.format(i, str(qs[i])) for i in range(len(qs))]
-
-    return str_list
 
 
 def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Series:
@@ -230,10 +227,7 @@ def handler_decorator(func):
         if read_from_db:
             print(f'DB: Restoring answers_df')
 
-            from db.db import (
-                build_answers_df
-            )
-            user_data.answers_df = build_answers_df()
+            user_data.answers_df = db.question.build_answers_df()
         elif os.path.exists(answers_df_fname):
             print(f'{answers_df_fname}: Restoring answers_df')
             user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
@@ -243,6 +237,8 @@ def handler_decorator(func):
 
         print('answers_df shape:', user_data.answers_df.shape)
         print('answers_df cols:', list(user_data.answers_df.columns))
+
+        user_data.questions_names = get_questions_names()
 
         try:
             await func(update, context, *args, **kwargs)
@@ -257,8 +253,6 @@ def handler_decorator(func):
 def get_nth_delta_day(n: int = 0) -> datetime.date:
     date = datetime.date.today() + datetime.timedelta(days=n)
     return date
-
-    # return str(date)
 
 
 STOP_ASKING = 'Stop asking'
@@ -289,12 +283,6 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     # 12:34:00 -> 12:34
 
     return text
-
-
-# def write_df_to_csv(fname: str, df: pd.DataFrame):
-#     with open(fname, 'w') as file:
-#         df_csv = df.to_csv()
-#         file.write(df_csv)
 
 
 def create_default_answers_df() -> pd.DataFrame:
@@ -404,3 +392,5 @@ async def send_df_in_formats(
         # await send_img_func(table_text_transposed)
     if send_text:
         await send_text_func(md_text)
+
+

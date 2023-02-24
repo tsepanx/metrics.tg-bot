@@ -61,12 +61,6 @@ def time_or_hours(s: str) -> datetime.time:
 
 hours_1_buttons = ["00:00", "00:30", "01:00", "01:30"]
 
-# class QuestionType(enum.Enum):
-#     HOURS = time_or_hours
-#     BINARY = binary
-#     DECIMAL_GRADE = decimal_grade
-
-
 questions_list = [
     [
         'sleep_1_start', "`(H)` Отбой (время)",
@@ -109,7 +103,7 @@ class Question:
 
     text: str
     inline_keyboard_answers: list[str]
-    answer_mapping_func: Optional[Callable] = None
+    answer_apply_func: Optional[Callable] = None
 
     def __str__(self):
         # return f'[{self.number}] {self.text}'
