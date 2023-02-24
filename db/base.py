@@ -11,7 +11,9 @@ from psycopg.sql import (
     Placeholder
 )
 
-
+PG_DB = os.environ.get('PG_DB', 'postgres')
+PG_USER = os.environ.get('PG_USER', 'postgres')
+PG_HOST = os.environ.get('PG_HOST', 'localhost')
 PG_PASSWORD = os.environ.get('PG_PASSWORD', '')
 
 
@@ -26,10 +28,10 @@ def prefix_keys(d: dict[str, any], pref: str) -> dict[str, any]:
 
 def _psql_conn():
     conn = psycopg.connect(
-        dbname='postgres',
-        user='postgres',
+        dbname=PG_DB,
+        user=PG_USER,
         password=PG_PASSWORD,
-        host='localhost'
+        host=PG_HOST
     )
     return conn
 
