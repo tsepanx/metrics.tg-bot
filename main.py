@@ -24,7 +24,6 @@ from telegram.ext import (
     filters
 )
 
-import db.base
 from db import (
     QuestionDB,
     get_ordered_questions_names,

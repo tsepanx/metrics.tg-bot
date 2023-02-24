@@ -1,3 +1,4 @@
+import os
 from typing import (
     Optional,
     Sequence
@@ -11,25 +12,7 @@ from psycopg.sql import (
 )
 
 
-# def build_template_sql(conn: psycopg.connection, query: str, tablename: str, names: Sequence[str]) -> str:
-#     """
-#     >>> q1 = SQL("INSERT INTO my_table ({}) VALUES ({})").format(
-#     ...     SQL(', ').join(map(Identifier, names)),
-#     ...     SQL(', ').join(Placeholder() * len(names)))
-#     >>> print(q1.as_string(conn))
-#     INSERT INTO my_table ("foo", "bar", "baz") VALUES (%s, %s, %s)
-#     """
-#
-#     # q1 = SQL("INSERT INTO {} ({}) VALUES ({})").format(
-#     # SELECT * FROM {} WHERE ({}) = ({})
-#     q1 = SQL(query).format(
-#         Identifier(tablename),
-#         SQL(', ').join(map(Identifier, names)),
-#         # SQL(', ').join(Placeholder() * len(names))
-#         SQL(', ').join(map(Placeholder, names))
-#         # INSERT INTO my_table ("foo", "bar", "baz") VALUES (%(foo)s, %(bar)s, %(baz)s)
-#     )
-#     return q1.as_string(conn)
+PG_PASSWORD = os.environ.get('PG_PASSWORD', '')
 
 
 def prefix_keys(d: dict[str, any], pref: str) -> dict[str, any]:
@@ -45,7 +28,7 @@ def _psql_conn():
     conn = psycopg.connect(
         dbname='postgres',
         user='postgres',
-        password='',
+        password=PG_PASSWORD,
         host='localhost'
     )
     return conn
