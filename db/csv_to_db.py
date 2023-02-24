@@ -7,7 +7,7 @@ from db import (
     _psql_conn,
     _query_set
 )
-from questions import (
+from depr.questions import (
     questions_objects
 )
 

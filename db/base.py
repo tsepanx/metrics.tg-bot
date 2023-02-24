@@ -85,13 +85,30 @@ def _query_set(
         conn.commit()
 
 
-def _get_where(conn: psycopg.connection, where_dict: dict, tablename: str) -> Sequence:
-    pk_names = tuple(where_dict.keys())
+def get_where(
+        conn: psycopg.connection,
+        where_dict: dict,
+        tablename: str,
+        select_cols: Sequence[str] | None = None
+) -> Sequence:
+    where_names = tuple(where_dict.keys())
 
-    query = SQL("SELECT * FROM {} WHERE ({}) = ({})").format(
+    format_values = [
         Identifier(tablename),
-        SQL(', ').join(map(Identifier, pk_names)),
-        SQL(', ').join(map(Placeholder, pk_names))
+        SQL(', ').join(map(Identifier, where_names)),
+        SQL(', ').join(map(Placeholder, where_names))
+    ]
+
+    if select_cols:
+        template_query = "SELECT {} FROM {} WHERE ({}) = ({})"
+        format_values = [
+            SQL(', ').join(map(Identifier, select_cols)),
+        ] + format_values
+    else:
+        template_query = "SELECT * FROM {} WHERE ({}) = ({})"
+
+    query = SQL(template_query).format(
+        *format_values
     ).as_string(conn)
 
     rows = _query_get(
@@ -100,43 +117,20 @@ def _get_where(conn: psycopg.connection, where_dict: dict, tablename: str) -> Se
         where_dict
     )
 
-    # if len(rows) < 1:
-    #     return None
-    #
-    # row1 = rows[0]
-    # return row1
-
     return rows
 
 
-def _exists(conn: psycopg.connection, where_dict: dict[str, any], tablename: str):
-    return _get_where(conn, where_dict, tablename) is not None
-    # pk_names = tuple(where_dict.keys())
-    # pk_values = tuple(where_dict.values())
-    #
-    # query = SQL("SELECT {} FROM {} WHERE ({}) = ({})").format(
-    #     SQL(', ').join(map(Identifier, pk_names)),
-    #     Identifier(tablename),
-    #     SQL(', ').join(map(Identifier, pk_names)),
-    #     SQL(', ').join(map(Placeholder, pk_names))
-    #     # SQL(', ').join(Placeholder() * len(names))
-    #     # INSERT INTO my_table ("foo", "bar", "baz") VALUES (%(foo)s, %(bar)s, %(baz)s)
-    # ).as_string(conn)
-    #
-    # res = _query_get(conn, query, where_dict)
-    # row1 = res[0]
-    #
-    # return list(pk_values) == list(row1)
+def exists(conn: psycopg.connection, where_dict: dict[str, any], tablename: str):
+    return len(get_where(conn, where_dict, tablename)) > 0
 
 
 def _insert_row(conn: psycopg.connection, row_dict: dict[str, any], tablename: str):
     names = tuple(row_dict.keys())
 
-    # query = SQL("SELECT * FROM {} WHERE ({}) = ({})").format(
     query = SQL("INSERT INTO {} ({}) VALUES ({});").format(
-        Identifier(tablename),
-        SQL(', ').join(map(Identifier, names)),
-        SQL(', ').join(map(Placeholder, names))
+        Identifier(tablename),                      # tablename
+        SQL(', ').join(map(Identifier, names)),     # (col1, col2)
+        SQL(', ').join(map(Placeholder, names))     # (%(col1)s, %(col1)s) -> ('val1', 'val2')
     ).as_string(conn)
 
     try:
@@ -190,16 +184,17 @@ def _update_row(conn: psycopg.connection,
     )
 
 
-def _update_or_insert_row(conn: psycopg.connection,
-                          where_dict: dict[str, any],
-                          set_dict: dict[str, any],
-                          tablename: str):
+@provide_conn
+def update_or_insert_row(conn: psycopg.connection,
+                         where_dict: dict[str, any],
+                         set_dict: dict[str, any],
+                         tablename: str):
 
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
     # assert set(where_dict).union(set(set_dict)) == columns_set
 
-    if _exists(conn, where_dict, tablename):
+    if exists(conn, where_dict, tablename):
         print(f"ROW {where_dict} IS UPDATED")
         _update_row(conn, where_dict, set_dict, tablename)
     else:
@@ -219,21 +214,21 @@ if __name__ == "__main__":
     # print(questions_list)
 
     # "UPDATE {tablename} SET answer_text = '66664' WHERE (day_fk, question_fk) = ('2023-02-23', 'weight')"
-    # _update_row(
-    #     conn,
-    #     {'day_fk': '2023-02-23', 'question_fk': 'weight'},
-    #     # {'answer_text': '2345'},
-    #     {'answer_text': 'new_2345'},
-    #     'question_answer'
-    # )
-    #
-    # _insert_row(
-    #     conn,
-    #     {'day_fk': '2023-02-24', 'question_fk': 'x_small'},
-    #     'question_answer'
-    # )
+    _update_row(
+        conn,
+        {'day_fk': '2023-02-23', 'question_fk': 'weight'},
+        # {'answer_text': '2345'},
+        {'answer_text': 'new_2345'},
+        'question_answer'
+    )
 
-    _update_or_insert_row(
+    _insert_row(
+        conn,
+        {'day_fk': '2023-02-24', 'question_fk': 'x_small'},
+        'question_answer'
+    )
+
+    update_or_insert_row(
         conn,
         {'day_fk': '2023-02-25', 'answer_text': 'walkn1'},
         {'question_fk': 'vegetables_eat'},

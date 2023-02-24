@@ -29,11 +29,7 @@ from telegram.ext import (
 )
 
 import db
-from db.question import (
-    QuestionDB,
-    get_question,
-    get_questions_names
-)
+from db import QuestionDB
 
 answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
 
@@ -81,7 +77,7 @@ class AskingState:
             q_name = self.include_qnames[self.cur_id_ind]
             # q_name = qnames[q_id]
 
-            q = get_question(q_name)
+            q = db.get_question_by_name(q_name)
             return q
             # return list(filter(lambda x: x.number == q_id, quests))[0]
         except IndexError:
@@ -101,6 +97,9 @@ class UserData:
         self.state = None  # AskingState(None)
         self.answers_df = None
         # self.answers_df = create_default_answers_df()
+
+    def reload_answers_df_from_db(self):
+        self.answers_df = db.build_answers_df()
 
 
 USER_DATA_KEY = 'data'
@@ -226,8 +225,7 @@ def handler_decorator(func):
 
         if read_from_db:
             print(f'DB: Restoring answers_df')
-
-            user_data.answers_df = db.question.build_answers_df()
+            user_data.reload_answers_df_from_db()
         elif os.path.exists(answers_df_fname):
             print(f'{answers_df_fname}: Restoring answers_df')
             user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
@@ -238,7 +236,7 @@ def handler_decorator(func):
         print('answers_df shape:', user_data.answers_df.shape)
         print('answers_df cols:', list(user_data.answers_df.columns))
 
-        user_data.questions_names = get_questions_names()
+        user_data.questions_names = db.get_ordered_questions_names()
 
         try:
             await func(update, context, *args, **kwargs)
@@ -289,7 +287,7 @@ def create_default_answers_df() -> pd.DataFrame:
     # q_names = list(map(lambda x: x.name, questions_objects))
     # q_texts = list(map(lambda x: x.text, questions_objects))
 
-    questions_names = get_questions_names()
+    questions_names = db.get_ordered_questions_names()
 
     init_answers_df = pd.DataFrame(
         index=questions_names

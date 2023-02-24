@@ -2,18 +2,18 @@ import dataclasses
 import datetime
 from typing import (
     Callable,
-    Optional
+    Optional, Sequence
 )
 
 import pandas as pd
 import psycopg
 
 from db.base import (
-    _get_where,
+    get_where,
     _query_get,
     provide_conn
 )
-from questions import (
+from depr.questions import (
     binary_f,
     time_or_hours
 )
@@ -74,7 +74,7 @@ def build_answers_df(
 
     for day in days:
         # format: [('quest_name', 'answer_text'), ...]
-        res = _get_answers_on_day(conn, day)
+        res = get_answers_on_day(conn, day)
 
         if not len(res):
             if include_empty_cols:
@@ -89,23 +89,17 @@ def build_answers_df(
         # df = df.assign(**{'2023-02-02': answers_column})
         df[day] = answers_column
 
-    qnames = get_questions_names()
+    qnames = get_ordered_questions_names()
     df = df.reindex(qnames)
 
     return df
 
 
 @provide_conn
-def get_questions_names(
+def get_ordered_questions_names(
         conn: psycopg.connection,
 ) -> list[str]:
-    query = """
-        -- Print all questions list
-        SELECT q.name FROM question AS q
-            JOIN question_type qt
-                ON qt.id = q.type_id
-            ORDER BY q.num_int;
-    """
+    query = """SELECT name FROM question ORDER BY num_int;"""
 
     query_results = _query_get(conn, query)
     first_col = list(map(lambda x: x[0], query_results))
@@ -114,8 +108,8 @@ def get_questions_names(
 
 
 @provide_conn
-def get_question(conn, name: str) -> QuestionDB | None:
-    rows = _get_where(
+def get_question_by_name(conn, name: str) -> QuestionDB | None:
+    rows = get_where(
         conn,
         where_dict={'name': name},
         tablename='question'
@@ -127,20 +121,12 @@ def get_question(conn, name: str) -> QuestionDB | None:
     return obj
 
 
-def _get_answers_on_day(conn: psycopg.connection, day: str | datetime.date):
-    query = """
-        -- Show all answers for given day, sorted by q.num_int
-        SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
-            JOIN question q on q.name = qa.question_fk
-                WHERE
-                    qa.day_fk = %s
-            ORDER BY qa.day_fk, q.num_int;
-    """
-
-    res = _query_get(
+def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Sequence:
+    rows = get_where(
         conn,
-        query,
-        params=(day,)
+        where_dict={'day_fk': day},
+        tablename='question_answer',
+        select_cols=('question_fk', 'answer_text')
     )
 
-    return res
+    return rows

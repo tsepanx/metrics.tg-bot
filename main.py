@@ -24,11 +24,12 @@ from telegram.ext import (
     filters
 )
 
-from db.question import (
+from db import (
     QuestionDB,
-    get_questions_names
+    get_ordered_questions_names,
+    update_or_insert_row
 )
-from utils import (  # add_questions_sequence_num_as_col,
+from utils import (
     ASK_WRONG_FORMAT,
     SKIP_QUEST,
     STOP_ASKING,
@@ -36,12 +37,11 @@ from utils import (  # add_questions_sequence_num_as_col,
     AskingState,
     MyException,
     UserData,
-    answers_df_backup_fname,
     get_nth_delta_day,
     handler_decorator,
-    merge_to_existing_column,
     send_df_in_formats,
-    wrapped_send_text
+    wrapped_send_text,
+    answers_df_backup_fname
 )
 
 
@@ -61,7 +61,7 @@ async def send_ask_question(q: QuestionDB, send_message_f: Callable):
         send_message_f,
         q.fulltext,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode=ParseMode.HTML
     )
 
 
@@ -85,13 +85,16 @@ async def send_answers_df(
     #     answers_df,
     #     questions_objects
     # )
-    #
-    # if sort_by_quest_indices:
-    #     answers_df = answers_df.sort_values('i')
-    #
-    # # 'i' column was used just for sorting
-    # if not with_question_indices:
-    #     answers_df = answers_df.drop('i', axis=1)
+
+    i_col = list(range(len(answers_df.index)))
+    answers_df.insert(0, 'i', i_col)
+
+    if sort_by_quest_indices:
+        answers_df = answers_df.sort_values('i')
+
+    # 'i' column was used just for sorting
+    if not with_question_indices:
+        answers_df = answers_df.drop('i', axis=1)
 
     # --- ---
 
@@ -105,87 +108,34 @@ async def send_answers_df(
     )
 
 
-async def on_end_asking(user_data: UserData, update: Update):
-    def update_answers_df(
-            df: pd.DataFrame,
-            state: AskingState,
-            sort_columns=True,
-            sort_rows_by_q_index=True,
-    ) -> pd.DataFrame:
-
-        old_shape = df.shape
-
-        # Ended question list
-        day_index = state.asking_day
-
-        # Create empty col if it does not exist
-        if df.get(day_index) is None:
-            df = df.assign(**{day_index: pd.Series()})
-
-        qnames = get_questions_names()
-        included_qnames: list[str] = list(map(
-            lambda x: qnames[x],
-            state.include_qnames
-        ))
-
-        new_col = pd.Series(state.cur_answers, index=included_qnames)
-        # Needed to convert automatic conversion to numpy types (f.e. numpy.int64) to initial pythonic type back
-        new_col = new_col.astype(object)
-
-        res_col = merge_to_existing_column(df[day_index], new_col)
-
-        df = df.reindex(df.index.union(included_qnames))
-
-        if sort_columns:
-            columns_order = sorted(
-                df.columns,
-                key=lambda x: f'_{x}' if not isinstance(x, datetime.date) else x.isoformat()
-            )
-            df = df.reindex(columns_order, axis=1)
-
-        # if sort_rows_by_q_index:
-        #     if 'i' not in df.columns:
-        #         df = add_questions_sequence_num_as_col(df, questions_objects)
-        #
-        #     df = df.sort_values('i')
-        #     df = df.drop('i', axis=1)
-
-        df[day_index] = res_col
-
-        new_shape = df.shape
-
-        print('Updating answers_df')
-        if old_shape == new_shape:
-            print(f'shape not changed: {old_shape}')
-        else:
-            print(f'shape changed!\noldshape: {old_shape}\nnew shape: {new_shape}')
-
-        return df
-
+async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
     def update_db(
             state: AskingState
     ):
-        day = state.asking_day
         answers = state.cur_answers
-        corresponding_qnames = state.include_qnames
+        corresponding_qnames: list[str] = state.include_qnames
 
-        for answer in answers:
-            pass
+        for i in range(len(answers)):
+            answer: str = answers[i]
+            day: str = state.asking_day
+            question_name = corresponding_qnames[i]
 
+            update_or_insert_row(
+                {'day_fk': day, 'question_fk': question_name},
+                {'answer_text': answer},
+                'question_answer'
+            )
 
     # Updating DataFrame is not needed anymore, as it will be restored from db: new_answers -> db -> build_answers_df
-    # user_data.answers_df = update_answers_df(
-    #     user_data.answers_df,
-    #     user_data.state
-    # )
+    update_db(user_data.state)
 
     # TODO grubber collector check
     user_data.state = None
+    user_data.reload_answers_df_from_db()
 
-    # if save_csv:
-    #     fname_backup = answers_df_backup_fname(update.effective_chat.id)
-    #
-    #     user_data.answers_df.to_csv(fname_backup)
+    if save_csv:
+        fname_backup = answers_df_backup_fname(update.effective_chat.id)
+        user_data.answers_df.to_csv(fname_backup)
 
     await send_answers_df(
         update,
@@ -312,7 +262,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(include_indices) == 0:
             include_indices = all_indices
 
-    qnames = get_questions_names()
+    qnames = get_ordered_questions_names()
     include_names = list(map(lambda x: qnames[x], include_indices))
 
     user_data.state = AskingState(
