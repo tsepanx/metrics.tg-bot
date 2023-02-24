@@ -16,10 +16,6 @@ from db.base import (
 )
 
 
-def binary_f(x):
-    return 1 if x == "Да" else 0
-
-
 def time_or_hours(s: str) -> datetime.time:
     def str_to_time(s: str) -> datetime.time:
         t = datetime.time.fromisoformat(s)
@@ -68,7 +64,7 @@ class QuestionDB:
             # id: func <Callable>
             0: None,  # plain
             1: lambda x: int(x),  # int
-            2: binary_f,
+            2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,
             3: time_or_hours,
             4: None
         }
