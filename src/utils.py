@@ -32,8 +32,6 @@ from telegram.ext import (
 
 import db
 
-answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
-
 
 class MyException(Exception):
     pass
@@ -50,6 +48,10 @@ def ask_format_example():
             "`{:18}` Multiple args".format("/ask -q=1,2,3 -d=2023-01-01"),
         ]
     )
+
+
+def answers_df_backup_fname(chat_id: int) -> str:
+    return f"answers_df_backups/{chat_id}.csv"
 
 
 ASK_WRONG_FORMAT = MyException("`=== /ask: wrong format ===`\n" + ask_format_example())
@@ -222,7 +224,7 @@ def handler_decorator(func):
         # answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
 
         if user_data.answers_df is None:
-            print(f"DB: Restoring answers_df")
+            print("DB: Restoring answers_df")
             user_data.reload_answers_df_from_db()
 
         if not user_data.questions_names:
