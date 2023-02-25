@@ -2,13 +2,15 @@ import dataclasses
 import datetime
 from typing import (
     Callable,
-    Optional,
-    Sequence
+    Optional
 )
 
 import pandas as pd
 import psycopg
-from psycopg.sql import SQL, Identifier, Placeholder
+from psycopg.sql import (
+    SQL,
+    Placeholder
+)
 
 from db.base import (
     _query_get,
@@ -97,8 +99,6 @@ def build_answers_df(
         days_range=None,
         include_empty_cols=True
 ) -> pd.DataFrame:
-    days = list()
-
     df = pd.DataFrame()
 
     if not days_range:

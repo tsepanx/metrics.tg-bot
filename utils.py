@@ -11,7 +11,9 @@ from io import (
 from pprint import (
     pprint
 )
-from typing import Sequence
+from typing import (
+    Sequence
+)
 
 import numpy as np
 import pandas as pd

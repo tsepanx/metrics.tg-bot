@@ -1,6 +1,8 @@
+from . import (
+    high_level_methods
+)
 from .base import (
-    update_or_insert_row,
-    exists
+    exists,
+    update_or_insert_row
 )
 from .high_level_methods import *
-from . import high_level_methods
