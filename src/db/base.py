@@ -157,12 +157,9 @@ def update_or_insert_row(
     # assert set(where_dict).union(set(set_dict)) == columns_set
 
     if _exists(conn, where_dict, tablename):
-        print(f"ROW {where_dict} IS UPDATED")
         _update_row(conn, where_dict, set_dict, tablename)
     else:
         row_dict = {**where_dict, **set_dict}
-
-        print(f"ROW {row_dict} IS CREATED")
         _insert_row(conn, row_dict, tablename)
 
 

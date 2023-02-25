@@ -31,9 +31,6 @@ from telegram.ext import (
 )
 
 import db
-from db import (
-    QuestionDB,
-)
 
 answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
 
@@ -61,7 +58,7 @@ MAX_MSG_LEN = 7000
 
 
 class AskingState:
-    include_questions: list[QuestionDB] | None
+    include_questions: list[db.QuestionDB] | None
     asking_day: str
 
     cur_id_ind: int
@@ -72,9 +69,9 @@ class AskingState:
 
         self.cur_id_ind = 0
         self.cur_answers = [None for _ in range(len(include_qnames))]
-        self.include_questions = db.high_level_methods.get_questions_with_type_fk(include_qnames)
+        self.include_questions = db.get_questions_with_type_fk(include_qnames)
 
-    def get_current_question(self) -> QuestionDB:
+    def get_current_question(self) -> db.QuestionDB:
         return self.include_questions[self.cur_id_ind]
 
 
@@ -117,7 +114,7 @@ def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[QuestionDB]):
+def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[db.QuestionDB]):
     """
     Generate
     Prettify table look by adding questions ids to index
