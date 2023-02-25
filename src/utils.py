@@ -11,7 +11,9 @@ from pprint import (
     pprint,
 )
 from typing import (
-    Sequence, Tuple, Any,
+    Any,
+    Sequence,
+    Tuple,
 )
 
 import numpy as np

@@ -1,7 +1,8 @@
 import os
 from typing import (
+    Any,
     Optional,
-    Sequence, Any,
+    Sequence,
 )
 
 import psycopg

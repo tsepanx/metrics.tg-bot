@@ -7,7 +7,6 @@ from io import (
 )
 from typing import (
     Callable,
-    Sequence
 )
 
 import pandas as pd

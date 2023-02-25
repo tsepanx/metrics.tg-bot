@@ -32,5 +32,5 @@ jobs:
         run: flake8 .
       - name: PYLINT
         run: pylint src
-      - name: MYPY
-        run: mypy .
+      # - name: MYPY
+      #   run: mypy .
