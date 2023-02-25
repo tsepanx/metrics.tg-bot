@@ -1,6 +1,5 @@
 import dataclasses
 import datetime
-import functools
 from typing import (
     Callable,
     Optional,
@@ -9,6 +8,7 @@ from typing import (
 
 import pandas as pd
 import psycopg
+from psycopg.sql import SQL, Identifier, Placeholder
 
 from db.base import (
     _query_get,
@@ -56,7 +56,9 @@ class QuestionDB:
     # type QuestionTypeDB
     # type ForeignKey
     type_id: int
-    is_activated: bool = True
+    is_activated: bool
+
+    __type_fk = None
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
@@ -71,11 +73,22 @@ class QuestionDB:
 
         return qtype_answer_func_mapping[self.type_id]
 
-    def get_qtype(self):
-        rows = provide_conn(get_where)({'id': self.type_id}, 'question_type')
+    @property
+    def type_fk(self) -> QuestionTypeDB:
+        if not self.__type_fk:
+            rows = provide_conn(get_where)({'id': self.type_id}, 'question_type')
 
-        obj = QuestionTypeDB(*rows[0])
-        return obj
+            obj = QuestionTypeDB(*rows[0])
+            self.__type_fk = obj
+
+        return self.__type_fk
+
+    @type_fk.setter
+    def type_fk(self, obj: QuestionTypeDB):
+        if not isinstance(obj, QuestionTypeDB):
+            raise Exception
+
+        self.__type_fk = obj
 
 
 @provide_conn
@@ -143,6 +156,43 @@ def get_question_by_name(conn, name: str) -> QuestionDB | None:
     return obj
 
 
+@provide_conn
+def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | None:
+    template_query = """SELECT * FROM question AS q
+        JOIN question_type qt
+            ON q.type_id = qt.id
+        WHERE q.name IN ({});
+    """
+
+    query = SQL(template_query).format(
+        SQL(', ').join(Placeholder() * len(qnames))
+    ).as_string(conn)
+
+    rows = _query_get(
+        conn,
+        query=query,
+        params=qnames
+    )
+
+    res_list: list[QuestionDB] = []
+
+    for r in rows:
+        # TODO research how to get it cleaner
+        q_attrs_count = 6
+        qt_attrs_count = 3
+
+        row_q_attrs = r[:q_attrs_count]
+        row_qt_attrs = r[q_attrs_count:q_attrs_count + qt_attrs_count]
+
+        q_obj = QuestionDB(*row_q_attrs)
+        qt_obj = QuestionTypeDB(*row_qt_attrs)
+
+        q_obj.type_fk = qt_obj
+        res_list.append(q_obj)
+
+    return res_list
+
+
 def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Sequence:
     rows = get_where(
         conn,
@@ -152,3 +202,7 @@ def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Se
     )
 
     return rows
+
+
+if __name__ == "__main__":
+    get_questions_with_type_fk(['walking', 'x_small', 'x_big'])

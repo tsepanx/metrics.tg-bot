@@ -3,3 +3,4 @@ from .base import (
     exists
 )
 from .high_level_methods import *
+from . import high_level_methods

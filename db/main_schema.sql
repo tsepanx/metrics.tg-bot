@@ -70,13 +70,16 @@ CREATE TABLE question_answer(
 
 
 -- Show all answers for given day, sorted by q.num_int
-SELECT qa.question_fk, qa.answer_text FROM question_answer AS qa
-    JOIN question q
-        ON q.name = qa.question_fk
-    WHERE
+SELECT * FROM question as q
+    JOIN question_type qt
+        ON q.type_id = qt.id
+    WHERE q.name IN ('walking', 'xl_time');
+;
+--         ON q.name = qa.question_fk
+--     WHERE
 --         qa.day_fk = '2023-02-21' AND qa.question_fk
-        (day_fk, question_fk) = ('2023-02-21', 'walking')
-    ORDER BY qa.day_fk, q.num_int;
+--         (day_fk, question_fk) = ('2023-02-21', 'walking')
+--     ORDER BY qa.day_fk, q.num_int;
 
 SELECT * FROM question AS q
     WHERE

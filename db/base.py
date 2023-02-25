@@ -76,9 +76,12 @@ def get_where(
         tablename: str,
         select_cols: Sequence[str] | None = None
 ) -> Sequence:
+    # TODO add possibility for "WHERE col1 IN (1, 2)" clause
+    # TODO needed to search dict values for list, and add additional query string for those pairs
+
     where_names = tuple(where_dict.keys())
 
-    format_values = [
+    format_list = [
         Identifier(tablename),
         SQL(', ').join(map(Identifier, where_names)),
         SQL(', ').join(map(Placeholder, where_names))
@@ -86,23 +89,19 @@ def get_where(
 
     if select_cols:
         template_query = "SELECT {} FROM {} WHERE ({}) = ({})"
-        format_values = [
-                            SQL(', ').join(map(Identifier, select_cols)),
-                        ] + format_values
+        format_list.insert(0, SQL(', ').join(map(Identifier, select_cols)))
     else:
         template_query = "SELECT * FROM {} WHERE ({}) = ({})"
 
     query = SQL(template_query).format(
-        *format_values
+        *format_list
     ).as_string(conn)
 
-    rows = _query_get(
+    return _query_get(
         conn,
-        query,
-        where_dict
+        query=query,
+        params=where_dict
     )
-
-    return rows
 
 
 def _exists(conn: psycopg.connection, where_dict: dict[str, any], tablename: str):

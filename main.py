@@ -26,7 +26,6 @@ from telegram.ext import (
 
 from db import (
     QuestionDB,
-    get_ordered_questions_names,
     update_or_insert_row
 )
 from utils import (
@@ -57,7 +56,7 @@ async def send_ask_question(q: QuestionDB, send_message_f: Callable):
         resize_keyboard=True
     )
 
-    question_text = f'<code>{q.get_qtype().notation_str}</code> {q.fulltext}'
+    question_text = f'<code>{q.type_fk.notation_str}</code> {q.fulltext}'
 
     await wrapped_send_text(
         send_message_f,
@@ -89,6 +88,7 @@ async def send_answers_df(
     # )
 
     i_col = list(range(len(answers_df.index)))
+    # noinspection PyTypeChecker
     answers_df.insert(0, 'i', i_col)
 
     if sort_by_quest_indices:
@@ -115,17 +115,16 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             state: AskingState
     ):
         answers = state.cur_answers
-        corresponding_qnames: list[str] = state.include_qnames
 
         for i in range(len(answers)):
             answer: str = answers[i]
             day: str = state.asking_day
-            question_name = corresponding_qnames[i]
+            qname = state.include_questions[i].name
 
             if answer is None:
                 continue
 
-            where_dict = {'day_fk': day, 'question_fk': question_name}
+            where_dict = {'day_fk': day, 'question_fk': qname}
 
             update_or_insert_row(
                 where_dict,
@@ -184,7 +183,7 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         state.cur_id_ind += 1
 
-        if state.cur_id_ind < len(state.include_qnames):
+        if state.cur_id_ind < len(state.include_questions):
             q = state.get_current_question()
             await send_ask_question(q, update.message.reply_text)
         else:

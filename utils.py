@@ -1,7 +1,6 @@
 import copy
 import datetime
 import functools
-import os.path
 import traceback
 from functools import (
     wraps
@@ -60,29 +59,21 @@ MAX_MSG_LEN = 7000
 
 
 class AskingState:
-    include_qnames: list[str]
+    include_questions: list[QuestionDB] | None
     asking_day: str
 
     cur_id_ind: int
     cur_answers: list[str | None]
-    __cur_question: QuestionDB | None
 
     def __init__(self, include_qnames: list, asking_day: str):
-        self.include_qnames = include_qnames
         self.asking_day = asking_day
 
         self.cur_id_ind = 0
-        # self.cur_answers = list()
         self.cur_answers = [None for _ in range(len(include_qnames))]
-        self.__cur_question = None
+        self.include_questions = db.high_level_methods.get_questions_with_type_fk(include_qnames)
 
     def get_current_question(self) -> QuestionDB:
-        cur_q_name = self.include_qnames[self.cur_id_ind]
-
-        if not self.__cur_question or cur_q_name != self.__cur_question.name:
-            self.__cur_question = db.get_question_by_name(cur_q_name)
-
-        return self.__cur_question
+        return self.include_questions[self.cur_id_ind]
 
 
 # @dataclass
@@ -95,9 +86,9 @@ class UserData:
         self.state = None  # AskingState(None)
         self.answers_df = None
         self.questions_names = None
-        # self.answers_df = create_default_answers_df()
 
     def reload_answers_df_from_db(self):
+        # TODO optionally reload only given list of columns
         self.answers_df = db.build_answers_df()
 
     def reload_qnames(self):
@@ -225,15 +216,6 @@ def handler_decorator(func):
         if user_data.answers_df is None:
             print(f'DB: Restoring answers_df')
             user_data.reload_answers_df_from_db()
-        # elif os.path.exists(answers_df_fname):
-        #     print(f'{answers_df_fname}: Restoring answers_df')
-        #     user_data.answers_df = pd.read_csv(answers_df_fname, index_col=0)
-        # else:
-        #     print(f'Creating default answers_df for user: {update.effective_chat.id}')
-        #     user_data.answers_df = create_default_answers_df()
-
-        print('answers_df shape:', user_data.answers_df.shape)
-        print('answers_df cols:', list(user_data.answers_df.columns))
 
         if not user_data.questions_names:
             user_data.reload_qnames()
