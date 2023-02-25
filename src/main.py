@@ -1,6 +1,8 @@
 import asyncio
+import copy
 import dataclasses
 import datetime
+from io import BytesIO
 from typing import (
     Callable,
 )
@@ -24,11 +26,11 @@ from telegram.ext import (
     filters,
 )
 
-from db import (
+from src.db import (
     QuestionDB,
     update_or_insert_row,
 )
-from utils import (
+from src.utils import (
     ASK_WRONG_FORMAT,
     SKIP_QUEST,
     STOP_ASKING,
@@ -39,8 +41,7 @@ from utils import (
     answers_df_backup_fname,
     get_nth_delta_day,
     handler_decorator,
-    send_df_in_formats,
-    wrapped_send_text,
+    wrapped_send_text, text_to_png, data_to_bytesio, df_to_markdown,
 )
 
 
@@ -54,6 +55,7 @@ async def send_ask_question(q: QuestionDB, send_message_f: Callable):
     await wrapped_send_text(send_message_f, question_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
 
+# pylint: disable=too-many-arguments, too-many-locals
 async def send_answers_df(
     update: Update,
     answers_df: pd.DataFrame,
@@ -88,17 +90,59 @@ async def send_answers_df(
 
     # --- ---
 
-    await send_df_in_formats(
-        update, answers_df, send_csv=send_csv, send_img=send_img, send_text=send_text, transpose_table=transpose_table
-    )
+    # await send_df_in_formats(
+    #     update, answers_df, send_csv=send_csv, send_img=send_img, send_text=send_text, transpose_table=transpose_table
+    # )
+
+    md_text = df_to_markdown(answers_df, transpose=transpose_table)
+    csv_text = answers_df.to_csv()
+
+    if not transpose_table:
+        message_object = update.message
+    else:
+        message_object = update.callback_query.message
+
+    if send_csv:
+        bytes_io = data_to_bytesio(csv_text, "answers_df.csv")
+        await message_object.reply_document(document=bytes_io)
+
+    if send_img:
+        img = text_to_png(md_text)
+
+        bio = BytesIO()
+        bio.name = "img.png"
+
+        img.save(bio, "png")
+        bio.seek(0)
+
+        bio2 = copy.copy(bio)
+
+        if not transpose_table:
+            keyboard = [[telegram.InlineKeyboardButton("transposed table IMG", callback_data="transpose")]]
+            reply_markup = telegram.InlineKeyboardMarkup(keyboard)
+        else:
+            reply_markup = None
+
+        try:
+            await message_object.reply_photo(bio, reply_markup=reply_markup)
+        except telegram.error.BadRequest:
+            await message_object.reply_document(bio2, reply_markup=reply_markup)
+    if send_text:
+        html_table_text = f"<pre>\n{md_text}\n</pre>"
+
+        await wrapped_send_text(
+            message_object.reply_text,
+            text=html_table_text,
+            parse_mode=ParseMode.HTML
+        )
 
 
 async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
     def update_db(state: AskingState):
         answers = state.cur_answers
 
-        for i in range(len(answers)):
-            answer: str = answers[i]
+        for i, answer in enumerate(answers):
+            answer: str
             day: str = state.asking_day
             qname = state.include_questions[i].name
 
@@ -140,8 +184,8 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 if q.answer_apply_func:
                     user_ans = q.answer_apply_func(user_ans)
-            except Exception:
-                raise MyException("Error parsing answer, try again")
+            except Exception as exc:
+                raise MyException("Error parsing answer, try again") from exc
 
         if user_ans == SKIP_QUEST:
             user_ans = None
@@ -163,6 +207,7 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await on_end_asking(user_data, update)
 
 
+# pylint: disable=too-many-statements
 @handler_decorator
 async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     @dataclasses.dataclass
@@ -199,8 +244,8 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     res.questions_ids = val
                 else:
                     raise Exception
-            except Exception:
-                raise ASK_WRONG_FORMAT
+            except Exception as exc:
+                raise ASK_WRONG_FORMAT from exc
 
         return res
 
@@ -263,11 +308,9 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def on_add_question(user_data: UserData):
     user_data.questions_names = None
 
-    pass
-
 
 @handler_decorator
-async def add_question_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def add_question_command(_: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.chat_data[USER_DATA_KEY]
 
     on_add_question(user_data)
@@ -311,8 +354,9 @@ async def post_init(application: Application) -> None:
 
 
 if __name__ == "__main__":
-    TOKEN = open(".token").read()
-    print(TOKEN)
+    with open(".token", encoding='utf-8') as f:
+        TOKEN = f.read()
+        print(TOKEN)
 
     persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
 

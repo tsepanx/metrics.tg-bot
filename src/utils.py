@@ -1,4 +1,3 @@
-import copy
 import datetime
 import functools
 import traceback
@@ -17,10 +16,7 @@ from typing import (
 
 import numpy as np
 import pandas as pd
-import telegram
 from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Update,
 )
 from telegram.constants import (
@@ -29,8 +25,13 @@ from telegram.constants import (
 from telegram.ext import (
     ContextTypes,
 )
+from PIL import (
+    Image,
+    ImageDraw,
+    ImageFont,
+)
 
-import db
+from src import db
 
 
 class MyException(Exception):
@@ -38,14 +39,15 @@ class MyException(Exception):
 
 
 def ask_format_example():
+    n = 18
     return "\n".join(
         [
             "Examples:",
-            "`{:18}` For today, all questions".format("/ask"),
-            "`{:18}` Specific day (isoformat)".format("/ask -d=2023-01-01"),
-            "`{:18}` Yesterday".format("/ask -d=-1"),
-            "`{:18}` Specify questions to ask".format("/ask -q=1,2,3"),
-            "`{:18}` Multiple args".format("/ask -q=1,2,3 -d=2023-01-01"),
+            f"`{'/ask':{n}}` For today, unanswered questions",
+            f"`{'/ask -d=2023-01-01':{n}}` Specific day (isoformat)",
+            f"`{'/ask -d=-1':{n}}` Yesterday",
+            f"`{'/ask -q=1,2,3':{n}}` Specify questions to ask",
+            f"`{'/ask -q=1,2,3 -d=2023-01-01':{n}}` Multiple args",
         ]
     )
 
@@ -106,7 +108,7 @@ USER_DATA_KEY = "data"
 
 CHAT_DATA_KEYS_DEFAULTS = {
     # 'state': State(None),
-    USER_DATA_KEY: lambda: UserData()
+    USER_DATA_KEY: UserData
 }
 
 
@@ -123,11 +125,11 @@ def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[db.Quest
 
     Assumes given @df has "questions names" as index
     """
-    sequential_numbers = list()
+    sequential_numbers = []
 
     for index_i in df.index:
-        for i in range(len(questions)):
-            if questions[i].name == index_i:
+        for i, question in enumerate(questions):
+            if question.name == index_i:
                 # s = str(i)
                 sequential_numbers.append(i)
                 break
@@ -214,9 +216,10 @@ def handler_decorator(func):
         pprint(context.bot_data)
 
         if update.message:
+            # pylint: disable=consider-using-dict-items
             for KEY in CHAT_DATA_KEYS_DEFAULTS:
                 if KEY not in context.chat_data or context.chat_data[KEY] is None:
-                    context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY].__call__()
+                    context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY]()
 
         user_data: UserData = context.chat_data[USER_DATA_KEY]
 
@@ -275,104 +278,144 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     return text
 
 
-def create_default_answers_df() -> pd.DataFrame:
-    # q_names = list(map(lambda x: x.name, questions_objects))
-    # q_texts = list(map(lambda x: x.text, questions_objects))
+# def create_default_answers_df() -> pd.DataFrame:
+#     # q_names = list(map(lambda x: x.name, questions_objects))
+#     # q_texts = list(map(lambda x: x.text, questions_objects))
+#
+#     questions_names = db.get_ordered_questions_names()
+#
+#     init_answers_df = pd.DataFrame(index=questions_names)
+#
+#     # noinspection PyTypeChecker
+#     # init_answers_df.insert(0, 'fulltext', q_texts)
+#
+#     # f.write(init_answers_df.to_csv())
+#     # init_answers_df.to_pickle(BACKUP_ANSWERS_FNAME)
+#     return init_answers_df
 
-    questions_names = db.get_ordered_questions_names()
 
-    init_answers_df = pd.DataFrame(index=questions_names)
+# async def send_df_in_formats(
+#         update: Update,
+#         df: pd.DataFrame,
+#         send_csv=False,
+#         send_img=True,
+#         send_text=False,
+#         transpose_table=False,
+# ):
+#     async def send_img_func(text: str, bold=True):
+#         indent = 5
+#         indent_point = (indent, indent - 4)  # ...
+#
+#         bg_color = (200, 200, 200)
+#         fg_color = (0, 0, 0)
+#
+#         from PIL import (
+#             Image,
+#             ImageDraw,
+#             ImageFont,
+#         )
+#
+#         if bold:
+#             font = ImageFont.truetype("fonts/SourceCodePro-Bold.otf", 16)
+#         else:
+#             font = ImageFont.truetype("fonts/SourceCodePro-Regular.otf", 16)
+#
+#         _, __, x2, y2 = ImageDraw.Draw(Image.new("RGB", (0, 0))).textbbox(indent_point, text, font)
+#
+#         img = Image.new("RGB", (x2 + indent, y2 + indent), bg_color)
+#         d = ImageDraw.Draw(img)
+#
+#         d.text(
+#             indent_point,
+#             text,
+#             font=font,
+#             fill=fg_color,
+#         )
+#
+#         bio = BytesIO()
+#         bio.name = "img.png"
+#
+#         img.save(bio, "png")
+#         bio.seek(0)
+#
+#         bio2 = copy.copy(bio)
+#
+#         if not transpose_table:
+#             keyboard = [[InlineKeyboardButton("transposed table IMG", callback_data="transpose")]]
+#             reply_markup = InlineKeyboardMarkup(keyboard)
+#         else:
+#             reply_markup = None
+#
+#         try:
+#             await message_object.reply_photo(bio, reply_markup=reply_markup)
+#         except telegram.error.BadRequest:
+#             await message_object.reply_document(bio2, reply_markup=reply_markup)
+#
+#     async def send_text_func(text: str):
+#         html_table_text = f"<pre>\n{text}\n</pre>"
+#
+#         await wrapped_send_text(message_object.reply_text, text=html_table_text, parse_mode=ParseMode.HTML)
+#
+#     async def send_csv_func(csv_str: str):
+#         bio = BytesIO()
+#         bio.name = "answers_df.csv"
+#         bio.write(bytes(csv_str, "utf-8"))
+#         bio.seek(0)
+#
+#         await message_object.reply_document(document=bio)
+#
+#     md_text = df_to_markdown(df, transpose=transpose_table)
+#     csv_text = df.to_csv()
+#
+#     if not transpose_table:
+#         message_object = update.message
+#     else:
+#         message_object = update.callback_query.message
+#
+#     if send_csv:
+#         await send_csv_func(csv_text)
+#     if send_img:
+#         await send_img_func(md_text)
+#         # await send_img_func(table_text_transposed)
+#     if send_text:
+#         await send_text_func(md_text)
 
-    # noinspection PyTypeChecker
-    # init_answers_df.insert(0, 'fulltext', q_texts)
 
-    # f.write(init_answers_df.to_csv())
-    # init_answers_df.to_pickle(BACKUP_ANSWERS_FNAME)
-    return init_answers_df
+def text_to_png(text: str, bold=True):
+    indent = 5
+    indent_point = (indent, indent - 4)  # ...
 
+    bg_color = (200, 200, 200)
+    fg_color = (0, 0, 0)
 
-async def send_df_in_formats(
-    update: Update,
-    df: pd.DataFrame,
-    send_csv=False,
-    send_img=True,
-    send_text=False,
-    transpose_table=False,
-):
-    async def send_img_func(text: str, bold=True):
-        indent = 5
-        indent_point = (indent, indent - 4)  # ...
-
-        bg_color = (200, 200, 200)
-        fg_color = (0, 0, 0)
-
-        from PIL import (
-            Image,
-            ImageDraw,
-            ImageFont,
-        )
-
-        if bold:
-            font = ImageFont.truetype("fonts/SourceCodePro-Bold.otf", 16)
-        else:
-            font = ImageFont.truetype("fonts/SourceCodePro-Regular.otf", 16)
-
-        x1, y1, x2, y2 = ImageDraw.Draw(Image.new("RGB", (0, 0))).textbbox(indent_point, text, font)
-
-        img = Image.new("RGB", (x2 + indent, y2 + indent), bg_color)
-        d = ImageDraw.Draw(img)
-
-        d.text(
-            indent_point,
-            text,
-            font=font,
-            fill=fg_color,
-        )
-
-        bio = BytesIO()
-        bio.name = "img.png"
-
-        img.save(bio, "png")
-        bio.seek(0)
-
-        bio2 = copy.copy(bio)
-
-        if not transpose_table:
-            keyboard = [[InlineKeyboardButton("transposed table IMG", callback_data="transpose")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-        else:
-            reply_markup = None
-
-        try:
-            await message_object.reply_photo(bio, reply_markup=reply_markup)
-        except telegram.error.BadRequest:
-            await message_object.reply_document(bio2, reply_markup=reply_markup)
-
-    async def send_text_func(text: str):
-        html_table_text = f"<pre>\n{text}\n</pre>"
-
-        await wrapped_send_text(message_object.reply_text, text=html_table_text, parse_mode=ParseMode.HTML)
-
-    async def send_csv_func(csv_str: str):
-        bio = BytesIO()
-        bio.name = "answers_df.csv"
-        bio.write(bytes(csv_str, "utf-8"))
-        bio.seek(0)
-
-        await message_object.reply_document(document=bio)
-
-    md_text = df_to_markdown(df, transpose=transpose_table)
-    csv_text = df.to_csv()
-
-    if not transpose_table:
-        message_object = update.message
+    if bold:
+        font = ImageFont.truetype("fonts/SourceCodePro-Bold.otf", 16)
     else:
-        message_object = update.callback_query.message
+        font = ImageFont.truetype("fonts/SourceCodePro-Regular.otf", 16)
 
-    if send_csv:
-        await send_csv_func(csv_text)
-    if send_img:
-        await send_img_func(md_text)
-        # await send_img_func(table_text_transposed)
-    if send_text:
-        await send_text_func(md_text)
+    _, __, x2, y2 = ImageDraw.Draw(Image.new("RGB", (0, 0))).textbbox(indent_point, text, font)
+
+    img = Image.new("RGB", (x2 + indent, y2 + indent), bg_color)
+    d = ImageDraw.Draw(img)
+
+    d.text(
+        indent_point,
+        text,
+        font=font,
+        fill=fg_color,
+    )
+
+    return img
+
+
+def data_to_bytesio(data: object, fname: str) -> BytesIO:
+    bio = BytesIO()
+    bio.name = fname
+
+    if isinstance(data, str):
+        bio.write(bytes(data, "utf-8"))
+    else:
+        bio.write(data)
+
+    bio.seek(0)
+    return bio

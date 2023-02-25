@@ -6,16 +6,14 @@ from typing import (
 )
 
 import pandas as pd
-import psycopg
 from psycopg.sql import (
     SQL,
     Placeholder,
 )
 
-from .base import (
+from src.db.base import (
     _query_get,
-    get_where,
-    provide_conn,
+    get_where, get_psql_conn,
 )
 
 
@@ -50,13 +48,14 @@ class QuestionTypeDB:
 
 @dataclasses.dataclass
 class QuestionDB:
+    # pylint: disable=too-many-instance-attributes
+
     name: str
     num_int: int
     fulltext: str
     suggested_answers_list: list[str]
 
-    # type QuestionTypeDB
-    # type ForeignKey
+    # ForeignKey : 'QuestionTypeDB'
     type_id: int
     is_activated: bool
 
@@ -67,7 +66,7 @@ class QuestionDB:
         qtype_answer_func_mapping = {
             # id: func <Callable>
             0: None,  # text
-            1: lambda x: int(x),  # int
+            1: int,  # int
             2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,
             3: time_or_hours,
             4: None,
@@ -78,7 +77,7 @@ class QuestionDB:
     @property
     def type_fk(self) -> QuestionTypeDB:
         if not self.__type_fk:
-            rows = provide_conn(get_where)({"id": self.type_id}, "question_type")
+            rows = get_where({"id": self.type_id}, "question_type")
 
             obj = QuestionTypeDB(*rows[0])
             self.__type_fk = obj
@@ -93,13 +92,12 @@ class QuestionDB:
         self.__type_fk = obj
 
 
-@provide_conn
-def build_answers_df(conn: psycopg.connection, days_range=None, include_empty_cols=True) -> pd.DataFrame:
+def build_answers_df(days_range=None, include_empty_cols=True) -> pd.DataFrame:
     df = pd.DataFrame()
 
     if not days_range:
         query = "SELECT date FROM day ORDER BY date"
-        rows = _query_get(conn, query)
+        rows = _query_get(query)
 
         days = list(map(lambda x: x[0].isoformat(), rows))
     else:
@@ -107,7 +105,7 @@ def build_answers_df(conn: psycopg.connection, days_range=None, include_empty_co
 
     for day in days:
         # format: [('quest_name', 'answer_text'), ...]
-        col_from_db = get_answers_on_day(conn, day)
+        col_from_db = get_answers_on_day(day)
 
         if col_from_db is None:
             if include_empty_cols:
@@ -124,21 +122,17 @@ def build_answers_df(conn: psycopg.connection, days_range=None, include_empty_co
     return df
 
 
-@provide_conn
-def get_ordered_questions_names(
-    conn: psycopg.connection,
-) -> list[str]:
+def get_ordered_questions_names() -> list[str]:
     query = """SELECT name FROM question WHERE is_activated = True ORDER BY num_int;"""
 
-    query_results = _query_get(conn, query)
+    query_results = _query_get(query)
     first_col = list(map(lambda x: x[0], query_results))
 
     return first_col
 
 
-@provide_conn
-def get_question_by_name(conn, name: str) -> QuestionDB | None:
-    rows = get_where(conn, where_dict={"name": name}, tablename="question")
+def get_question_by_name(name: str) -> QuestionDB | None:
+    rows = get_where(where_dict={"name": name}, tablename="question")
     assert len(rows) == 1
     row = rows[0]
 
@@ -146,8 +140,7 @@ def get_question_by_name(conn, name: str) -> QuestionDB | None:
     return obj
 
 
-@provide_conn
-def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | None:
+def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
     template_query = """SELECT * FROM question AS q
         JOIN question_type qt
             ON q.type_id = qt.id
@@ -155,9 +148,13 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
         ORDER BY q.num_int;
     """
 
-    query = SQL(template_query).format(SQL(", ").join(Placeholder() * len(qnames))).as_string(conn)
+    # fmt: off
+    query = SQL(template_query).format(
+        SQL(", ").join(Placeholder() * len(qnames))
+    ).as_string(get_psql_conn())
+    # fmt: on
 
-    rows = _query_get(conn, query=query, params=qnames)
+    rows = _query_get(query=query, params=qnames)
 
     res_list: list[QuestionDB] = []
 
@@ -178,12 +175,14 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
     return res_list
 
 
-def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> pd.Series | None:
+def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
     rows = get_where(
-        conn, where_dict={"day_fk": day}, tablename="question_answer", select_cols=("question_fk", "answer_text")
+        where_dict={"day_fk": day},
+        tablename="question_answer",
+        select_cols=("question_fk", "answer_text")
     )
 
-    if not len(rows):
+    if not rows:
         return None
 
     # Building pd.Series list of question_answer.answer_text with index as of question.name
