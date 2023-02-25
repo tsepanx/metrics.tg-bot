@@ -16,6 +16,11 @@ from typing import (
 
 import numpy as np
 import pandas as pd
+from PIL import (
+    Image,
+    ImageDraw,
+    ImageFont,
+)
 from telegram import (
     Update,
 )
@@ -25,13 +30,10 @@ from telegram.constants import (
 from telegram.ext import (
     ContextTypes,
 )
-from PIL import (
-    Image,
-    ImageDraw,
-    ImageFont,
-)
 
-from src import db
+from src import (
+    db,
+)
 
 
 class MyException(Exception):

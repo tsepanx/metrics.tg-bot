@@ -167,8 +167,7 @@ def _update_row(where_dict: dict[str, any], set_dict: dict[str, any], tablename:
     _query_set(query, placeholder_values)
 
 
-def update_or_insert_row(where_dict: dict[str, any], set_dict: dict[str, any], tablename: str
-                         ):
+def update_or_insert_row(where_dict: dict[str, any], set_dict: dict[str, any], tablename: str):
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
     # assert set(where_dict).union(set(set_dict)) == columns_set
@@ -198,8 +197,5 @@ if __name__ == "__main__":
     _insert_row({"day_fk": "2023-02-24", "question_fk": "x_small"}, "question_answer")
 
     update_or_insert_row(
-        {
-            "day_fk": "2023-02-25",
-            "answer_text": "walkn1"
-        },
-        {"question_fk": "vegetables_eat"}, "question_answer")
+        {"day_fk": "2023-02-25", "answer_text": "walkn1"}, {"question_fk": "vegetables_eat"}, "question_answer"
+    )

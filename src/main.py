@@ -2,7 +2,9 @@ import asyncio
 import copy
 import dataclasses
 import datetime
-from io import BytesIO
+from io import (
+    BytesIO,
+)
 from typing import (
     Callable,
 )
@@ -39,9 +41,12 @@ from src.utils import (
     MyException,
     UserData,
     answers_df_backup_fname,
+    data_to_bytesio,
+    df_to_markdown,
     get_nth_delta_day,
     handler_decorator,
-    wrapped_send_text, text_to_png, data_to_bytesio, df_to_markdown,
+    text_to_png,
+    wrapped_send_text,
 )
 
 
@@ -130,11 +135,13 @@ async def send_answers_df(
     if send_text:
         html_table_text = f"<pre>\n{md_text}\n</pre>"
 
+        # fmt: off
         await wrapped_send_text(
             message_object.reply_text,
             text=html_table_text,
             parse_mode=ParseMode.HTML
         )
+        # fmt: on
 
 
 async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
@@ -354,7 +361,7 @@ async def post_init(application: Application) -> None:
 
 
 if __name__ == "__main__":
-    with open(".token", encoding='utf-8') as f:
+    with open(".token", encoding="utf-8") as f:
         TOKEN = f.read()
         print(TOKEN)
 

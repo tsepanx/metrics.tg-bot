@@ -13,7 +13,8 @@ from psycopg.sql import (
 
 from src.db.base import (
     _query_get,
-    get_where, get_psql_conn,
+    get_psql_conn,
+    get_where,
 )
 
 
@@ -177,9 +178,7 @@ def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
 
 def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
     rows = get_where(
-        where_dict={"day_fk": day},
-        tablename="question_answer",
-        select_cols=("question_fk", "answer_text")
+        where_dict={"day_fk": day}, tablename="question_answer", select_cols=("question_fk", "answer_text")
     )
 
     if not rows:
