@@ -30,11 +30,15 @@ class ObjectsManager:
         self.db_class = db_class
         self.table_name = table_name
 
-    def get_all(self, ) -> list[Table]:
+    def get_all(
+        self,
+    ) -> list[Table]:
         query = """
             -- Print all questions list
             SELECT * FROM {};
-        """.format(self.table_name)
+        """.format(
+            self.table_name
+        )
         # ORDER BY q.num_int;
         obj_list: list = []
 
@@ -58,23 +62,14 @@ class ObjectsManager:
 
         parameters_str = "(" + "%s, " * (len(values) - 1) + "%s)"
 
-        query = 'INSERT INTO {} {} VALUES {};'.format(
-            self.table_name,
-            cols_list_str,
-            parameters_str
-        )
+        query = "INSERT INTO {} {} VALUES {};".format(self.table_name, cols_list_str, parameters_str)
 
-        _query_set(
-            _psql_conn(),
-            query,
-            (*values,)
-        )
+        _query_set(_psql_conn(), query, (*values,))
 
         obj = self.db_class(**kwargs)
         return obj
 
     # def exists(self/):
-
 
 
 if __name__ == "__main__":

@@ -1,38 +1,33 @@
 import os
 from typing import (
     Optional,
-    Sequence
+    Sequence,
 )
 
 import psycopg
 from psycopg.sql import (
     SQL,
     Identifier,
-    Placeholder
+    Placeholder,
 )
 
-PG_DB = os.environ.get('PG_DB', 'postgres')
-PG_USER = os.environ.get('PG_USER', 'postgres')
-PG_HOST = os.environ.get('PG_HOST', 'localhost')
-PG_PASSWORD = os.environ.get('PG_PASSWORD', '')
+PG_DB = os.environ.get("PG_DB", "postgres")
+PG_USER = os.environ.get("PG_USER", "postgres")
+PG_HOST = os.environ.get("PG_HOST", "localhost")
+PG_PASSWORD = os.environ.get("PG_PASSWORD", "")
 
 
 def prefix_keys(d: dict[str, any], pref: str) -> dict[str, any]:
     dd = dict()
     for key in d:
-        new_key = f'{pref}{key}'
+        new_key = f"{pref}{key}"
         dd[new_key] = d[key]
 
     return dd
 
 
 def _psql_conn():
-    conn = psycopg.connect(
-        dbname=PG_DB,
-        user=PG_USER,
-        password=PG_PASSWORD,
-        host=PG_HOST
-    )
+    conn = psycopg.connect(dbname=PG_DB, user=PG_USER, password=PG_PASSWORD, host=PG_HOST)
     return conn
 
 
@@ -46,11 +41,7 @@ def provide_conn(func):
     return wrapper
 
 
-def _query_get(
-        conn: psycopg.connection,
-        query: str,
-        params: Optional[dict | Sequence] = tuple()
-) -> Sequence:
+def _query_get(conn: psycopg.connection, query: str, params: Optional[dict | Sequence] = tuple()) -> Sequence:
     print(query, params)
 
     cur = conn.cursor()
@@ -59,11 +50,7 @@ def _query_get(
     return results
 
 
-def _query_set(
-        conn: psycopg.connection,
-        query: str,
-        params: Optional[dict | Sequence] = tuple()
-):
+def _query_set(conn: psycopg.connection, query: str, params: Optional[dict | Sequence] = tuple()):
     print(query, params)
     with conn.cursor() as cur:
         cur.execute(query, params)
@@ -71,10 +58,7 @@ def _query_set(
 
 
 def get_where(
-        conn: psycopg.connection,
-        where_dict: dict,
-        tablename: str,
-        select_cols: Sequence[str] | None = None
+    conn: psycopg.connection, where_dict: dict, tablename: str, select_cols: Sequence[str] | None = None
 ) -> Sequence:
     # TODO add possibility for "WHERE col1 IN (1, 2)" clause
     # TODO needed to search dict values for list, and add additional query string for those pairs
@@ -83,25 +67,19 @@ def get_where(
 
     format_list = [
         Identifier(tablename),
-        SQL(', ').join(map(Identifier, where_names)),
-        SQL(', ').join(map(Placeholder, where_names))
+        SQL(", ").join(map(Identifier, where_names)),
+        SQL(", ").join(map(Placeholder, where_names)),
     ]
 
     if select_cols:
         template_query = "SELECT {} FROM {} WHERE ({}) = ({})"
-        format_list.insert(0, SQL(', ').join(map(Identifier, select_cols)))
+        format_list.insert(0, SQL(", ").join(map(Identifier, select_cols)))
     else:
         template_query = "SELECT * FROM {} WHERE ({}) = ({})"
 
-    query = SQL(template_query).format(
-        *format_list
-    ).as_string(conn)
+    query = SQL(template_query).format(*format_list).as_string(conn)
 
-    return _query_get(
-        conn,
-        query=query,
-        params=where_dict
-    )
+    return _query_get(conn, query=query, params=where_dict)
 
 
 def _exists(conn: psycopg.connection, where_dict: dict[str, any], tablename: str):
@@ -116,33 +94,30 @@ def exists(where_dict: dict[str, any], tablename: str):
 def _insert_row(conn: psycopg.connection, row_dict: dict[str, any], tablename: str):
     names = tuple(row_dict.keys())
 
-    query = SQL("INSERT INTO {} ({}) VALUES ({});").format(
-        Identifier(tablename),  # tablename
-        SQL(', ').join(map(Identifier, names)),  # (col1, col2)
-        SQL(', ').join(map(Placeholder, names))  # (%(col1)s, %(col1)s) -> ('val1', 'val2')
-    ).as_string(conn)
+    query = (
+        SQL("INSERT INTO {} ({}) VALUES ({});")
+        .format(
+            Identifier(tablename),  # tablename
+            SQL(", ").join(map(Identifier, names)),  # (col1, col2)
+            SQL(", ").join(map(Placeholder, names)),  # (%(col1)s, %(col1)s) -> ('val1', 'val2')
+        )
+        .as_string(conn)
+    )
 
     try:
-        _query_set(
-            conn,
-            query,
-            row_dict
-        )
+        _query_set(conn, query, row_dict)
     except psycopg.errors.UniqueViolation as e:
         raise e
 
 
-def _update_row(conn: psycopg.connection,
-                where_dict: dict[str, any],
-                set_dict: dict[str, any],
-                tablename: str):
+def _update_row(conn: psycopg.connection, where_dict: dict[str, any], set_dict: dict[str, any], tablename: str):
     where_names = tuple(where_dict.keys())
     set_names = tuple(set_dict.keys())
 
     # This is done to avoid duplicate placeholder names in template query:
     # UPDATE table SET "col1" = %(set_col1)s WHERE ("col1", "col2") = (%(where_col1)s, %(where_col2)s)
-    prefixed_where_dict = prefix_keys(where_dict, 'where_')
-    prefixed_set_dict = prefix_keys(set_dict, 'set_')
+    prefixed_where_dict = prefix_keys(where_dict, "where_")
+    prefixed_set_dict = prefix_keys(set_dict, "set_")
 
     prefixed_where_names = tuple(prefixed_where_dict.keys())
     prefixed_set_names = tuple(prefixed_set_dict.keys())
@@ -156,28 +131,27 @@ def _update_row(conn: psycopg.connection,
         raise Exception
 
     # query = SQL("SELECT * FROM {} WHERE ({}) = ({})").format(
-    query = SQL(template_query).format(
-        Identifier(tablename),  # tablename     "question_answer"
-        SQL(', ').join(map(Identifier, set_names)),  # set columns   (col3, col4)
-        SQL(', ').join(map(Placeholder, prefixed_set_names)),  # set values    ('val1', 'val2')
-        SQL(', ').join(map(Identifier, where_names)),  # where columns (col1, col2)
-        SQL(', ').join(map(Placeholder, prefixed_where_names))  # where values  (%s, %s)
-    ).as_string(conn)
+    query = (
+        SQL(template_query)
+        .format(
+            Identifier(tablename),  # tablename     "question_answer"
+            SQL(", ").join(map(Identifier, set_names)),  # set columns   (col3, col4)
+            SQL(", ").join(map(Placeholder, prefixed_set_names)),  # set values    ('val1', 'val2')
+            SQL(", ").join(map(Identifier, where_names)),  # where columns (col1, col2)
+            SQL(", ").join(map(Placeholder, prefixed_where_names)),  # where values  (%s, %s)
+        )
+        .as_string(conn)
+    )
 
     placeholder_values = {**prefixed_set_dict, **prefixed_where_dict}
 
-    _query_set(
-        conn,
-        query,
-        placeholder_values
-    )
+    _query_set(conn, query, placeholder_values)
 
 
 @provide_conn
-def update_or_insert_row(conn: psycopg.connection,
-                         where_dict: dict[str, any],
-                         set_dict: dict[str, any],
-                         tablename: str):
+def update_or_insert_row(
+    conn: psycopg.connection, where_dict: dict[str, any], set_dict: dict[str, any], tablename: str
+):
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
     # assert set(where_dict).union(set(set_dict)) == columns_set
@@ -204,21 +178,14 @@ if __name__ == "__main__":
     # "UPDATE {tablename} SET answer_text = '66664' WHERE (day_fk, question_fk) = ('2023-02-23', 'weight')"
     _update_row(
         conn,
-        {'day_fk': '2023-02-23', 'question_fk': 'weight'},
+        {"day_fk": "2023-02-23", "question_fk": "weight"},
         # {'answer_text': '2345'},
-        {'answer_text': 'new_2345'},
-        'question_answer'
+        {"answer_text": "new_2345"},
+        "question_answer",
     )
 
-    _insert_row(
-        conn,
-        {'day_fk': '2023-02-24', 'question_fk': 'x_small'},
-        'question_answer'
-    )
+    _insert_row(conn, {"day_fk": "2023-02-24", "question_fk": "x_small"}, "question_answer")
 
     update_or_insert_row(
-        conn,
-        {'day_fk': '2023-02-25', 'answer_text': 'walkn1'},
-        {'question_fk': 'vegetables_eat'},
-        'question_answer'
+        conn, {"day_fk": "2023-02-25", "answer_text": "walkn1"}, {"question_fk": "vegetables_eat"}, "question_answer"
     )

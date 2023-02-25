@@ -2,20 +2,20 @@ import dataclasses
 import datetime
 from typing import (
     Callable,
-    Optional
+    Optional,
 )
 
 import pandas as pd
 import psycopg
 from psycopg.sql import (
     SQL,
-    Placeholder
+    Placeholder,
 )
 
 from db.base import (
     _query_get,
     get_where,
-    provide_conn
+    provide_conn,
 )
 
 
@@ -70,7 +70,7 @@ class QuestionDB:
             1: lambda x: int(x),  # int
             2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,
             3: time_or_hours,
-            4: None
+            4: None,
         }
 
         return qtype_answer_func_mapping[self.type_id]
@@ -78,7 +78,7 @@ class QuestionDB:
     @property
     def type_fk(self) -> QuestionTypeDB:
         if not self.__type_fk:
-            rows = provide_conn(get_where)({'id': self.type_id}, 'question_type')
+            rows = provide_conn(get_where)({"id": self.type_id}, "question_type")
 
             obj = QuestionTypeDB(*rows[0])
             self.__type_fk = obj
@@ -94,11 +94,7 @@ class QuestionDB:
 
 
 @provide_conn
-def build_answers_df(
-        conn: psycopg.connection,
-        days_range=None,
-        include_empty_cols=True
-) -> pd.DataFrame:
+def build_answers_df(conn: psycopg.connection, days_range=None, include_empty_cols=True) -> pd.DataFrame:
     df = pd.DataFrame()
 
     if not days_range:
@@ -130,7 +126,7 @@ def build_answers_df(
 
 @provide_conn
 def get_ordered_questions_names(
-        conn: psycopg.connection,
+    conn: psycopg.connection,
 ) -> list[str]:
     query = """SELECT name FROM question WHERE is_activated = True ORDER BY num_int;"""
 
@@ -142,11 +138,7 @@ def get_ordered_questions_names(
 
 @provide_conn
 def get_question_by_name(conn, name: str) -> QuestionDB | None:
-    rows = get_where(
-        conn,
-        where_dict={'name': name},
-        tablename='question'
-    )
+    rows = get_where(conn, where_dict={"name": name}, tablename="question")
     assert len(rows) == 1
     row = rows[0]
 
@@ -163,15 +155,9 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
         ORDER BY q.num_int;
     """
 
-    query = SQL(template_query).format(
-        SQL(', ').join(Placeholder() * len(qnames))
-    ).as_string(conn)
+    query = SQL(template_query).format(SQL(", ").join(Placeholder() * len(qnames))).as_string(conn)
 
-    rows = _query_get(
-        conn,
-        query=query,
-        params=qnames
-    )
+    rows = _query_get(conn, query=query, params=qnames)
 
     res_list: list[QuestionDB] = []
 
@@ -181,7 +167,7 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
         qt_attrs_count = 3
 
         row_q_attrs = r[:q_attrs_count]
-        row_qt_attrs = r[q_attrs_count:q_attrs_count + qt_attrs_count]
+        row_qt_attrs = r[q_attrs_count : q_attrs_count + qt_attrs_count]
 
         q_obj = QuestionDB(*row_q_attrs)
         qt_obj = QuestionTypeDB(*row_qt_attrs)
@@ -194,10 +180,7 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
 
 def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> pd.Series | None:
     rows = get_where(
-        conn,
-        where_dict={'day_fk': day},
-        tablename='question_answer',
-        select_cols=('question_fk', 'answer_text')
+        conn, where_dict={"day_fk": day}, tablename="question_answer", select_cols=("question_fk", "answer_text")
     )
 
     if not len(rows):
@@ -209,4 +192,4 @@ def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> pd
 
 
 if __name__ == "__main__":
-    get_questions_with_type_fk(['walking', 'x_small', 'x_big'])
+    get_questions_with_type_fk(["walking", "x_small", "x_big"])

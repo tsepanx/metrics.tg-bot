@@ -1,20 +1,19 @@
 import datetime
 
 from db.high_level_methods import (
-    get_ordered_questions_names
+    get_ordered_questions_names,
 )
 from utils import (
-    merge_to_existing_column
+    merge_to_existing_column,
 )
 
 
 def update_answers_df(
-        df: pd.DataFrame,
-        state: AskingState,
-        sort_columns=True,
-        sort_rows_by_q_index=True,
+    df: pd.DataFrame,
+    state: AskingState,
+    sort_columns=True,
+    sort_rows_by_q_index=True,
 ) -> pd.DataFrame:
-
     old_shape = df.shape
 
     # Ended question list
@@ -25,10 +24,7 @@ def update_answers_df(
         df = df.assign(**{day_index: pd.Series()})
 
     qnames = get_ordered_questions_names()
-    included_qnames: list[str] = list(map(
-        lambda x: qnames[x],
-        state.include_qnames
-    ))
+    included_qnames: list[str] = list(map(lambda x: qnames[x], state.include_qnames))
 
     new_col = pd.Series(state.cur_answers, index=included_qnames)
     # Needed to convert automatic conversion to numpy types (f.e. numpy.int64) to initial pythonic type back
@@ -39,10 +35,7 @@ def update_answers_df(
     df = df.reindex(df.index.union(included_qnames))
 
     if sort_columns:
-        columns_order = sorted(
-            df.columns,
-            key=lambda x: f'_{x}' if not isinstance(x, datetime.date) else x.isoformat()
-        )
+        columns_order = sorted(df.columns, key=lambda x: f"_{x}" if not isinstance(x, datetime.date) else x.isoformat())
         df = df.reindex(columns_order, axis=1)
 
     # if sort_rows_by_q_index:
@@ -56,10 +49,10 @@ def update_answers_df(
 
     new_shape = df.shape
 
-    print('Updating answers_df')
+    print("Updating answers_df")
     if old_shape == new_shape:
-        print(f'shape not changed: {old_shape}')
+        print(f"shape not changed: {old_shape}")
     else:
-        print(f'shape changed!\noldshape: {old_shape}\nnew shape: {new_shape}')
+        print(f"shape changed!\noldshape: {old_shape}\nnew shape: {new_shape}")
 
     return df

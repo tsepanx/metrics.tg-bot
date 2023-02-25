@@ -3,16 +3,16 @@ import datetime
 import functools
 import traceback
 from functools import (
-    wraps
+    wraps,
 )
 from io import (
-    BytesIO
+    BytesIO,
 )
 from pprint import (
-    pprint
+    pprint,
 )
 from typing import (
-    Sequence
+    Sequence,
 )
 
 import numpy as np
@@ -21,18 +21,18 @@ import telegram
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    Update
+    Update,
 )
 from telegram.constants import (
-    ParseMode
+    ParseMode,
 )
 from telegram.ext import (
-    ContextTypes
+    ContextTypes,
 )
 
 import db
 from db import (
-    QuestionDB
+    QuestionDB,
 )
 
 answers_df_backup_fname = lambda chat_id: f"answers_df_backups/{chat_id}.csv"
@@ -43,20 +43,19 @@ class MyException(Exception):
 
 
 def ask_format_example():
-    return '\n'.join([
-        'Examples:',
-        '`{:18}` For today, all questions'.format('/ask'),
-        '`{:18}` Specific day (isoformat)'.format('/ask -d=2023-01-01'),
-        '`{:18}` Yesterday'.format('/ask -d=-1'),
-        '`{:18}` Specify questions to ask'.format('/ask -q=1,2,3'),
-        '`{:18}` Multiple args'.format('/ask -q=1,2,3 -d=2023-01-01'),
-    ])
+    return "\n".join(
+        [
+            "Examples:",
+            "`{:18}` For today, all questions".format("/ask"),
+            "`{:18}` Specific day (isoformat)".format("/ask -d=2023-01-01"),
+            "`{:18}` Yesterday".format("/ask -d=-1"),
+            "`{:18}` Specify questions to ask".format("/ask -q=1,2,3"),
+            "`{:18}` Multiple args".format("/ask -q=1,2,3 -d=2023-01-01"),
+        ]
+    )
 
 
-ASK_WRONG_FORMAT = MyException(
-    '`=== /ask: wrong format ===`\n' +
-    ask_format_example()
-)
+ASK_WRONG_FORMAT = MyException("`=== /ask: wrong format ===`\n" + ask_format_example())
 
 MAX_MSG_LEN = 7000
 
@@ -104,7 +103,7 @@ class UserData:
         self.questions_names = db.get_ordered_questions_names()
 
 
-USER_DATA_KEY = 'data'
+USER_DATA_KEY = "data"
 
 CHAT_DATA_KEYS_DEFAULTS = {
     # 'state': State(None),
@@ -113,18 +112,12 @@ CHAT_DATA_KEYS_DEFAULTS = {
 
 
 def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
-    columns_order = sorted(
-        df.columns,
-        key=lambda x: f'_{x}' if not isinstance(x, datetime.date) else x.isoformat()
-    )
+    columns_order = sorted(df.columns, key=lambda x: f"_{x}" if not isinstance(x, datetime.date) else x.isoformat())
     df = df.reindex(columns_order, axis=1)
     return df
 
 
-def add_questions_sequence_num_as_col(
-        df: pd.DataFrame,
-        questions: list[QuestionDB]
-):
+def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[QuestionDB]):
     """
     Generate
     Prettify table look by adding questions ids to index
@@ -151,7 +144,7 @@ def add_questions_sequence_num_as_col(
 
     df = df.copy()
     # noinspection PyTypeChecker
-    df.insert(0, 'i', sequential_numbers)
+    df.insert(0, "i", sequential_numbers)
 
     return df
 
@@ -183,7 +176,7 @@ def get_divided_long_message(text, max_size) -> [str, str]:
     return: text part from start, and the rest of text
     """
     subtext = text[:max_size]
-    border = subtext.rfind('\n')
+    border = subtext.rfind("\n")
 
     subtext = subtext[:border]
     text = text[border:]
@@ -228,11 +221,11 @@ def handler_decorator(func):
 
         user_data: UserData = context.chat_data[USER_DATA_KEY]
 
-        print('Chat id:', update.effective_chat.id)
+        print("Chat id:", update.effective_chat.id)
         # answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
 
         if user_data.answers_df is None:
-            print(f'DB: Restoring answers_df')
+            print(f"DB: Restoring answers_df")
             user_data.reload_answers_df_from_db()
 
         if not user_data.questions_names:
@@ -253,8 +246,8 @@ def get_nth_delta_day(n: int = 0) -> datetime.date:
     return date
 
 
-STOP_ASKING = 'Stop asking'
-SKIP_QUEST = 'Skip question'
+STOP_ASKING = "Stop asking"
+SKIP_QUEST = "Skip question"
 
 
 def df_to_markdown(df: pd.DataFrame, transpose=False):
@@ -265,16 +258,16 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     df = df.fillna(value=np.nan)
 
     text = df.to_markdown(
-        tablefmt='rounded_grid',
-        numalign='left',
-        stralign='left',
+        tablefmt="rounded_grid",
+        numalign="left",
+        stralign="left",
     )
-    text = text.replace(' nan ', ' --- ')
+    text = text.replace(" nan ", " --- ")
 
-    text = text.replace('00:00:00', '0       ')
-    text = text.replace(':00:00', ':0c0   ')
-    text = text.replace(':00', '   ')
-    text = text.replace(':0c0', ':00')
+    text = text.replace("00:00:00", "0       ")
+    text = text.replace(":00:00", ":0c0   ")
+    text = text.replace(":00", "   ")
+    text = text.replace(":0c0", ":00")
 
     # 00:00:00 -> 0
     # 06:00:00 -> 06:00
@@ -289,9 +282,7 @@ def create_default_answers_df() -> pd.DataFrame:
 
     questions_names = db.get_ordered_questions_names()
 
-    init_answers_df = pd.DataFrame(
-        index=questions_names
-    )
+    init_answers_df = pd.DataFrame(index=questions_names)
 
     # noinspection PyTypeChecker
     # init_answers_df.insert(0, 'fulltext', q_texts)
@@ -302,12 +293,12 @@ def create_default_answers_df() -> pd.DataFrame:
 
 
 async def send_df_in_formats(
-        update: Update,
-        df: pd.DataFrame,
-        send_csv=False,
-        send_img=True,
-        send_text=False,
-        transpose_table=False,
+    update: Update,
+    df: pd.DataFrame,
+    send_csv=False,
+    send_img=True,
+    send_text=False,
+    transpose_table=False,
 ):
     async def send_img_func(text: str, bold=True):
         indent = 5
@@ -319,7 +310,7 @@ async def send_df_in_formats(
         from PIL import (
             Image,
             ImageDraw,
-            ImageFont
+            ImageFont,
         )
 
         if bold:
@@ -327,9 +318,9 @@ async def send_df_in_formats(
         else:
             font = ImageFont.truetype("fonts/SourceCodePro-Regular.otf", 16)
 
-        x1, y1, x2, y2 = ImageDraw.Draw(Image.new('RGB', (0, 0))).textbbox(indent_point, text, font)
+        x1, y1, x2, y2 = ImageDraw.Draw(Image.new("RGB", (0, 0))).textbbox(indent_point, text, font)
 
-        img = Image.new('RGB', (x2 + indent, y2 + indent), bg_color)
+        img = Image.new("RGB", (x2 + indent, y2 + indent), bg_color)
         d = ImageDraw.Draw(img)
 
         d.text(
@@ -340,9 +331,9 @@ async def send_df_in_formats(
         )
 
         bio = BytesIO()
-        bio.name = 'img.png'
+        bio.name = "img.png"
 
-        img.save(bio, 'png')
+        img.save(bio, "png")
         bio.seek(0)
 
         bio2 = copy.copy(bio)
@@ -359,18 +350,14 @@ async def send_df_in_formats(
             await message_object.reply_document(bio2, reply_markup=reply_markup)
 
     async def send_text_func(text: str):
-        html_table_text = f'<pre>\n{text}\n</pre>'
+        html_table_text = f"<pre>\n{text}\n</pre>"
 
-        await wrapped_send_text(
-            message_object.reply_text,
-            text=html_table_text,
-            parse_mode=ParseMode.HTML
-        )
+        await wrapped_send_text(message_object.reply_text, text=html_table_text, parse_mode=ParseMode.HTML)
 
     async def send_csv_func(csv_str: str):
         bio = BytesIO()
-        bio.name = 'answers_df.csv'
-        bio.write(bytes(csv_str, 'utf-8'))
+        bio.name = "answers_df.csv"
+        bio.write(bytes(csv_str, "utf-8"))
         bio.seek(0)
 
         await message_object.reply_document(document=bio)
