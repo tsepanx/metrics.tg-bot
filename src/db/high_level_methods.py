@@ -12,7 +12,7 @@ from psycopg.sql import (
     Placeholder,
 )
 
-from db.base import (
+from .base import (
     _query_get,
     get_where,
     provide_conn,
