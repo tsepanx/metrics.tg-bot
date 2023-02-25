@@ -106,23 +106,21 @@ def build_answers_df(
         rows = _query_get(conn, query)
 
         days = list(map(lambda x: x[0].isoformat(), rows))
+    else:
+        days = days_range
 
     for day in days:
         # format: [('quest_name', 'answer_text'), ...]
-        res = get_answers_on_day(conn, day)
+        col_from_db = get_answers_on_day(conn, day)
 
-        if not len(res):
+        if col_from_db is None:
             if include_empty_cols:
                 df[day] = pd.Series()
             continue
 
-        # Building pd.Series list of question_answer.answer_text with index as of question.name
-        answers_column = pd.DataFrame(res).set_index(0).iloc[:, 0]
-        questions_names = answers_column.index
-
+        questions_names = col_from_db.index
         df = df.reindex(df.index.union(questions_names))
-        # df = df.assign(**{'2023-02-02': answers_column})
-        df[day] = answers_column
+        df[day] = col_from_db
 
     qnames = get_ordered_questions_names()
     df = df.reindex(qnames)
@@ -161,7 +159,8 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
     template_query = """SELECT * FROM question AS q
         JOIN question_type qt
             ON q.type_id = qt.id
-        WHERE q.name IN ({});
+        WHERE q.name IN ({})
+        ORDER BY q.num_int;
     """
 
     query = SQL(template_query).format(
@@ -193,7 +192,7 @@ def get_questions_with_type_fk(conn, qnames: list[str]) -> list[QuestionDB] | No
     return res_list
 
 
-def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Sequence:
+def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> pd.Series | None:
     rows = get_where(
         conn,
         where_dict={'day_fk': day},
@@ -201,7 +200,12 @@ def get_answers_on_day(conn: psycopg.connection, day: str | datetime.date) -> Se
         select_cols=('question_fk', 'answer_text')
     )
 
-    return rows
+    if not len(rows):
+        return None
+
+    # Building pd.Series list of question_answer.answer_text with index as of question.name
+    answers_column = pd.DataFrame(rows).set_index(0).iloc[:, 0]
+    return answers_column
 
 
 if __name__ == "__main__":

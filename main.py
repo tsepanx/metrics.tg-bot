@@ -136,8 +136,8 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
     update_db(user_data.state)
 
     # TODO grubber collector check
+    user_data.reload_answers_df_from_db(cols=[user_data.state.asking_day])
     user_data.state = None
-    user_data.reload_answers_df_from_db()
 
     if save_csv:
         fname_backup = answers_df_backup_fname(update.effective_chat.id)

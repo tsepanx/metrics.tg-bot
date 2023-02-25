@@ -11,6 +11,7 @@ from io import (
 from pprint import (
     pprint
 )
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -87,9 +88,15 @@ class UserData:
         self.answers_df = None
         self.questions_names = None
 
-    def reload_answers_df_from_db(self):
-        # TODO optionally reload only given list of columns
-        self.answers_df = db.build_answers_df()
+    def reload_answers_df_from_db(self, cols: Sequence[str] = None):
+        if cols:
+            new_cols = db.build_answers_df(days_range=cols)
+
+            assign_dict = {cols[i]: new_cols.iloc[:, 0] for i in range(len(cols))}
+            self.answers_df = self.answers_df.assign(**assign_dict)
+            self.answers_df = sort_answers_df_cols(self.answers_df)
+        else:
+            self.answers_df = db.build_answers_df()
 
     def reload_qnames(self):
         self.questions_names = db.get_ordered_questions_names()
@@ -101,6 +108,15 @@ CHAT_DATA_KEYS_DEFAULTS = {
     # 'state': State(None),
     USER_DATA_KEY: lambda: UserData()
 }
+
+
+def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
+    columns_order = sorted(
+        df.columns,
+        key=lambda x: f'_{x}' if not isinstance(x, datetime.date) else x.isoformat()
+    )
+    df = df.reindex(columns_order, axis=1)
+    return df
 
 
 def add_questions_sequence_num_as_col(
