@@ -7,6 +7,7 @@ from io import (
 )
 from typing import (
     Callable,
+    Sequence
 )
 
 import pandas as pd
@@ -103,8 +104,11 @@ async def send_answers_df(
     csv_text = answers_df.to_csv()
 
     if not transpose_table:
+        assert update.message is not None
         message_object = update.message
     else:
+        assert update.callback_query is not None
+        assert update.callback_query.message is not None
         message_object = update.callback_query.message
 
     if send_csv:
@@ -129,9 +133,9 @@ async def send_answers_df(
             reply_markup = None
 
         try:
-            await message_object.reply_photo(bio, reply_markup=reply_markup)
+            await message_object.reply_photo(bio, reply_markup=reply_markup)  # type: ignore
         except telegram.error.BadRequest:
-            await message_object.reply_document(bio2, reply_markup=reply_markup)
+            await message_object.reply_document(bio2, reply_markup=reply_markup)  # type: ignore
     if send_text:
         html_table_text = f"<pre>\n{md_text}\n</pre>"
 
@@ -149,8 +153,10 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
         answers = state.cur_answers
 
         for i, answer in enumerate(answers):
-            answer: str
+            # answer: str
             day: str = state.asking_day
+
+            assert state.include_questions is not None
             qname = state.include_questions[i].name
 
             if answer is None:
@@ -160,6 +166,9 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
 
             update_or_insert_row(where_dict, {"answer_text": answer}, "question_answer")
 
+    assert user_data.state is not None
+    assert user_data.answers_df is not None
+
     # Updating DataFrame is not needed anymore, as it will be restored from db: new_answers -> db -> build_answers_df
     update_db(user_data.state)
 
@@ -168,7 +177,7 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
     user_data.state = None
 
     if save_csv:
-        fname_backup = answers_df_backup_fname(update.effective_chat.id)
+        fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
         user_data.answers_df.to_csv(fname_backup)
 
     await send_answers_df(update, user_data.answers_df, send_csv=True)
@@ -176,13 +185,17 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
 
 @handler_decorator
 async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    assert update.message is not None
+
     # state = context.chat_data["state"]
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
+    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
     state = user_data.state
     # qnames = user_data.questions_names
 
     # if state.current_state == 'ask':
     if isinstance(state, AskingState):
+        assert state.include_questions is not None
+
         q: QuestionDB = state.get_current_question()
 
         user_ans = update.message.text
@@ -256,8 +269,10 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return res
 
+    assert update.message is not None
+
     # state = context.chat_data["state"]
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
+    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     if user_data.state is not None:
         pass  # Existing command is in action
@@ -272,6 +287,9 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     answers_df = user_data.answers_df
     qnames = user_data.questions_names
+
+    assert answers_df is not None
+    assert qnames is not None
 
     if parsed.questions_ids:
         include_indices = parsed.questions_ids
@@ -291,7 +309,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(include_indices) == 0:
             include_indices = all_indices
 
-    include_names = list(map(lambda x: qnames[x], include_indices))
+    include_names = list(map(lambda x: qnames[x], include_indices))  # type: ignore
 
     user_data.state = AskingState(include_qnames=include_names, asking_day=asking_day)
 
@@ -307,7 +325,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @handler_decorator
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data = context.chat_data[USER_DATA_KEY]
+    user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     await send_answers_df(update, user_data.answers_df)
 
@@ -318,13 +336,15 @@ def on_add_question(user_data: UserData):
 
 @handler_decorator
 async def add_question_command(_: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data = context.chat_data[USER_DATA_KEY]
+    user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     on_add_question(user_data)
 
 
 @handler_decorator
 async def exit_command(update: Update, _):
+    assert update.message is not None
+
     await wrapped_send_text(update.message.reply_text, text="Exiting...")
 
     asyncio.get_event_loop().stop()
@@ -332,9 +352,11 @@ async def exit_command(update: Update, _):
 
 @handler_decorator
 async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data = context.chat_data[USER_DATA_KEY]
+    user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     query = update.callback_query
+    assert query is not None
+
     await query.answer()
 
     if query.data == "transpose":

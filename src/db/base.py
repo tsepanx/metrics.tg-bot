@@ -1,7 +1,7 @@
 import os
 from typing import (
     Optional,
-    Sequence,
+    Sequence, Any,
 )
 
 import psycopg
@@ -35,7 +35,7 @@ def get_psql_conn():
     return _pg_conn
 
 
-def prefix_keys(d: dict[str, any], pref: str) -> dict[str, any]:
+def prefix_keys(d: dict[str, Any], pref: str) -> dict[str, Any]:
     new_d = {}
     for key in d:
         new_key = f"{pref}{key}"
@@ -102,15 +102,15 @@ def get_where(where_dict: dict, tablename: str, select_cols: Sequence[str] | Non
     return _query_get(query=query, params=where_dict)
 
 
-def _exists(where_dict: dict[str, any], tablename: str):
+def _exists(where_dict: dict[str, Any], tablename: str):
     return len(get_where(where_dict, tablename)) > 0
 
 
-def exists(where_dict: dict[str, any], tablename: str):
+def exists(where_dict: dict[str, Any], tablename: str):
     return _exists(where_dict, tablename)
 
 
-def _insert_row(row_dict: dict[str, any], tablename: str):
+def _insert_row(row_dict: dict[str, Any], tablename: str):
     names = tuple(row_dict.keys())
 
     query = (
@@ -129,7 +129,7 @@ def _insert_row(row_dict: dict[str, any], tablename: str):
         raise e
 
 
-def _update_row(where_dict: dict[str, any], set_dict: dict[str, any], tablename: str):
+def _update_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename: str):
     where_names = tuple(where_dict.keys())
     set_names = tuple(set_dict.keys())
 
@@ -167,7 +167,7 @@ def _update_row(where_dict: dict[str, any], set_dict: dict[str, any], tablename:
     _query_set(query, placeholder_values)
 
 
-def update_or_insert_row(where_dict: dict[str, any], set_dict: dict[str, any], tablename: str):
+def update_or_insert_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename: str):
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
     # assert set(where_dict).union(set(set_dict)) == columns_set

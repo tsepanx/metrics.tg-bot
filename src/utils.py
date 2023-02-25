@@ -11,7 +11,7 @@ from pprint import (
     pprint,
 )
 from typing import (
-    Sequence,
+    Sequence, Tuple, Any,
 )
 
 import numpy as np
@@ -78,6 +78,9 @@ class AskingState:
         self.include_questions = db.get_questions_with_type_fk(include_qnames)
 
     def get_current_question(self) -> db.QuestionDB:
+        if not self.include_questions:
+            raise Exception
+
         return self.include_questions[self.cur_id_ind]
 
 
@@ -92,8 +95,10 @@ class UserData:
         self.answers_df = None
         self.questions_names = None
 
-    def reload_answers_df_from_db(self, cols: Sequence[str] = None):
+    def reload_answers_df_from_db(self, cols: Sequence[str] | None = None):
         if cols:
+            assert self.answers_df is not None
+
             new_cols = db.build_answers_df(days_range=cols)
 
             assign_dict = {cols[i]: new_cols.iloc[:, 0] for i in range(len(cols))}
@@ -169,7 +174,7 @@ def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Serie
     return res_col
 
 
-def get_divided_long_message(text, max_size) -> [str, str]:
+def get_divided_long_message(text, max_size) -> Tuple[str, str]:
     """
     Cuts long message text with \n separator
 
@@ -192,7 +197,7 @@ async def wrapped_send_text(send_message_func, text: str, *args, **kwargs):
         lpart, rpart = get_divided_long_message(text, MAX_MSG_LEN)
 
         await send_message_func(*args, text=lpart, **kwargs)
-        await wrapped_send_text(send_message_func, *args, text=rpart, **kwargs)
+        await wrapped_send_text(send_message_func, rpart, *args, **kwargs)
     else:
         await send_message_func(*args, text=text, **kwargs)
 
@@ -217,16 +222,16 @@ def handler_decorator(func):
         pprint(context.application.chat_data)
         pprint(context.bot_data)
 
-        if update.message:
-            # pylint: disable=consider-using-dict-items
-            for KEY in CHAT_DATA_KEYS_DEFAULTS:
-                if KEY not in context.chat_data or context.chat_data[KEY] is None:
-                    context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY]()
+        assert context.chat_data is not None
+        assert update.message is not None
+
+        # if update.message:
+        # pylint: disable=consider-using-dict-items
+        for KEY in CHAT_DATA_KEYS_DEFAULTS:
+            if KEY not in context.chat_data or context.chat_data[KEY] is None:
+                context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY]()
 
         user_data: UserData = context.chat_data[USER_DATA_KEY]
-
-        print("Chat id:", update.effective_chat.id)
-        # answers_df_fname = answers_df_backup_fname(update.effective_chat.id)
 
         if user_data.answers_df is None:
             print("DB: Restoring answers_df")
@@ -410,7 +415,7 @@ def text_to_png(text: str, bold=True):
     return img
 
 
-def data_to_bytesio(data: object, fname: str) -> BytesIO:
+def data_to_bytesio(data: Any, fname: str) -> BytesIO:
     bio = BytesIO()
     bio.name = fname
 
