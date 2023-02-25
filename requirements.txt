@@ -4,7 +4,9 @@ pandas~=1.5.3
 tabulate
 pillow
 
-flake8
-black
 isort
+black
+flake8
+pylint
+
 mypy
