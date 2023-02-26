@@ -64,13 +64,18 @@ class QuestionDB:
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
+        def choice(value: str) -> str:
+            if value not in self.suggested_answers_list:
+                raise Exception
+            return value
+
         qtype_answer_func_mapping = {
             # id: func <Callable>
             0: None,  # text
-            1: int,  # int
-            2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,
-            3: time_or_hours,
-            4: None,
+            1: int,   # int
+            2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,  # binary
+            3: time_or_hours,  # hours
+            4: choice,
         }
 
         return qtype_answer_func_mapping[self.type_id]

@@ -55,7 +55,7 @@ async def send_ask_question(q: QuestionDB, send_message_f: Callable):
 
     reply_markup = telegram.ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
 
-    question_text = f"<code>{q.type_fk.notation_str}</code> {q.fulltext}"
+    question_text = f"<code>{q.type_fk.notation_str}</code> {q.fulltext if q.fulltext else q.name}"
 
     await wrapped_send_text(send_message_f, question_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
@@ -371,6 +371,10 @@ async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def post_init(application: Application) -> None:
+    for user_id, chat_data in application.chat_data.items():
+        user_data = chat_data[USER_DATA_KEY]
+        user_data.reload_answers_df_from_db()
+
     await application.bot.set_my_commands(
         list(
             filter(

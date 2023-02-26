@@ -225,7 +225,6 @@ def handler_decorator(func):
         pprint(context.bot_data)
 
         assert context.chat_data is not None
-        assert update.message is not None
 
         # if update.message:
         # pylint: disable=consider-using-dict-items
@@ -245,8 +244,10 @@ def handler_decorator(func):
         try:
             await func(update, context, *args, **kwargs)
         except MyException as e:
+            assert update.message is not None
             await wrapped_send_text(update.message.reply_text, text=str(e), parse_mode=ParseMode.MARKDOWN)
         except Exception:
+            assert update.message is not None
             await wrapped_send_text(update.message.reply_text, text=traceback.format_exc())
 
     return wrapper
