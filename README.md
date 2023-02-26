@@ -2,10 +2,13 @@
 
 ### TODO
 
-- [ ] -> Optimize number of `SQL` requests
+- [ ] === **TODO** Add `Events` ===
+
+---
+- Involve `groups`
+- [x] -> Optimize number of `SQL` requests
   - Check whether any `table` changed to reload "db attrs"
   - Check output requests, fix duplicate requests
-- Involve `groups`
 - [x] `DB` support (`PosgreSQL`)
 - [x] `/ask missing`
 - ~~Store `questions_objects` as file~~
