@@ -168,12 +168,14 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
     assert user_data.state is not None
     assert user_data.answers_df is not None
 
-    # Updating DataFrame is not needed anymore, as it will be restored from db: new_answers -> db -> build_answers_df
-    update_db(user_data.state)
+    if any(user_data.state.cur_answers) or user_data.state.asking_day in user_data.answers_df.columns:
+        # Updating DataFrame is not needed anymore,
+        # as it will be restored from db: new_answers -> db -> build_answers_df
+        update_db(user_data.state)
 
-    # TODO grubber collector check
-    user_data.reload_answers_df_from_db(cols=[user_data.state.asking_day])
-    user_data.state = None
+        # TODO grubber collector check
+        user_data.reload_answers_df_from_db(cols=[user_data.state.asking_day])
+        user_data.state = None
 
     if save_csv:
         fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
