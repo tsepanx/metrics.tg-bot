@@ -21,3 +21,7 @@ good-names=["i", "j", "k", "df"]
 # R0903 - too-few-public-methods
 # W0511 - fixme
 disable=["C0103", "C0114", "C0115", "C0116", "W0718", "W0719", "R0903", "W0511"]
+
+[tool.mypy]
+
+ignore_missing_imports = "True"

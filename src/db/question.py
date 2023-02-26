@@ -72,7 +72,7 @@ class QuestionDB:
         qtype_answer_func_mapping = {
             # id: func <Callable>
             0: None,  # text
-            1: int,   # int
+            1: int,  # int
             2: lambda x: 1 if str(x).lower() in ("да", "yes", "1") else 0,  # binary
             3: time_or_hours,  # hours
             4: choice,

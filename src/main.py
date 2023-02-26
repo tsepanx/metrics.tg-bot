@@ -373,7 +373,7 @@ async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def post_init(application: Application) -> None:
-    for user_id, chat_data in application.chat_data.items():
+    for _, chat_data in application.chat_data.items():
         user_data = chat_data[USER_DATA_KEY]
         user_data.reload_answers_df_from_db()
 

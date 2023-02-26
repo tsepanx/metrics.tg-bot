@@ -62,6 +62,8 @@ def answers_df_backup_fname(chat_id: int) -> str:
 
 ASK_WRONG_FORMAT = MyException("`=== /ask: wrong format ===`\n" + ask_format_example())
 
+STOP_ASKING = "Stop asking"
+SKIP_QUEST = "Skip question"
 MAX_MSG_LEN = 7000
 
 
@@ -119,6 +121,15 @@ CHAT_DATA_KEYS_DEFAULTS = {
     # 'state': State(None),
     USER_DATA_KEY: UserData
 }
+
+
+def to_list(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> list:
+        res = list(func(*args, **kwargs))
+        return res
+
+    return wrapper
 
 
 def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
@@ -204,15 +215,6 @@ async def wrapped_send_text(send_message_func, text: str, *args, **kwargs):
         await send_message_func(*args, text=text, **kwargs)
 
 
-def to_list(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> list:
-        res = list(func(*args, **kwargs))
-        return res
-
-    return wrapper
-
-
 def handler_decorator(func):
     """
     Wrapper over each handler
@@ -226,7 +228,6 @@ def handler_decorator(func):
 
         assert context.chat_data is not None
 
-        # if update.message:
         # pylint: disable=consider-using-dict-items
         for KEY in CHAT_DATA_KEYS_DEFAULTS:
             if KEY not in context.chat_data or context.chat_data[KEY] is None:
@@ -256,10 +257,6 @@ def handler_decorator(func):
 def get_nth_delta_day(n: int = 0) -> datetime.date:
     date = datetime.date.today() + datetime.timedelta(days=n)
     return date
-
-
-STOP_ASKING = "Stop asking"
-SKIP_QUEST = "Skip question"
 
 
 def df_to_markdown(df: pd.DataFrame, transpose=False):
