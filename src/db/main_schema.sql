@@ -22,7 +22,7 @@ CREATE TABLE question(
     pk SERIAL PRIMARY KEY,
 
     name VARCHAR(50) UNIQUE NOT NULL,
-    num_int SERIAL,
+    order_by SERIAL,
     fulltext TEXT
         DEFAULT '',
     suggested_answers_list VARCHAR(50)[],
@@ -48,34 +48,17 @@ CREATE TABLE day(
         NOT NULL
 );
 
--- DROP TABLE question_answer;
-CREATE TABLE question_answer(
-    day_fk DATE
-        REFERENCES day(date),
-    question_fk VARCHAR
-        REFERENCES question(name),
-    PRIMARY KEY (day_fk, question_fk),
-
-    answer_text TEXT
-);
-
 
 CREATE TABLE event(
     pk SERIAL PRIMARY KEY,
+    order_by SERIAL,
     name VARCHAR(50)
 );
 
 
--- DROP FUNCTION string_is_time(s text) CASCADE;
-CREATE FUNCTION string_is_time(s text)
-    RETURNS boolean
-    LANGUAGE SQL
-    IMMUTABLE STRICT
-    RETURN substring(s::time::text FROM 0 FOR 4) = substring(s FROM 0 FOR 4);
-
-
 -- DROP TABLE IF EXISTS answer;
 CREATE TABLE answer (
+    pk SERIAL PRIMARY KEY ,
     date DATE
         DEFAULT now()::date,
     event_fk INTEGER
@@ -100,13 +83,13 @@ CREATE TABLE answer (
     )
 );
 
-INSERT INTO answer (date, event_fk, question_fk, time) VALUES
+-- INSERT INTO answer (date, event_fk, question_fk, time) VALUES
 --     ('2023-02-27', 1, NULL, '11:00:0'),
 --     ('2023-02-27', 2, NULL, '11:00'),
 --     ('2023-02-28', NULL, '1', '11:00')
-    ('2023-02-27', 4, NULL, now()),
-    ('2023-02-27', 5, NULL, now())
-;
+--     ('2023-02-27', 4, NULL, now()),
+--     ('2023-02-27', 5, NULL, now())
+-- ;
 
 
 -- New version OF 'question_answer' VIEW, by JOIN
