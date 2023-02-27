@@ -161,9 +161,14 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             if answer is None:
                 continue
 
-            where_dict = {"day_fk": day, "question_fk": qname}
+            # Add entry to 'day' table if not exists
+            update_or_insert_row({"date": day}, {}, "day")
 
-            update_or_insert_row(where_dict, {"answer_text": answer}, "question_answer")
+            update_or_insert_row(
+                where_dict={"day_fk": day, "question_fk": qname},
+                set_dict={"answer_text": answer},
+                tablename="question_answer"
+            )
 
     assert user_data.state is not None
     assert user_data.answers_df is not None

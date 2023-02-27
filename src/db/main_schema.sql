@@ -1,8 +1,15 @@
 
-DROP TABLE IF EXISTS question_answer;
-DROP TABLE IF EXISTS day;
 DROP TABLE IF EXISTS question;
 DROP TABLE IF EXISTS question_type;
+DROP TABLE IF EXISTS event;
+DROP TABLE IF EXISTS answer;
+-- DROP TABLE IF EXISTS question_answer;
+-- DROP TABLE IF EXISTS day;
+-- DROP TABLE IF EXISTS answers;
+-- DROP TABLE IF EXISTS event_answer ;
+
+SHOW TIMEZONE;
+SET TIME ZONE 'Europe/Moscow';
 
 CREATE TABLE question_type (
     id SERIAL PRIMARY KEY,
@@ -10,19 +17,11 @@ CREATE TABLE question_type (
     notation_str VARCHAR(10) UNIQUE
 );
 
-
--- Examples of ALTERing column
--- ALTER TABLE question_type ADD COLUMN IF NOT EXISTS notation_str VARCHAR(10) UNIQUE;
--- ALTER TABLE question_type ALTER COLUMN notation_str TYPE VARCHAR(10);
--- ALTER TABLE question_type ADD CONSTRAINT UNIQUE (notation_str);
--- ALTER TABLE question_type ALTER COLUMN notation_str SET DEFAULT 'default_val';
-
-
 -- DROP TABLE question;
-
 CREATE TABLE question(
---     pk SERIAL PRIMARY KEY,
-    name VARCHAR(50) PRIMARY KEY,
+    pk SERIAL PRIMARY KEY,
+
+    name VARCHAR(50) UNIQUE NOT NULL,
     num_int SERIAL,
     fulltext TEXT
         DEFAULT '',
@@ -55,39 +54,75 @@ CREATE TABLE question_answer(
         REFERENCES day(date),
     question_fk VARCHAR
         REFERENCES question(name),
-    CONSTRAINT pk PRIMARY KEY (day_fk, question_fk),
+    PRIMARY KEY (day_fk, question_fk),
 
     answer_text TEXT
 );
 
--- ALTER TABLE question
---     ADD CONSTRAINT fk_question_type
---         FOREIGN KEY (type_id)
---         REFERENCES question_type(id);
+
+CREATE TABLE event(
+    pk SERIAL PRIMARY KEY,
+    name VARCHAR(50)
+);
 
 
------------ SELECT OPERATIONS -----------
+-- DROP FUNCTION string_is_time(s text) CASCADE;
+CREATE FUNCTION string_is_time(s text)
+    RETURNS boolean
+    LANGUAGE SQL
+    IMMUTABLE STRICT
+    RETURN substring(s::time::text FROM 0 FOR 4) = substring(s FROM 0 FOR 4);
 
 
--- Show all answers for given day, sorted by q.num_int
-SELECT * FROM question as q
-    JOIN question_type qt
-        ON q.type_id = qt.id
-    WHERE q.name IN ('walking', 'xl_time');
+-- DROP TABLE IF EXISTS answer;
+CREATE TABLE answer (
+    date DATE
+        DEFAULT now()::date,
+    event_fk INTEGER
+        REFERENCES event,
+    question_fk INTEGER
+        REFERENCES question,
+
+    UNIQUE (date, question_fk),
+
+    time TIME NULL, -- DEFAULT now()::time,
+    text TEXT NULL,
+
+    CONSTRAINT answer_is_time_for_event CHECK (
+        CASE WHEN (event_fk IS NOT NULL)
+            THEN string_is_time(text) = true END
+    ),
+
+    -- One of 'event_fk', 'question_fk' should be NULL
+    CHECK (
+        CASE WHEN (event_fk IS NOT NULL) THEN 1 ELSE 0 END +
+        CASE WHEN (question_fk IS NOT NULL) THEN 1 ELSE 0 END = 1
+    )
+);
+
+INSERT INTO answer (date, event_fk, question_fk, time) VALUES
+--     ('2023-02-27', 1, NULL, '11:00:0'),
+--     ('2023-02-27', 2, NULL, '11:00'),
+--     ('2023-02-28', NULL, '1', '11:00')
+    ('2023-02-27', 4, NULL, now()),
+    ('2023-02-27', 5, NULL, now())
 ;
---         ON q.name = qa.question_fk
---     WHERE
---         qa.day_fk = '2023-02-21' AND qa.question_fk
---         (day_fk, question_fk) = ('2023-02-21', 'walking')
---     ORDER BY qa.day_fk, q.num_int;
 
-SELECT * FROM question AS q
-    WHERE
-        (name) = ('walking')
-;
+
+-- New version OF 'question_answer' VIEW, by JOIN
+SELECT date, q.name, text FROM answer AS a
+--     LEFT JOIN event e ON e.pk = a.event_fk
+    JOIN question q on q.pk = a.question_fk
+WHERE
+--     (a.date, q.name) = ('2023-02-25', 'walking')
+--     a.date = '2023-02-25'
+    a.date = now()::date
+ORDER BY
+    q.num_int;
+
 
 -- Print all questions list
-SELECT q.name, qt.notation_str, q.fulltext FROM question_type AS qt
+SELECT q.name, q.fulltext, q.suggested_answers_list, qt.notation_str FROM question_type AS qt
     JOIN question q
         ON qt.id = q.type_id;
 
