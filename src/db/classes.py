@@ -44,16 +44,20 @@ def get_dataclasses_where(
     # meta_instance: Table.Meta = class_.meta_instance
 
     primary_tablename = class_.Meta.tablename
-    columns_names = list(class_.__annotations__.keys())
+    primary_table_colnames = list(class_.__annotations__.keys())
 
-    select_columns = {
-        primary_tablename: columns_names
-    }
+    select_identifiers: list[tuple[str, str]] = []
+    select_identifiers.extend([(primary_tablename, col_name) for col_name in primary_table_colnames])
 
     # Stores mapping <join_tablename> : <ForeignKey obj>
     # Auxiliary dict for faster finding ForeignKey instance
     # Used on creating Dataclasses object on setting ForeignKey.dataclass_instance (at the end of func)
     foreign_keys_objs: dict[str, tuple[str, ForeignKey]] = {}
+
+    # Stores mapping <table_name> : (<column names list>)
+    table_columns_mapping: dict[str, list[str]] = {
+        primary_tablename: primary_table_colnames
+    }
 
     if join_foreign_keys and hasattr(class_.Meta, 'foreign_keys'):
         join_dict = {}
@@ -71,15 +75,16 @@ def get_dataclasses_where(
             join_dict[join_tablename] = (from_col, to_col)
 
             join_table_columns = list(fk_obj.class_.__annotations__.keys())
-            select_columns[join_tablename] = join_table_columns
+            select_identifiers.extend([(join_tablename, col_name) for col_name in join_table_columns])
 
             foreign_keys_objs[join_tablename] = (from_col, fk_obj)
+            table_columns_mapping[join_tablename] = join_table_columns
     else:
         join_dict = None
 
     query_results = base.get_where(
         tablename=primary_tablename,
-        select_cols=select_columns,
+        select_cols=select_identifiers,
         join_dict=join_dict,
         where_dict=where_dict,
         order_by=order_by
@@ -92,26 +97,26 @@ def get_dataclasses_where(
         primary_obj: class_ = None
 
         offset = 0
-        for table in select_columns:
-            table_selected_colnames: list[str] = select_columns[table]
+        for table in table_columns_mapping:
+            table_selected_columns: list[str] = table_columns_mapping[table]
+            columns_count = len(table_selected_columns)
 
-            left_bound = offset
-            right_bound = offset + len(table_selected_colnames)
-
-            row_values_for_table = row[left_bound:right_bound]
+            values_for_table = row[offset: offset + columns_count]
 
             # len(colnames) == len(values)
-            assert len(table_selected_colnames) == len(row_values_for_table)
+            assert len(table_selected_columns) == len(values_for_table)
 
             def create_object(class_to_create: DBClassType) -> DBClassType:
                 return class_to_create(**{
-                    table_selected_colnames[i]: row_values_for_table[i]
-                    for i in range(len(table_selected_colnames))
+                    table_selected_columns[i]: values_for_table[i]
+                    for i in range(columns_count)
                 })
 
             if table == primary_tablename:
+                # creating Primary table instance
                 primary_obj = create_object(class_)
             else:
+                # creating Dataclasses that are JOINED via fk
                 assert primary_obj is not None
                 from_col, fk_obj = foreign_keys_objs[table]
                 fk_obj: ForeignKey
@@ -119,7 +124,7 @@ def get_dataclasses_where(
                 obj = create_object(fk_obj.class_)
                 primary_obj.set_fk_value(from_col, obj)
 
-            offset += len(table_selected_colnames)
+            offset += columns_count
         objs_list.append(primary_obj)
 
     return objs_list

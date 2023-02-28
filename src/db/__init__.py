@@ -1,5 +1,4 @@
 from .base import (
-    exists,
     update_or_insert_row,
 )
 from .question import (

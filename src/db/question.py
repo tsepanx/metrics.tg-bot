@@ -63,6 +63,7 @@ class QuestionDB(Table):
 
     # ForeignKey : 'QuestionTypeDB'
     type_id: int
+
     # type_fk: ForeignKey(QuestionTypeDB, "type_id", int)
 
     class Meta:
@@ -184,7 +185,7 @@ def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
         qt_attrs_count = 3
 
         row_q_attrs = r[:q_attrs_count]
-        row_qt_attrs = r[q_attrs_count : q_attrs_count + qt_attrs_count]
+        row_qt_attrs = r[q_attrs_count: q_attrs_count + qt_attrs_count]
 
         q_obj = QuestionDB(*row_q_attrs)
         qt_obj = QuestionTypeDB(*row_qt_attrs)
@@ -196,21 +197,29 @@ def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
 
 
 def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
+    if isinstance(day, datetime.date):
+        day = str(day.isoformat())
+
     rows = get_where(
-        tablename="question_answer",
-        select_cols=("question_fk", "answer_text"),
-        where_dict={"day_fk": day},
+        tablename="answer",
+        select_cols=("date", "text"),
+        join_dict={"question": ("question_fk", "pk")},
+        where_dict={"date": day},
+        order_by=[
+            # ("answer", "date"),
+            ("question", "order_by"),
+        ],
     )
 
     if not rows:
         return None
 
     # Building pd.Series list of question_answer.answer_text with index as of question.name
-    answers_column = pd.DataFrame(rows).set_index(0).iloc[:, 0]
+    answers_column = pd.DataFrame(rows).set_index(0)  # .iloc[:, 0]
     return answers_column
 
 
-if __name__ == "__main__":
+def test_get_questions():
     # get_questions_with_type_fk(["walking", "x_small", "x_big"])
 
     l = get_dataclasses_where(
@@ -229,3 +238,12 @@ if __name__ == "__main__":
 
         assert i.type_id == fk_obj.pk
 
+
+def test_get_answers():
+    res = get_answers_on_day('2023-02-25')
+    print(res)
+
+
+if __name__ == "__main__":
+    # test_get_answers()
+    test_get_questions()

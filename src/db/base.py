@@ -82,31 +82,27 @@ def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
 
 def get_where(
         tablename: str,
-        # select_cols: Sequence[str] | None = None,
-        select_cols: dict[str, Sequence[str]] | None = None,
+        # select_cols: dict[str, Sequence[str]] | None = None,
+        select_cols: Sequence[tuple[str, str]] | Sequence[str] | None = None,
         join_dict: dict[str, tuple[str, str]] | None = None,
         where_dict: dict[str, Any] | None = None,
-        order_by: Sequence[str] | None = None,
+        order_by: list[tuple[str, str]] | None = None,
 ) -> Sequence:
     """
     Common parametrized function to execute "SELECT" clause
         possibly with "WHERE", "JOIN ON", "ORDER BY" clauses
 
     @param tablename:
-        name of table from which to SELECT
+        name of table goes after "FROM" clause
 
     @param select_cols:
-        Which columns to select from each of joined tables.
-
-        Each key-value pair is described as:
-            <table>         : (<columns_to_select>)
-        F.e.
-        {
-            "question"      : ("pk", "name", "type_id"),
-            "question_type" : ("pk", "name", "notation")
-        }
+        List of columns identifiers, goes after "SELECT" clause
+        Each item is described in any of 2 formats (Result string in query is specified after "->"):
+            1) (<col_name>,)                -> "<col_name>"
+            2) (<table_name>, <col_name>)   -> "<table_name>"."<col_name>"
 
     @param join_dict:
+        A dict specifying, whether to add JOIN clause on tables
         Each key-value pair is described as:
             <table_to_join> : (<from_col>, <to_col>)
         F.e.
@@ -117,7 +113,10 @@ def get_where(
             <col_name>  :  <col_value>
 
     @param order_by:
-        List of columns, by which to ORDER BY
+        A list of tuple[str, str] specifying columns after "ORDER BY" clause
+        Each item is described in any of 2 formats (Result string in query is specified after "->"):
+            1) (<col_name>,)                -> "<col_name>"
+            2) (<table_name>, <col_name>)   -> "<table_name>"."<col_name>"
 
     @return:
         List of rows, each length of @param<select_cols>, consisting columns values
@@ -126,51 +125,38 @@ def get_where(
     # TODO add availability for "WHERE col1 IN (1, 2)" clause
     # TODO needed to search dict values for list, and add additional query string for those pairs
 
+    # ("col") -> Composed("name")
+    # ("table", "col") -> Composed("table"."name")
+    def compose_by_dot(elem: tuple[str, str] | tuple[str] | str):
+        if isinstance(elem, str):
+            return Identifier(elem)
+        if isinstance(elem, tuple):
+            if len(elem) == 1:
+                return Identifier(elem[0])
+            elif len(elem) > 1:
+                return Identifier(*elem)
+
     format_list = []
     template_query = ""
 
+    # "SELECT" clause
     if select_cols:
-        template_query += "SELECT {} FROM {}"
-
-        def colnames_with_tablename(key_value: [str, Sequence[str]]) -> Composed:
-            """
-            Build comma (,) separated list of "table"."colname" for given table and corresponding columns
-            This function is applied to every key-value pair dict_item of "select_cols" dict
-
-            @param key_value:
-                ( <tablename> , [<columns_names>] )
-            """
-            select_from_tablename, select_columns = key_value
-
-            result_columns_identifiers = []
-
-            for column in select_columns:
-                single_identifier = SQL(".").join(map(Identifier, [
-                    select_from_tablename, column
-                ]))
-                result_columns_identifiers.append(single_identifier)
-
-            return SQL(", ").join(result_columns_identifiers)
+        template_query += "SELECT {}"
 
         format_list.extend([
-            SQL(", ").join(
-                map(colnames_with_tablename, select_cols.items())
-                # map(Identifier, select_cols)
-                # Identifier ( "question"."col" )
-            )
+            SQL(", ").join(map(compose_by_dot, select_cols))
         ])
     else:
-        template_query += "SELECT * FROM {}"
+        template_query += "SELECT *"
 
+    # "FROM" clause
+    template_query += " FROM {}"
     format_list.append(
         Identifier(tablename)
     )
 
+    # "JOIN" clause
     if join_dict:
-        # join_dict = {
-        #     "table2": ["table.col", "table2.col"]
-        # }
-
         for join_tablename in join_dict:
             from_col, to_col = join_dict[join_tablename]
             # template_query += "JOIN question_type ON question.type_id = question_type.pk;"
@@ -178,14 +164,15 @@ def get_where(
             # template_query += f"JOIN {join_tablename} ON {tablename}.{from_col} = {join_tablename}.{to_col}"
             template_query += " JOIN {} ON {}.{} = {}.{}"
 
-            format_list.extend([
-                Identifier(join_tablename),
-                Identifier(tablename),
-                Identifier(from_col),
-                Identifier(join_tablename),
-                Identifier(to_col)
-            ])
+            format_list.extend(map(Identifier, [
+                join_tablename,
+                tablename,
+                from_col,
+                join_tablename,
+                to_col
+            ]))
 
+    # "WHERE" clause
     if where_dict:
         template_query += " WHERE ({}) = ({})"
         where_names = tuple(where_dict.keys())
@@ -195,10 +182,11 @@ def get_where(
             SQL(", ").join(map(Placeholder, where_names)),
         ])
 
+    # "ORDER BY" clause
     if order_by:
         template_query += " ORDER BY {}"
         format_list.append(
-            SQL(", ").join(map(Identifier, order_by))
+            SQL(", ").join(map(compose_by_dot, order_by))
         )
 
     query = SQL(template_query).format(*format_list).as_string(get_psql_conn())
@@ -208,10 +196,6 @@ def get_where(
 
 def _exists(where_dict: dict[str, Any], tablename: str):
     return len(get_where(tablename, where_dict)) > 0
-
-
-def exists(where_dict: dict[str, Any], tablename: str):
-    return _exists(where_dict, tablename)
 
 
 def _insert_row(row_dict: dict[str, Any], tablename: str):
