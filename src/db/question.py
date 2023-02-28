@@ -4,16 +4,13 @@ from dataclasses import (
     dataclass,
 )
 from typing import (
-    Any,
     Callable,
     Optional,
-    Sequence,
 )
 
 import pandas as pd
 from psycopg.sql import (
     SQL,
-    Identifier,
     Placeholder,
 )
 

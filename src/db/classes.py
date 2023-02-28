@@ -146,23 +146,3 @@ def get_dataclasses_where(
         objs_list.append(primary_table_obj)
 
     return objs_list
-
-
-@dataclass(frozen=True)
-class EventDB(Table):
-    # pylint: disable=too-many-instance-attributes
-
-    pk: int
-    name: str
-    order_by: str
-
-    class Meta:
-        tablename = "event"
-
-
-if __name__ == "__main__":
-    objs = get_dataclasses_where(
-        EventDB, join_foreign_keys=False, where_clauses=None, order_by_columns=[ColumnDC(column_name="order_by")]
-    )
-
-    pprint.pprint(objs)

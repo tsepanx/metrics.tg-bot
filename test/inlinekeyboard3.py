@@ -13,9 +13,6 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 import logging
-from html import (
-    escape,
-)
 from uuid import (
     uuid4,
 )
@@ -42,12 +39,8 @@ from telegram import (
     InputTextMessageContent,
     Update,
 )
-from telegram.constants import (
-    ParseMode,
-)
 from telegram.ext import (
     Application,
-    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     InlineQueryHandler,

@@ -13,7 +13,6 @@ import psycopg
 from psycopg.sql import (
     SQL,
     Composable,
-    Composed,
     Identifier,
     Placeholder,
 )
@@ -25,6 +24,7 @@ PG_PASSWORD = os.environ.get("PG_PASSWORD", "")
 
 
 TableName = str
+ValueType = Any
 
 
 @dataclass(frozen=True)
@@ -126,7 +126,7 @@ def get_where(
     select_columns: list[ColumnDC] | None = None,
     # join_dict: dict[str, tuple[str, str]] | None = None,
     join_clauses: list[JoinByClauseDC] | None = None,
-    where_clauses: dict[ColumnDC, Any] | None = None,
+    where_clauses: dict[ColumnDC, ValueType] | None = None,
     # where_clauses: list[WhereClauseDC] | None = None,
     # order_by_clause: list[tuple[str, str]] | None = None,
     order_by_columns: list[ColumnDC] | None = None,
@@ -201,10 +201,12 @@ def get_where(
 
         where_columns: list[ColumnDC] = list(where_clauses.keys())
 
-        where_placeholders_params: dict[str, Any] = {k.underscore_notation(): v for k, v in where_clauses.items()}
+        where_placeholders_params: dict[str, ValueType] | None = {
+            k.underscore_notation(): v for k, v in where_clauses.items()
+        }
 
         columns_identifiers: Iterable[Identifier] = map(ColumnDC.compose_by_dot, where_columns)
-        values_placeholders: Iterable[Any] = map(Placeholder, where_placeholders_params.keys())
+        values_placeholders: Iterable[Placeholder] = map(Placeholder, where_placeholders_params.keys())
 
         format_list.extend(
             [
@@ -213,7 +215,7 @@ def get_where(
             ]
         )
     else:
-        pass
+        where_placeholders_params = None
 
     # "ORDER BY" clause
     if order_by_columns:
@@ -225,8 +227,8 @@ def get_where(
     return _query_get(query=query, params=where_placeholders_params)
 
 
-def _exists(where_dict: dict[str, Any], tablename: str):
-    return len(get_where(tablename, where_dict)) > 0
+def _exists(where_dict: dict[ColumnDC, Any], tablename: TableName):
+    return len(get_where(tablename=tablename, where_clauses=where_dict)) > 0
 
 
 def _insert_row(row_dict: dict[str, Any], tablename: str):
