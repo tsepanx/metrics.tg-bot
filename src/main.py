@@ -25,7 +25,7 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     PicklePersistence,
-    filters,
+    filters, InlineQueryHandler,
 )
 
 from src.db import (
@@ -303,11 +303,11 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         all_indices = list(range(len(qnames)))
 
         if asking_day in answers_df.columns:
-            day_values = answers_df[asking_day].isnull().reset_index().drop("index", axis=1)
+            day_values_isnull = answers_df[asking_day].isnull().reset_index().drop("index", axis=1)
 
             # Filter to get index of only null values
             include_indices = list(
-                day_values.apply(lambda x: None if bool(x[0]) is False else 1, axis=1).dropna().index
+                day_values_isnull.apply(lambda x: None if bool(x[0]) is False else 1, axis=1).dropna().index
             )
         else:
             include_indices = all_indices
@@ -357,7 +357,7 @@ async def exit_command(update: Update, _):
 
 
 @handler_decorator
-async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     query = update.callback_query
@@ -377,10 +377,23 @@ async def on_inline_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@handler_decorator
+async def on_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.inline_query.query
+    print(query)
+    results = [
+        telegram.InlineQueryResultArticle('123', 'title1')
+    ]
+    # отвечаем на сообщение результатом
+    await update.inline_query.answer(results)
+
+
 async def post_init(application: Application) -> None:
     for _, chat_data in application.chat_data.items():
-        user_data = chat_data[USER_DATA_KEY]
+        user_data: UserData = chat_data[USER_DATA_KEY]
+
         user_data.reload_answers_df_from_db()
+        user_data.reload_qnames()
 
     await application.bot.set_my_commands(
         list(
@@ -412,5 +425,6 @@ if __name__ == "__main__":
         app.add_handler(CommandHandler(command_string, func))
 
     app.add_handler(MessageHandler(filters.TEXT, plaintext_handler))
-    app.add_handler(CallbackQueryHandler(on_inline_button))
+    app.add_handler(CallbackQueryHandler(on_callback_query))
+    app.add_handler(InlineQueryHandler(on_inline_query))
     app.run_polling()

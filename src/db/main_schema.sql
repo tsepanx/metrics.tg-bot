@@ -12,7 +12,7 @@ SHOW TIMEZONE;
 SET TIME ZONE 'Europe/Moscow';
 
 CREATE TABLE question_type (
-    id SERIAL PRIMARY KEY,
+    pk SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
     notation_str VARCHAR(10) UNIQUE
 );
@@ -101,13 +101,14 @@ WHERE
 --     a.date = '2023-02-25'
     a.date = now()::date
 ORDER BY
-    q.num_int;
+    q.order_by;
+
 
 
 -- Print all questions list
-SELECT q.name, q.fulltext, q.suggested_answers_list, qt.notation_str FROM question_type AS qt
-    JOIN question q
-        ON qt.id = q.type_id;
+SELECT * FROM question q
+    JOIN question_type qt
+        ON "q"."type_id" = qt.pk;
 
 
 ----------- DELETE OPERATIONS -----------

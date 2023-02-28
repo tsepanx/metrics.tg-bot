@@ -1,4 +1,5 @@
-import dataclasses
+import pprint
+from dataclasses import dataclass
 import datetime
 from typing import (
     Callable,
@@ -16,54 +17,82 @@ from src.db.base import (
     get_psql_conn,
     get_where,
 )
+from src.db.classes import get_dataclasses_where, Table, ForeignKey
 
 
-def time_or_hours(s: str) -> datetime.time:
-    def str_to_time(s: str) -> datetime.time:
-        t = datetime.time.fromisoformat(s)
-        return t
-        # return (t.hour * 60 + t.minute) / 60
-
-    def float_hrs_to_time(s: str) -> datetime.time:
-        f = float(s)
-
-        hrs = int(f) % 24
-        mins = int((f - int(f)) * 60)
-
-        return datetime.time(hour=hrs, minute=mins)
-
-    try:
-        t = str_to_time(s)
-    except Exception:
-        t = float_hrs_to_time(s)
-
-    return t
-
-
-@dataclasses.dataclass
-class QuestionTypeDB:
-    id: int
+@dataclass(frozen=True)
+class QuestionTypeDB(Table):
+    # id: int
+    pk: int
     name: str
     notation_str: str
 
+    class Meta:
+        tablename = "question_type"
 
-@dataclasses.dataclass
-class QuestionDB:
+
+@dataclass(frozen=True)
+class QuestionDB(Table):
     # pylint: disable=too-many-instance-attributes
 
+    # def __post_init__(self):
+    #     # object.__setattr__(self, 'value', None)
+    #     columns = self.__annotations__
+    #
+    #     for col in columns.items():
+    #         col_type = col[1]
+    #
+    #         if issubclass(col_type, Table):
+    #             print(col)
+    #         print(col)
+    #
+    #     rows: list[QuestionTypeDB] = get_dataclasses_where(
+    #         QuestionTypeDB,
+    #         where_dict={"id": self.type_id},
+    #     )
+    #     assert len(rows) == 1
+    #     self.__type_fk = rows[0]
+    #     return self.__type_fk
+
     name: str
-    num_int: int
     fulltext: str
     suggested_answers_list: list[str]
 
+    is_activated: bool
+    order_by: int
+
     # ForeignKey : 'QuestionTypeDB'
     type_id: int
-    is_activated: bool
+    # type_fk: ForeignKey(QuestionTypeDB, "type_id", int)
 
-    __type_fk = None
+    class Meta:
+        foreign_keys = {
+            "type_id": ForeignKey(QuestionTypeDB, 'pk')
+        }
+        tablename = "question"
+        # type_fk__tablename = QuestionTypeDB.Meta.tablename
+
+    @property
+    def question_type(self):
+        return self.get_referenced_dataclass("type_id")
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
+        def time_or_hours(s: str) -> datetime.time:
+            try:
+                # str_to_time
+                t = datetime.time.fromisoformat(s)
+                return t
+                # return (t.hour * 60 + t.minute) / 60
+            except Exception:
+                # float_hrs_to_time
+                f = float(s)
+
+                hrs = int(f) % 24
+                mins = int((f - int(f)) * 60)
+
+                return datetime.time(hour=hrs, minute=mins)
+
         def choice(value: str) -> str:
             if value not in self.suggested_answers_list:
                 raise Exception
@@ -78,24 +107,7 @@ class QuestionDB:
             4: choice,
         }
 
-        return qtype_answer_func_mapping[self.type_id]
-
-    @property
-    def type_fk(self) -> QuestionTypeDB:
-        if not self.__type_fk:
-            rows = get_where({"id": self.type_id}, "question_type")
-
-            obj = QuestionTypeDB(*rows[0])
-            self.__type_fk = obj
-
-        return self.__type_fk
-
-    @type_fk.setter
-    def type_fk(self, obj: QuestionTypeDB):
-        if not isinstance(obj, QuestionTypeDB):
-            raise Exception
-
-        self.__type_fk = obj
+        return qtype_answer_func_mapping[self.type_fk.pk]
 
 
 def build_answers_df(days_range=None, include_empty_cols=True) -> pd.DataFrame:
@@ -138,7 +150,10 @@ def get_ordered_questions_names() -> list[str]:
 
 
 def get_question_by_name(name: str) -> QuestionDB | None:
-    rows = get_where(where_dict={"name": name}, tablename="question")
+    rows = get_where(
+        tablename="question",
+        where_dict={"name": name}
+    )
     assert len(rows) == 1
     row = rows[0]
 
@@ -183,7 +198,9 @@ def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
 
 def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
     rows = get_where(
-        where_dict={"day_fk": day}, tablename="question_answer", select_cols=("question_fk", "answer_text")
+        tablename="question_answer",
+        select_cols=("question_fk", "answer_text"),
+        where_dict={"day_fk": day},
     )
 
     if not rows:
@@ -195,4 +212,14 @@ def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
 
 
 if __name__ == "__main__":
-    get_questions_with_type_fk(["walking", "x_small", "x_big"])
+    # get_questions_with_type_fk(["walking", "x_small", "x_big"])
+
+    l = get_dataclasses_where(
+        class_=QuestionDB,
+        # join_foreign_keys=True,
+        # where_dict={QuestionDB.is_activated: True},
+        where_dict={'is_activated': True},
+        order_by=['order_by']
+    )
+
+    pprint.pprint(l)

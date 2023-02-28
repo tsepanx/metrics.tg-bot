@@ -9,7 +9,7 @@ import psycopg
 from psycopg.sql import (
     SQL,
     Identifier,
-    Placeholder,
+    Placeholder, Composed,
 )
 
 PG_DB = os.environ.get("PG_DB", "postgres")
@@ -80,23 +80,126 @@ def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
         conn.commit()
 
 
-def get_where(where_dict: dict, tablename: str, select_cols: Sequence[str] | None = None) -> Sequence:
-    # TODO add possibility for "WHERE col1 IN (1, 2)" clause
+def get_where(
+        tablename: str,
+        # select_cols: Sequence[str] | None = None,
+        select_cols: dict[str, Sequence[str]] | None = None,
+        join_dict: dict[str, tuple[str, str]] | None = None,
+        where_dict: dict[str, Any] | None = None,
+        order_by: Sequence[str] | None = None,
+) -> Sequence:
+    """
+    Common parametrized function to execute "SELECT" clause
+        possibly with "WHERE", "JOIN ON", "ORDER BY" clauses
+
+    @param tablename:
+        name of table from which to SELECT
+
+    @param select_cols:
+        Which columns to select from each of joined tables.
+
+        Each key-value pair is described as:
+            <table>         : (<columns_to_select>)
+        F.e.
+        {
+            "question"      : ("pk", "name", "type_id"),
+            "question_type" : ("pk", "name", "notation")
+        }
+
+    @param join_dict:
+        Each key-value pair is described as:
+            <table_to_join> : (<from_col>, <to_col>)
+        F.e.
+            {"question_type" : ("type_id",  "pk")}
+
+    @param where_dict:
+        A dict specifying key-value pairs for WHERE clause:
+            <col_name>  :  <col_value>
+
+    @param order_by:
+        List of columns, by which to ORDER BY
+
+    @return:
+        List of rows, each length of @param<select_cols>, consisting columns values
+    """
+
+    # TODO add availability for "WHERE col1 IN (1, 2)" clause
     # TODO needed to search dict values for list, and add additional query string for those pairs
 
-    where_names = tuple(where_dict.keys())
-
-    format_list = [
-        Identifier(tablename),
-        SQL(", ").join(map(Identifier, where_names)),
-        SQL(", ").join(map(Placeholder, where_names)),
-    ]
+    format_list = []
+    template_query = ""
 
     if select_cols:
-        template_query = "SELECT {} FROM {} WHERE ({}) = ({})"
-        format_list.insert(0, SQL(", ").join(map(Identifier, select_cols)))
+        template_query += "SELECT {} FROM {}"
+
+        def colnames_with_tablename(key_value: [str, Sequence[str]]) -> Composed:
+            """
+            Build comma (,) separated list of "table"."colname" for given table and corresponding columns
+            This function is applied to every key-value pair dict_item of "select_cols" dict
+
+            @param key_value:
+                ( <tablename> , [<columns_names>] )
+            """
+            select_from_tablename, select_columns = key_value
+
+            result_columns_identifiers = []
+
+            for column in select_columns:
+                single_identifier = SQL(".").join(map(Identifier, [
+                    select_from_tablename, column
+                ]))
+                result_columns_identifiers.append(single_identifier)
+
+            return SQL(", ").join(result_columns_identifiers)
+
+        format_list.extend([
+            SQL(", ").join(
+                map(colnames_with_tablename, select_cols.items())
+                # map(Identifier, select_cols)
+                # Identifier ( "question"."col" )
+            )
+        ])
     else:
-        template_query = "SELECT * FROM {} WHERE ({}) = ({})"
+        template_query += "SELECT * FROM {}"
+
+    format_list.append(
+        Identifier(tablename)
+    )
+
+    if join_dict:
+        # join_dict = {
+        #     "table2": ["table.col", "table2.col"]
+        # }
+
+        for join_tablename in join_dict:
+            from_col, to_col = join_dict[join_tablename]
+            # template_query += "JOIN question_type ON question.type_id = question_type.pk;"
+            # template_query += "JOIN {question_type} ON {question}.{type_id} = {question_type}.{pk}"
+            # template_query += f"JOIN {join_tablename} ON {tablename}.{from_col} = {join_tablename}.{to_col}"
+            template_query += " JOIN {} ON {}.{} = {}.{}"
+
+            format_list.extend([
+                Identifier(join_tablename),
+                Identifier(tablename),
+                Identifier(from_col),
+                Identifier(join_tablename),
+                Identifier(to_col)
+            ])
+
+    if where_dict:
+        template_query += " WHERE ({}) = ({})"
+        where_names = tuple(where_dict.keys())
+
+        format_list.extend([
+            SQL(", ").join(map(Identifier, where_names)),
+            SQL(", ").join(map(Placeholder, where_names)),
+        ])
+
+    if order_by:
+        template_query += " ORDER BY {}"
+        format_list.append(
+            SQL(", ").join(map(Identifier, order_by))
+        )
 
     query = SQL(template_query).format(*format_list).as_string(get_psql_conn())
 
@@ -104,7 +207,7 @@ def get_where(where_dict: dict, tablename: str, select_cols: Sequence[str] | Non
 
 
 def _exists(where_dict: dict[str, Any], tablename: str):
-    return len(get_where(where_dict, tablename)) > 0
+    return len(get_where(tablename, where_dict)) > 0
 
 
 def exists(where_dict: dict[str, Any], tablename: str):
