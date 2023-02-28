@@ -2,6 +2,7 @@ import asyncio
 import copy
 import dataclasses
 import datetime
+import os
 from io import (
     BytesIO,
 )
@@ -389,9 +390,12 @@ async def post_init(application: Application) -> None:
 
 
 if __name__ == "__main__":
-    with open(".token", encoding="utf-8") as f:
-        TOKEN = f.read()
-        print(TOKEN)
+    TOKEN = os.getenv("TG_TOKEN", None)
+
+    if not TOKEN:
+        with open(".token", encoding="utf-8") as f:
+            TOKEN = f.read()
+            print(TOKEN)
 
     persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
 
