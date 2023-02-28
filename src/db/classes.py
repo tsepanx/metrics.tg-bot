@@ -1,33 +1,35 @@
 import pprint
 from dataclasses import dataclass
-from typing import Sequence, Type, TypeVar
+from typing import Sequence, Type, TypeVar, ClassVar
 
 from src.db import base
 
 
+@dataclass(frozen=True)
 class ForeignKey:
-    dataclass_instance: 'DBClassType' = None
+    class_: 'DBClassType'
+    to_column: str
 
-    def __init__(self, class_: 'DBClassType', mapped_on):
-        assert mapped_on in class_.__annotations__
-
-        self.class_ = class_
-        self.mapped_on = mapped_on
+    def __post_init__(self):
+        assert self.to_column in self.class_.__annotations__
 
 
+@dataclass(frozen=True)
 class Table:
-    def get_referenced_dataclass(self, fk_name) -> 'DBClassType':
-        assert fk_name in self.Meta.foreign_keys
-        fk: ForeignKey = self.Meta.foreign_keys[fk_name]
+    __FK_VALUES_ATTR_NAME = '_fk_values'
 
-        if fk.dataclass_instance:
-            return fk.dataclass_instance
-        else:
-            raise Exception(f"Class {self.__class__} was fetched without JOINing to {fk.class_.__class__}'s Table")
+    def __post_init__(self):
+        object.__setattr__(self, self.__FK_VALUES_ATTR_NAME, {})
+
+    def set_fk_value(self, fkey: str, obj: 'DBClassType') -> None:
+        self.__getattribute__(self.__FK_VALUES_ATTR_NAME)[fkey] = obj
+
+    def get_fk_value(self, fkey: str) -> 'DBClassType':
+        return self.__getattribute__(self.__FK_VALUES_ATTR_NAME)[fkey]
 
     class Meta:
-        foreign_keys = {}
-        tablename = None
+        foreign_keys: dict
+        tablename: ClassVar[str] = None
 
 
 DBClassType = TypeVar('DBClassType', Table, dataclass)
@@ -39,6 +41,8 @@ def get_dataclasses_where(
         where_dict: dict | None = None,
         order_by: Sequence[str] | None = None,
 ) -> list[Type[DBClassType]]:
+    # meta_instance: Table.Meta = class_.meta_instance
+
     primary_tablename = class_.Meta.tablename
     columns_names = list(class_.__annotations__.keys())
 
@@ -49,42 +53,43 @@ def get_dataclasses_where(
     # Stores mapping <join_tablename> : <ForeignKey obj>
     # Auxiliary dict for faster finding ForeignKey instance
     # Used on creating Dataclasses object on setting ForeignKey.dataclass_instance (at the end of func)
-    foreign_keys_objs: dict[str, ForeignKey] = {}
+    foreign_keys_objs: dict[str, tuple[str, ForeignKey]] = {}
 
     if join_foreign_keys and hasattr(class_.Meta, 'foreign_keys'):
         join_dict = {}
 
         fk_name: str
-        fk_class: ForeignKey
-        for fk_name, fk_class in class_.Meta.foreign_keys.items():
+        fk_obj: ForeignKey
+        for fk_name, fk_obj in class_.Meta.foreign_keys.items():
             # TODO Case: 2nd level of Foreign keys
             "JOIN question_type qt ON q.type_id = qt.pk;"
 
-            join_tablename = fk_class.class_.Meta.tablename
+            join_tablename = fk_obj.class_.Meta.tablename
             from_col = fk_name
-            to_col = fk_class.mapped_on
+            to_col = fk_obj.to_column
 
             join_dict[join_tablename] = (from_col, to_col)
 
-            join_table_columns = list(fk_class.class_.__annotations__.keys())
+            join_table_columns = list(fk_obj.class_.__annotations__.keys())
             select_columns[join_tablename] = join_table_columns
 
-            foreign_keys_objs[join_tablename] = fk_class
+            foreign_keys_objs[join_tablename] = (from_col, fk_obj)
     else:
         join_dict = None
 
     query_results = base.get_where(
-        tablename=class_.Meta.tablename,
+        tablename=primary_tablename,
         select_cols=select_columns,
         join_dict=join_dict,
         where_dict=where_dict,
         order_by=order_by
     )
 
-    return_obj: class_ = None
+    objs_list: list[class_] = []
 
     row: list
     for row in query_results:
+        primary_obj: class_ = None
 
         offset = 0
         for table in select_columns:
@@ -105,17 +110,19 @@ def get_dataclasses_where(
                 })
 
             if table == primary_tablename:
-                return_obj = create_object(class_)
+                primary_obj = create_object(class_)
             else:
-                foreign_key_instance: ForeignKey = foreign_keys_objs[table]
+                assert primary_obj is not None
+                from_col, fk_obj = foreign_keys_objs[table]
+                fk_obj: ForeignKey
 
-                obj = create_object(foreign_key_instance.class_)
-                foreign_key_instance.dataclass_instance = obj
+                obj = create_object(fk_obj.class_)
+                primary_obj.set_fk_value(from_col, obj)
 
             offset += len(table_selected_colnames)
+        objs_list.append(primary_obj)
 
-    assert return_obj is not None
-    return return_obj
+    return objs_list
 
 
 @dataclass(frozen=True)

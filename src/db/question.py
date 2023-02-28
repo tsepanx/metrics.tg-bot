@@ -66,15 +66,14 @@ class QuestionDB(Table):
     # type_fk: ForeignKey(QuestionTypeDB, "type_id", int)
 
     class Meta:
-        foreign_keys = {
-            "type_id": ForeignKey(QuestionTypeDB, 'pk')
+        foreign_keys: dict = {
+            "type_id": ForeignKey(QuestionTypeDB, "pk")
         }
         tablename = "question"
-        # type_fk__tablename = QuestionTypeDB.Meta.tablename
 
     @property
-    def question_type(self):
-        return self.get_referenced_dataclass("type_id")
+    def question_type(self) -> QuestionTypeDB:
+        return self.get_fk_value("type_id")
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
@@ -107,7 +106,7 @@ class QuestionDB(Table):
             4: choice,
         }
 
-        return qtype_answer_func_mapping[self.type_fk.pk]
+        return qtype_answer_func_mapping[self.type_id]
 
 
 def build_answers_df(days_range=None, include_empty_cols=True) -> pd.DataFrame:
@@ -216,10 +215,17 @@ if __name__ == "__main__":
 
     l = get_dataclasses_where(
         class_=QuestionDB,
-        # join_foreign_keys=True,
+        join_foreign_keys=True,
         # where_dict={QuestionDB.is_activated: True},
         where_dict={'is_activated': True},
         order_by=['order_by']
     )
 
-    pprint.pprint(l)
+    for i in l:
+        pprint.pprint(i)
+
+        fk_obj = i.get_fk_value('type_id')
+        print(i.type_id, fk_obj.pk)
+
+        assert i.type_id == fk_obj.pk
+
