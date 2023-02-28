@@ -1,23 +1,34 @@
-import pprint
-from dataclasses import dataclass
 import datetime
+import pprint
+from dataclasses import (
+    dataclass,
+)
 from typing import (
+    Any,
     Callable,
-    Optional, Any, Sequence,
+    Optional,
+    Sequence,
 )
 
 import pandas as pd
 from psycopg.sql import (
     SQL,
-    Placeholder, Identifier,
+    Identifier,
+    Placeholder,
 )
 
 from src.db.base import (
+    ColumnDC,
+    JoinByClauseDC,
     _query_get,
     get_psql_conn,
-    get_where, ColumnDC, JoinByClauseDC,
+    get_where,
 )
-from src.db.classes import get_dataclasses_where, Table, ForeignKeyRelation
+from src.db.classes import (
+    ForeignKeyRelation,
+    Table,
+    get_dataclasses_where,
+)
 
 
 @dataclass(frozen=True)
@@ -70,9 +81,7 @@ class QuestionDB(Table):
         # foreign_keys: dict = {
         #     "type_id": ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
         # }
-        foreign_keys: list[ForeignKeyRelation] = [
-            ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
-        ]
+        foreign_keys: list[ForeignKeyRelation] = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
         tablename = "question"
 
     @property
@@ -153,10 +162,7 @@ def get_ordered_questions_names() -> list[str]:
 
 
 def get_question_by_name(name: str) -> QuestionDB | None:
-    rows = get_where(
-        tablename="question",
-        where_clauses={"name": name}
-    )
+    rows = get_where(tablename="question", where_clauses={"name": name})
     assert len(rows) == 1
     row = rows[0]
 
@@ -188,7 +194,7 @@ def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
         qt_attrs_count = 3
 
         row_q_attrs = r[:q_attrs_count]
-        row_qt_attrs = r[q_attrs_count: q_attrs_count + qt_attrs_count]
+        row_qt_attrs = r[q_attrs_count : q_attrs_count + qt_attrs_count]
 
         q_obj = QuestionDB(*row_q_attrs)
         qt_obj = QuestionTypeDB(*row_qt_attrs)
@@ -205,19 +211,10 @@ def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
 
     rows = get_where(
         tablename="answer",
-        select_columns=[
-            ColumnDC("date"),
-            ColumnDC("text")
-        ],
-        join_clauses=[
-            JoinByClauseDC("question", from_column="question_fk", to_column="pk")
-        ],
-        where_clauses={
-            ColumnDC("date"): day
-        },
-        order_by_columns=[
-            ColumnDC(table_name="question", column_name="order_by")
-        ]
+        select_columns=[ColumnDC("date"), ColumnDC("text")],
+        join_clauses=[JoinByClauseDC("question", from_column="question_fk", to_column="pk")],
+        where_clauses={ColumnDC("date"): day},
+        order_by_columns=[ColumnDC(table_name="question", column_name="order_by")],
     )
 
     if not rows:
@@ -234,25 +231,21 @@ def test_get_questions():
     l = get_dataclasses_where(
         class_=QuestionDB,
         join_foreign_keys=True,
-        where_clauses={
-            ColumnDC(column_name='is_activated'): True
-        },
-        order_by_columns=[
-            ColumnDC(column_name='order_by')
-        ]
+        where_clauses={ColumnDC(column_name="is_activated"): True},
+        order_by_columns=[ColumnDC(column_name="order_by")],
     )
 
     for i in l:
         pprint.pprint(i)
 
-        fk_obj = i.get_fk_value('type_id')
+        fk_obj = i.get_fk_value("type_id")
         print(i.type_id, fk_obj.pk)
 
         assert i.type_id == fk_obj.pk
 
 
 def test_get_answers():
-    res = get_answers_on_day('2023-02-25')
+    res = get_answers_on_day("2023-02-25")
     print(res)
 
 

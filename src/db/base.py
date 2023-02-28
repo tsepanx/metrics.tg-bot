@@ -1,16 +1,21 @@
 import os
-from dataclasses import dataclass
+from dataclasses import (
+    dataclass,
+)
 from typing import (
     Any,
+    Iterable,
     Optional,
-    Sequence, Iterable,
+    Sequence,
 )
 
 import psycopg
 from psycopg.sql import (
     SQL,
+    Composable,
+    Composed,
     Identifier,
-    Placeholder, Composed, Composable,
+    Placeholder,
 )
 
 PG_DB = os.environ.get("PG_DB", "postgres")
@@ -20,6 +25,7 @@ PG_PASSWORD = os.environ.get("PG_PASSWORD", "")
 
 
 TableName = str
+
 
 @dataclass(frozen=True)
 class ColumnDC:
@@ -46,6 +52,7 @@ class JoinByClauseDC:
     Result subquery:
         JOIN <table_name> ON "<primary_table>"."<from_column>" "<table_name>"."<to_column>"
     """
+
     table_name: str
     from_column: str
     to_column: str
@@ -114,15 +121,15 @@ def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
 
 
 def get_where(
-        tablename: TableName,
-        # select_cols: dict[str, Sequence[str]] | None = None,
-        select_columns: list[ColumnDC] | None = None,
-        # join_dict: dict[str, tuple[str, str]] | None = None,
-        join_clauses: list[JoinByClauseDC] | None = None,
-        where_clauses: dict[ColumnDC, Any] | None = None,
-        # where_clauses: list[WhereClauseDC] | None = None,
-        # order_by_clause: list[tuple[str, str]] | None = None,
-        order_by_columns: list[ColumnDC] | None = None,
+    tablename: TableName,
+    # select_cols: dict[str, Sequence[str]] | None = None,
+    select_columns: list[ColumnDC] | None = None,
+    # join_dict: dict[str, tuple[str, str]] | None = None,
+    join_clauses: list[JoinByClauseDC] | None = None,
+    where_clauses: dict[ColumnDC, Any] | None = None,
+    # where_clauses: list[WhereClauseDC] | None = None,
+    # order_by_clause: list[tuple[str, str]] | None = None,
+    order_by_columns: list[ColumnDC] | None = None,
 ) -> Sequence:
     """
     Common parametrized function to execute "SELECT" clause
@@ -158,17 +165,13 @@ def get_where(
     if select_columns:
         template_query += "SELECT {}"
 
-        format_list.extend([
-            SQL(", ").join(map(lambda x: x.compose_by_dot(), select_columns))
-        ])
+        format_list.extend([SQL(", ").join(map(lambda x: x.compose_by_dot(), select_columns))])
     else:
         template_query += "SELECT *"
 
     # "FROM" clause
     template_query += " FROM {}"
-    format_list.append(
-        Identifier(tablename)
-    )
+    format_list.append(Identifier(tablename))
 
     # "JOIN" clause
     if join_clauses:
@@ -179,13 +182,18 @@ def get_where(
             # template_query += f"JOIN {join_tablename} ON {tablename}.{from_col} = {join_tablename}.{to_col}"
             template_query += " JOIN {} ON {}.{} = {}.{}"
 
-            format_list.extend(map(Identifier, [
-                join_clause.table_name,
-                tablename,
-                join_clause.from_column,
-                join_clause.table_name,
-                join_clause.to_column
-            ]))
+            format_list.extend(
+                map(
+                    Identifier,
+                    [
+                        join_clause.table_name,
+                        tablename,
+                        join_clause.from_column,
+                        join_clause.table_name,
+                        join_clause.to_column,
+                    ],
+                )
+            )
 
     # "WHERE" clause
     if where_clauses:
@@ -198,19 +206,19 @@ def get_where(
         columns_identifiers: Iterable[Identifier] = map(ColumnDC.compose_by_dot, where_columns)
         values_placeholders: Iterable[Any] = map(Placeholder, where_placeholders_params.keys())
 
-        format_list.extend([
-            SQL(", ").join(columns_identifiers),
-            SQL(", ").join(values_placeholders),
-        ])
+        format_list.extend(
+            [
+                SQL(", ").join(columns_identifiers),
+                SQL(", ").join(values_placeholders),
+            ]
+        )
     else:
         pass
 
     # "ORDER BY" clause
     if order_by_columns:
         template_query += " ORDER BY {}"
-        format_list.append(
-            SQL(", ").join(map(ColumnDC.compose_by_dot, order_by_columns))
-        )
+        format_list.append(SQL(", ").join(map(ColumnDC.compose_by_dot, order_by_columns)))
 
     query = SQL(template_query).format(*format_list).as_string(get_psql_conn())
 

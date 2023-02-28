@@ -13,13 +13,21 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 import logging
-from html import escape
-from uuid import uuid4
+from html import (
+    escape,
+)
+from uuid import (
+    uuid4,
+)
 
-from telegram import __version__ as TG_VER
+from telegram import (
+    __version__ as TG_VER,
+)
 
 try:
-    from telegram import __version_info__
+    from telegram import (
+        __version_info__,
+    )
 except ImportError:
     __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
 
@@ -29,15 +37,26 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
         f"{TG_VER} version of this example, "
         f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
     )
-from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
-from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryHandler, CallbackQueryHandler, \
-    MessageHandler, filters
+from telegram import (
+    InlineQueryResultArticle,
+    InputTextMessageContent,
+    Update,
+)
+from telegram.constants import (
+    ParseMode,
+)
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    InlineQueryHandler,
+    MessageHandler,
+    filters,
+)
 
 # Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +94,20 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     query = update.inline_query.query
 
-    names_list: list[str] = ['quest_asdf', 'quest_123', 'event_asdf', 'event_234', 'event_asdf3', 'event_asdf5', 'event_asddsff', 'event_as3ff3df', 'event_as23f3df', 'event_aggsdfdfsdf', 'event_qwer', 'event_zxcv']
+    names_list: list[str] = [
+        "quest_asdf",
+        "quest_123",
+        "event_asdf",
+        "event_234",
+        "event_asdf3",
+        "event_asdf5",
+        "event_asddsff",
+        "event_as3ff3df",
+        "event_as23f3df",
+        "event_aggsdfdfsdf",
+        "event_qwer",
+        "event_zxcv",
+    ]
     filtered = list(filter(lambda x: x.startswith(query), names_list))
 
     query_results = inline_query_results(filtered)

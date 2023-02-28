@@ -23,9 +23,10 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    InlineQueryHandler,
     MessageHandler,
     PicklePersistence,
-    filters, InlineQueryHandler,
+    filters,
 )
 
 from src.db import (
@@ -167,7 +168,7 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             update_or_insert_row(
                 where_dict={"day_fk": day, "question_fk": qname},
                 set_dict={"answer_text": answer},
-                tablename="question_answer"
+                tablename="question_answer",
             )
 
     assert user_data.state is not None
@@ -381,9 +382,7 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query.query
     print(query)
-    results = [
-        telegram.InlineQueryResultArticle('123', 'title1')
-    ]
+    results = [telegram.InlineQueryResultArticle("123", "title1")]
     # отвечаем на сообщение результатом
     await update.inline_query.answer(results)
 

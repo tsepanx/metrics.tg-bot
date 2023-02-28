@@ -1,12 +1,13 @@
 import telegram
 from telegram import (
-    Update, InputTextMessageContent,
+    InputTextMessageContent,
+    Update,
 )
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
-    PicklePersistence,
     InlineQueryHandler,
+    PicklePersistence,
 )
 
 
@@ -14,11 +15,7 @@ async def on_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query.query
     print(query)
     results = [
-        telegram.InlineQueryResultArticle(
-            '123',
-            'title1',
-            input_message_content=InputTextMessageContent(query.upper())
-        )
+        telegram.InlineQueryResultArticle("123", "title1", input_message_content=InputTextMessageContent(query.upper()))
     ]
     # отвечаем на сообщение результатом
     await update.inline_query.answer(results)
