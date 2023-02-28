@@ -104,7 +104,10 @@ ORDER BY
     q.order_by;
 
 
-SELECT "answer"."question_fk", "answer"."text" FROM "answer" JOIN "question" ON "answer"."question_fk" = "question"."pk" ORDER BY "question".order_by;
+SELECT "answer"."question_fk", "answer"."text" FROM "answer"
+    JOIN "question" ON "answer"."question_fk" = "question"."pk"
+WHERE (question_fk) IN (1, 2, 3) AND (is_activated) IN (True)
+ORDER BY "question".order_by;
 
 
 

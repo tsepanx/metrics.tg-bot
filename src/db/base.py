@@ -1,21 +1,54 @@
 import os
+from dataclasses import dataclass
 from typing import (
     Any,
     Optional,
-    Sequence,
+    Sequence, Iterable,
 )
 
 import psycopg
 from psycopg.sql import (
     SQL,
     Identifier,
-    Placeholder, Composed,
+    Placeholder, Composed, Composable,
 )
 
 PG_DB = os.environ.get("PG_DB", "postgres")
 PG_USER = os.environ.get("PG_USER", "postgres")
 PG_HOST = os.environ.get("PG_HOST", "localhost")
 PG_PASSWORD = os.environ.get("PG_PASSWORD", "")
+
+
+TableName = str
+
+@dataclass(frozen=True)
+class ColumnDC:
+    column_name: str
+    table_name: str | None = None
+
+    def compose_by_dot(self) -> Identifier:
+        # ("col") -> Composed("name")
+        # ("table", "col") -> Composed("table"."name")
+        if self.table_name:
+            return Identifier(self.table_name, self.column_name)
+        return Identifier(self.column_name)
+
+    def underscore_notation(self):
+        return f"{self.table_name}_{self.column_name}"
+
+
+@dataclass(frozen=True)
+class JoinByClauseDC:
+    """
+    @param table_name
+        Name of table to JOIN
+
+    Result subquery:
+        JOIN <table_name> ON "<primary_table>"."<from_column>" "<table_name>"."<to_column>"
+    """
+    table_name: str
+    from_column: str
+    to_column: str
 
 
 def _psql_conn():
@@ -81,70 +114,52 @@ def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
 
 
 def get_where(
-        tablename: str,
+        tablename: TableName,
         # select_cols: dict[str, Sequence[str]] | None = None,
-        select_cols: Sequence[tuple[str, str]] | Sequence[str] | None = None,
-        join_dict: dict[str, tuple[str, str]] | None = None,
-        where_dict: dict[str, Any] | None = None,
-        order_by: list[tuple[str, str]] | None = None,
+        select_columns: list[ColumnDC] | None = None,
+        # join_dict: dict[str, tuple[str, str]] | None = None,
+        join_clauses: list[JoinByClauseDC] | None = None,
+        where_clauses: dict[ColumnDC, Any] | None = None,
+        # where_clauses: list[WhereClauseDC] | None = None,
+        # order_by_clause: list[tuple[str, str]] | None = None,
+        order_by_columns: list[ColumnDC] | None = None,
 ) -> Sequence:
     """
     Common parametrized function to execute "SELECT" clause
         possibly with "WHERE", "JOIN ON", "ORDER BY" clauses
 
-    @param tablename:
+    @param tablename: TableName (str)
         name of table goes after "FROM" clause
 
-    @param select_cols:
+    @param select_columns: list[ColumnDC]
         List of columns identifiers, goes after "SELECT" clause
-        Each item is described in any of 2 formats (Result string in query is specified after "->"):
-            1) (<col_name>,)                -> "<col_name>"
-            2) (<table_name>, <col_name>)   -> "<table_name>"."<col_name>"
 
-    @param join_dict:
-        A dict specifying, whether to add JOIN clause on tables
-        Each key-value pair is described as:
-            <table_to_join> : (<from_col>, <to_col>)
-        F.e.
-            {"question_type" : ("type_id",  "pk")}
+    @param join_clauses:
+        List of "JoinByClauseDC" Dataclass, specifying single "JOIN ... ON ..." clause:
 
-    @param where_dict:
-        A dict specifying key-value pairs for WHERE clause:
-            <col_name>  :  <col_value>
+    @param where_clauses:
+        Dict specifying key-value pairs for "WHERE (...) = (...)" clause:
+            Format: { <col_name>: <col_value> }
 
-    @param order_by:
-        A list of tuple[str, str] specifying columns after "ORDER BY" clause
-        Each item is described in any of 2 formats (Result string in query is specified after "->"):
-            1) (<col_name>,)                -> "<col_name>"
-            2) (<table_name>, <col_name>)   -> "<table_name>"."<col_name>"
+    @param order_by_columns:
+        List specifying columns after "ORDER BY" clause
 
     @return:
-        List of rows, each length of @param<select_cols>, consisting columns values
+        List of rows, each length of @param<select_cols>, consisting of columns values
     """
 
     # TODO add availability for "WHERE col1 IN (1, 2)" clause
     # TODO needed to search dict values for list, and add additional query string for those pairs
 
-    # ("col") -> Composed("name")
-    # ("table", "col") -> Composed("table"."name")
-    def compose_by_dot(elem: tuple[str, str] | tuple[str] | str):
-        if isinstance(elem, str):
-            return Identifier(elem)
-        if isinstance(elem, tuple):
-            if len(elem) == 1:
-                return Identifier(elem[0])
-            elif len(elem) > 1:
-                return Identifier(*elem)
-
-    format_list = []
+    format_list: list[Composable] = []
     template_query = ""
 
     # "SELECT" clause
-    if select_cols:
+    if select_columns:
         template_query += "SELECT {}"
 
         format_list.extend([
-            SQL(", ").join(map(compose_by_dot, select_cols))
+            SQL(", ").join(map(lambda x: x.compose_by_dot(), select_columns))
         ])
     else:
         template_query += "SELECT *"
@@ -156,42 +171,50 @@ def get_where(
     )
 
     # "JOIN" clause
-    if join_dict:
-        for join_tablename in join_dict:
-            from_col, to_col = join_dict[join_tablename]
+    if join_clauses:
+        join_clause: JoinByClauseDC
+        for join_clause in join_clauses:
             # template_query += "JOIN question_type ON question.type_id = question_type.pk;"
             # template_query += "JOIN {question_type} ON {question}.{type_id} = {question_type}.{pk}"
             # template_query += f"JOIN {join_tablename} ON {tablename}.{from_col} = {join_tablename}.{to_col}"
             template_query += " JOIN {} ON {}.{} = {}.{}"
 
             format_list.extend(map(Identifier, [
-                join_tablename,
+                join_clause.table_name,
                 tablename,
-                from_col,
-                join_tablename,
-                to_col
+                join_clause.from_column,
+                join_clause.table_name,
+                join_clause.to_column
             ]))
 
     # "WHERE" clause
-    if where_dict:
+    if where_clauses:
         template_query += " WHERE ({}) = ({})"
-        where_names = tuple(where_dict.keys())
+
+        where_columns: list[ColumnDC] = list(where_clauses.keys())
+
+        where_placeholders_params: dict[str, Any] = {k.underscore_notation(): v for k, v in where_clauses.items()}
+
+        columns_identifiers: Iterable[Identifier] = map(ColumnDC.compose_by_dot, where_columns)
+        values_placeholders: Iterable[Any] = map(Placeholder, where_placeholders_params.keys())
 
         format_list.extend([
-            SQL(", ").join(map(Identifier, where_names)),
-            SQL(", ").join(map(Placeholder, where_names)),
+            SQL(", ").join(columns_identifiers),
+            SQL(", ").join(values_placeholders),
         ])
+    else:
+        pass
 
     # "ORDER BY" clause
-    if order_by:
+    if order_by_columns:
         template_query += " ORDER BY {}"
         format_list.append(
-            SQL(", ").join(map(compose_by_dot, order_by))
+            SQL(", ").join(map(ColumnDC.compose_by_dot, order_by_columns))
         )
 
     query = SQL(template_query).format(*format_list).as_string(get_psql_conn())
 
-    return _query_get(query=query, params=where_dict)
+    return _query_get(query=query, params=where_placeholders_params)
 
 
 def _exists(where_dict: dict[str, Any], tablename: str):

@@ -3,21 +3,21 @@ from dataclasses import dataclass
 import datetime
 from typing import (
     Callable,
-    Optional,
+    Optional, Any, Sequence,
 )
 
 import pandas as pd
 from psycopg.sql import (
     SQL,
-    Placeholder,
+    Placeholder, Identifier,
 )
 
 from src.db.base import (
     _query_get,
     get_psql_conn,
-    get_where,
+    get_where, ColumnDC, JoinByClauseDC,
 )
-from src.db.classes import get_dataclasses_where, Table, ForeignKey
+from src.db.classes import get_dataclasses_where, Table, ForeignKeyRelation
 
 
 @dataclass(frozen=True)
@@ -67,9 +67,12 @@ class QuestionDB(Table):
     # type_fk: ForeignKey(QuestionTypeDB, "type_id", int)
 
     class Meta:
-        foreign_keys: dict = {
-            "type_id": ForeignKey(QuestionTypeDB, "pk")
-        }
+        # foreign_keys: dict = {
+        #     "type_id": ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
+        # }
+        foreign_keys: list[ForeignKeyRelation] = [
+            ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
+        ]
         tablename = "question"
 
     @property
@@ -152,7 +155,7 @@ def get_ordered_questions_names() -> list[str]:
 def get_question_by_name(name: str) -> QuestionDB | None:
     rows = get_where(
         tablename="question",
-        where_dict={"name": name}
+        where_clauses={"name": name}
     )
     assert len(rows) == 1
     row = rows[0]
@@ -202,13 +205,19 @@ def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
 
     rows = get_where(
         tablename="answer",
-        select_cols=("date", "text"),
-        join_dict={"question": ("question_fk", "pk")},
-        where_dict={"date": day},
-        order_by=[
-            # ("answer", "date"),
-            ("question", "order_by"),
+        select_columns=[
+            ColumnDC("date"),
+            ColumnDC("text")
         ],
+        join_clauses=[
+            JoinByClauseDC("question", from_column="question_fk", to_column="pk")
+        ],
+        where_clauses={
+            ColumnDC("date"): day
+        },
+        order_by_columns=[
+            ColumnDC(table_name="question", column_name="order_by")
+        ]
     )
 
     if not rows:
@@ -225,9 +234,12 @@ def test_get_questions():
     l = get_dataclasses_where(
         class_=QuestionDB,
         join_foreign_keys=True,
-        # where_dict={QuestionDB.is_activated: True},
-        where_dict={'is_activated': True},
-        order_by=['order_by']
+        where_clauses={
+            ColumnDC(column_name='is_activated'): True
+        },
+        order_by_columns=[
+            ColumnDC(column_name='order_by')
+        ]
     )
 
     for i in l:
@@ -245,5 +257,5 @@ def test_get_answers():
 
 
 if __name__ == "__main__":
-    # test_get_answers()
-    test_get_questions()
+    test_get_answers()
+    # test_get_questions()

@@ -1,14 +1,17 @@
 import pprint
 from dataclasses import dataclass
-from typing import Sequence, Type, TypeVar, ClassVar
+from typing import Type, TypeVar, ClassVar, Any
 
-from src.db import base
+from src.db.base import ColumnDC, JoinByClauseDC, get_where, TableName
 
 
 @dataclass(frozen=True)
-class ForeignKey:
+class ForeignKeyRelation:
     class_: 'DBClassType'
+    from_column: str
     to_column: str
+
+    # join_table_name = self.class_.Meta.tablename
 
     def __post_init__(self):
         assert self.to_column in self.class_.__annotations__
@@ -28,77 +31,104 @@ class Table:
         return self.__getattribute__(self.__FK_VALUES_ATTR_NAME)[fkey]
 
     class Meta:
-        foreign_keys: dict
+        foreign_keys: list[ForeignKeyRelation]
         tablename: ClassVar[str] = None
 
 
 DBClassType = TypeVar('DBClassType', Table, dataclass)
 
 
+def create_dc_object(class_to_create: DBClassType, columns_list: list[ColumnDC], values_list: list[Any]) -> DBClassType:
+    return class_to_create(**{
+        columns_list[i].column_name: values_list[i]
+        for i in range(len(columns_list))
+    })
+
+
 def get_dataclasses_where(
         class_: DBClassType,
         join_foreign_keys: bool = False,
-        where_dict: dict | None = None,
-        order_by: Sequence[str] | None = None,
+        where_clauses: dict[ColumnDC, Any] | None = None,
+        order_by_columns: list[ColumnDC] | None = None,
 ) -> list[Type[DBClassType]]:
     # meta_instance: Table.Meta = class_.meta_instance
 
-    primary_tablename = class_.Meta.tablename
-    primary_table_colnames = list(class_.__annotations__.keys())
+    primary_tablename: TableName = class_.Meta.tablename
+    primary_table_columns: list[ColumnDC] = list(map(
+        lambda x: ColumnDC(
+            table_name=primary_tablename,
+            column_name=x
+        ),
+        class_.__annotations__.keys()
+    ))
 
-    select_identifiers: list[tuple[str, str]] = []
-    select_identifiers.extend([(primary_tablename, col_name) for col_name in primary_table_colnames])
+    all_columns: list[ColumnDC] = []
+    all_columns += primary_table_columns
 
     # Stores mapping <join_tablename> : <ForeignKey obj>
     # Auxiliary dict for faster finding ForeignKey instance
     # Used on creating Dataclasses object on setting ForeignKey.dataclass_instance (at the end of func)
-    foreign_keys_objs: dict[str, tuple[str, ForeignKey]] = {}
+    auxiliary_table_fk_mapping: dict[TableName, ForeignKeyRelation] = {}
 
     # Stores mapping <table_name> : (<column names list>)
-    table_columns_mapping: dict[str, list[str]] = {
-        primary_tablename: primary_table_colnames
+    auxiliary_table_columns_mapping: dict[TableName, list[ColumnDC]] = {
+        primary_tablename: primary_table_columns
     }
 
     if join_foreign_keys and hasattr(class_.Meta, 'foreign_keys'):
-        join_dict = {}
+        # join_dict = {}
+        join_clauses: list[JoinByClauseDC] | None = []
 
-        fk_name: str
-        fk_obj: ForeignKey
-        for fk_name, fk_obj in class_.Meta.foreign_keys.items():
+        # from_column: str
+        # fk_obj: ForeignKeyRelation
+        # for from_column, fk_obj in class_.Meta.foreign_keys.items():
+
+        for fk_dataclass in class_.Meta.foreign_keys:
             # TODO Case: 2nd level of Foreign keys
             "JOIN question_type qt ON q.type_id = qt.pk;"
 
-            join_tablename = fk_obj.class_.Meta.tablename
-            from_col = fk_name
-            to_col = fk_obj.to_column
+            join_table_name: TableName = fk_dataclass.class_.Meta.tablename
 
-            join_dict[join_tablename] = (from_col, to_col)
+            join_clauses.append(
+                JoinByClauseDC(
+                    table_name=join_table_name,
+                    from_column=fk_dataclass.from_column,
+                    to_column=fk_dataclass.to_column,
+                )
+            )
 
-            join_table_columns = list(fk_obj.class_.__annotations__.keys())
-            select_identifiers.extend([(join_tablename, col_name) for col_name in join_table_columns])
+            join_table_columns: list[ColumnDC] = list(map(
+                lambda x: ColumnDC(
+                    table_name=join_table_name,
+                    column_name=x
+                ),
+                fk_dataclass.class_.__annotations__.keys()
+            ))
 
-            foreign_keys_objs[join_tablename] = (from_col, fk_obj)
-            table_columns_mapping[join_tablename] = join_table_columns
+            all_columns += join_table_columns
+
+            auxiliary_table_fk_mapping[join_table_name] = fk_dataclass
+            auxiliary_table_columns_mapping[join_table_name] = join_table_columns
     else:
-        join_dict = None
+        join_clauses = None
 
-    query_results = base.get_where(
+    query_results = get_where(
         tablename=primary_tablename,
-        select_cols=select_identifiers,
-        join_dict=join_dict,
-        where_dict=where_dict,
-        order_by=order_by
+        select_columns=all_columns,
+        join_clauses=join_clauses,
+        where_clauses=where_clauses,
+        order_by_columns=order_by_columns,
     )
 
     objs_list: list[class_] = []
 
-    row: list
+    row: list[Any]
     for row in query_results:
-        primary_obj: class_ = None
+        primary_table_obj: class_ = None
 
         offset = 0
-        for table in table_columns_mapping:
-            table_selected_columns: list[str] = table_columns_mapping[table]
+        for table in auxiliary_table_columns_mapping:
+            table_selected_columns: list[ColumnDC] = auxiliary_table_columns_mapping[table]
             columns_count = len(table_selected_columns)
 
             values_for_table = row[offset: offset + columns_count]
@@ -106,26 +136,19 @@ def get_dataclasses_where(
             # len(colnames) == len(values)
             assert len(table_selected_columns) == len(values_for_table)
 
-            def create_object(class_to_create: DBClassType) -> DBClassType:
-                return class_to_create(**{
-                    table_selected_columns[i]: values_for_table[i]
-                    for i in range(columns_count)
-                })
-
             if table == primary_tablename:
                 # creating Primary table instance
-                primary_obj = create_object(class_)
+                primary_table_obj = create_dc_object(class_, table_selected_columns, values_for_table)
             else:
                 # creating Dataclasses that are JOINED via fk
-                assert primary_obj is not None
-                from_col, fk_obj = foreign_keys_objs[table]
-                fk_obj: ForeignKey
+                assert primary_table_obj is not None
+                fk_obj = auxiliary_table_fk_mapping[table]
 
-                obj = create_object(fk_obj.class_)
-                primary_obj.set_fk_value(from_col, obj)
+                new_dataclass_obj = create_dc_object(fk_obj.class_, table_selected_columns, values_for_table)
+                primary_table_obj.set_fk_value(fk_obj.from_column, new_dataclass_obj)
 
             offset += columns_count
-        objs_list.append(primary_obj)
+        objs_list.append(primary_table_obj)
 
     return objs_list
 
@@ -145,7 +168,11 @@ class EventDB(Table):
 if __name__ == "__main__":
     objs = get_dataclasses_where(
         EventDB,
-        order_by=['order_by']
+        join_foreign_keys=False,
+        where_clauses=None,
+        order_by_columns=[
+            ColumnDC(column_name="order_by")
+        ]
     )
 
     pprint.pprint(objs)
