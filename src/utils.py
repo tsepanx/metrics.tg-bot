@@ -25,6 +25,7 @@ from telegram.ext import (
 )
 
 from src import orm
+from src.question import QuestionDB
 from src.user_data import UserData
 
 
@@ -33,6 +34,9 @@ CHAT_DATA_KEYS_DEFAULTS = {
     # 'state': State(None),
     USER_DATA_KEY: UserData
 }
+
+# Flag indicates whether to reload pythonic data in UserDBCache from db
+RELOAD_DB_CACHE = True
 
 
 class MyException(Exception):
@@ -79,7 +83,7 @@ def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[orm.QuestionDB]):
+def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[QuestionDB]):
     """
     Generate
     Prettify table look by adding questions ids to index
@@ -164,6 +168,8 @@ def handler_decorator(func):
 
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        global RELOAD_DB_CACHE
+
         pprint(context.application.chat_data)
         pprint(context.bot_data)
 
@@ -176,12 +182,13 @@ def handler_decorator(func):
 
         user_data: UserData = context.chat_data[USER_DATA_KEY]
 
-        if user_data.answers_df is None:
-            print("DB: Restoring answers_df")
-            user_data.reload_answers_df_from_db()
+        if RELOAD_DB_CACHE:
+            print("DB Cache: RELOADING FROM DB")
+            user_data.db_cache.reload_all()
+            RELOAD_DB_CACHE = False
 
-        if not user_data.questions_names:
-            user_data.reload_qnames()
+        # if not user_data.questions_names:
+        #     user_data.reload_qnames()
 
         try:
             await func(update, context, *args, **kwargs)

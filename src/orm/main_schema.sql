@@ -72,8 +72,8 @@ CREATE TABLE answer (
     text TEXT NULL,
 
     CONSTRAINT answer_is_time_for_event CHECK (
-        CASE WHEN (event_fk IS NOT NULL)
-            THEN string_is_time(text) = true END
+--             THEN string_is_time(text) = true END
+        (event_fk IS NOT NULL) AND (time IS NOT NULL) OR (event_fk IS NULL)
     ),
 
     -- One of 'event_fk', 'question_fk' should be NULL

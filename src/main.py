@@ -23,10 +23,8 @@ from telegram.ext import (
     filters,
 )
 
-from src.orm import (
-    QuestionDB,
-    update_or_insert_row,
-)
+from src.orm.base import update_or_insert_row, ColumnDC
+from src.question import QuestionDB
 from src.utils import (
     ASK_WRONG_FORMAT,
     SKIP_QUEST,
@@ -48,7 +46,7 @@ async def send_ask_question(q: QuestionDB, send_message_f: Callable):
 
     reply_markup = telegram.ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
 
-    question_text = f"<code>{q.type_fk.notation_str}</code> {q.fulltext if q.fulltext else q.name}"
+    question_text = f"<code>{q.question_type.notation_str}</code> {q.fulltext if q.fulltext else q.name}"
 
     await wrapped_send_text(send_message_f, question_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
@@ -141,45 +139,49 @@ async def send_answers_df(
 
 
 async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
-    def update_db(state: AskingState):
+    def update_db_with_answers(state: AskingState):
         answers = state.cur_answers
 
-        for i, answer in enumerate(answers):
+        for i, text in enumerate(answers):
             # answer: str
-            day: str = state.asking_day
+            day = state.asking_day
 
             assert state.include_questions is not None
             qname = state.include_questions[i].name
 
-            if answer is None:
+            if text is None:
                 continue
 
-            # Add entry to 'day' table if not exists
-            update_or_insert_row({"date": day}, {}, "day")
-
             update_or_insert_row(
-                where_dict={"day_fk": day, "question_fk": qname},
-                set_dict={"answer_text": answer},
-                tablename="question_answer",
+                tablename="answer",
+                where_clauses={
+                    ColumnDC(column_name="date"): day,
+                    ColumnDC(column_name="question_fk"): qname
+                },
+                set_dict={
+                    ColumnDC(column_name="text"): text
+                },
             )
 
     assert user_data.state is not None
-    assert user_data.answers_df is not None
+    # assert user_data.answers_df is not None
 
-    if any(user_data.state.cur_answers) or user_data.state.asking_day in user_data.answers_df.columns:
+    if any(user_data.state.cur_answers):  # TODO or user_data.state.asking_day in user_data.answers_df.columns:
         # Updating DataFrame is not needed anymore,
         # as it will be restored from db: new_answers -> db -> build_answers_df
-        update_db(user_data.state)
+        update_db_with_answers(user_data.state)
 
-        # TODO grubber collector check
-        user_data.reload_answers_df_from_db(cols=[user_data.state.asking_day])
+        user_data.db_cache.reload_all()
+        # user_data.reload_answers_df_from_db(cols=[user_data.state.asking_day])
         user_data.state = None
+
+    answers_df = user_data.db_cache.questions_answers_df()
 
     if save_csv:
         fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
-        user_data.answers_df.to_csv(fname_backup)
+        answers_df.to_csv(fname_backup)
 
-    await send_answers_df(update, user_data.answers_df, send_csv=True)
+    await send_answers_df(update, answers_df, send_csv=True)
 
 
 @handler_decorator
@@ -214,12 +216,12 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # state.cur_answers[state.include_qnames[state.cur_id_ind]] = user_ans
-        state.cur_answers[state.cur_id_ind] = user_ans
+        state.cur_answers[state.cur_i] = user_ans
         print(q.fulltext, ": ", user_ans)
 
-        state.cur_id_ind += 1
+        state.cur_i += 1
 
-        if state.cur_id_ind < len(state.include_questions):
+        if state.cur_i < len(state.include_questions):
             q = state.get_current_question()
             await send_ask_question(q, update.message.reply_text)
         else:
@@ -272,7 +274,6 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # state = context.chat_data["state"]
     user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
-
     if user_data.state is not None:
         pass  # Existing command is in action
 
@@ -280,12 +281,13 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     parsed: AskParseResult = ask_parse_args(context.args)
 
     if parsed.day:
-        asking_day = str(parsed.day)
+        asking_day = parsed.day
     else:
-        asking_day = str(get_nth_delta_day(0))  # today
+        asking_day = get_nth_delta_day(0)  # today
 
-    answers_df = user_data.answers_df
-    qnames = user_data.questions_names
+    answers_df = user_data.db_cache.questions_answers_df()
+    qnames = user_data.db_cache.question_names
+    all_questions: list[QuestionDB] = user_data.db_cache.questions
 
     assert answers_df is not None
     assert qnames is not None
@@ -295,6 +297,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         all_indices = list(range(len(qnames)))
 
+        # TODO check str V date conversion
         if asking_day in answers_df.columns:
             day_values_isnull = answers_df[asking_day].isnull().reset_index().drop("index", axis=1)
 
@@ -308,9 +311,10 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(include_indices) == 0:
             include_indices = all_indices
 
-    include_names = list(map(lambda x: qnames[x], include_indices))  # type: ignore
+    # include_names = list(map(lambda x: qnames[x], include_indices))  # type: ignore
+    include_questions = list(map(lambda i: all_questions[i], include_indices))
 
-    user_data.state = AskingState(include_qnames=include_names, asking_day=asking_day)
+    user_data.state = AskingState(include_questions, asking_day)
 
     await wrapped_send_text(
         update.message.reply_text,
@@ -382,9 +386,7 @@ async def on_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def post_init(application: Application) -> None:
     for _, chat_data in application.chat_data.items():
         user_data: UserData = chat_data[USER_DATA_KEY]
-
-        user_data.reload_answers_df_from_db()
-        user_data.reload_qnames()
+        user_data.db_cache.reload_all()
 
     await application.bot.set_my_commands(
         list(
