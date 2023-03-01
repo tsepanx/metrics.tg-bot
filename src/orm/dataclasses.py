@@ -43,8 +43,8 @@ class Table:
     def set_fk_value(self, fkey: str, obj: Tbl) -> None:
         self._fk_values[fkey] = obj
 
-    def get_fk_value(self, fkey: str) -> Tbl:
-        return self._fk_values[fkey]
+    def get_fk_value(self, fkey: str) -> Tbl | None:
+        return self._fk_values.get(fkey, None)
 
     @classmethod
     def select(
@@ -145,13 +145,27 @@ class Table:
                     assert primary_table_obj is not None
                     fk_obj = auxiliary_table_fk_mapping[table]
 
-                    new_dataclass_obj = create_dataclass_instance(fk_obj.class_, table_selected_columns, values_for_table)
+                    # Foreign key value is <null>
+                    if primary_table_obj.__getattribute__(fk_obj.from_column) is None:
+                        new_dataclass_obj = None
+                    else:
+                        new_dataclass_obj = create_dataclass_instance(fk_obj.class_, table_selected_columns, values_for_table)
                     primary_table_obj.set_fk_value(fk_obj.from_column, new_dataclass_obj)
 
                 offset += columns_count
             objs_list.append(primary_table_obj)
 
         return objs_list
+
+    @classmethod
+    def select_all(cls):
+        return cls.select(
+            join_on_fkeys=True,
+            where_clauses=None,
+            order_by_columns=[
+                ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")
+            ]
+        )
 
     class Meta:
         foreign_keys: ClassVar[list[ForeignKeyRelation]] = None

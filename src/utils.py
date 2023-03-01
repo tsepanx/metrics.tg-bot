@@ -25,7 +25,7 @@ from telegram.ext import (
 )
 
 from src import orm
-from src.user_state import UserData
+from src.user_data import UserData
 
 
 USER_DATA_KEY = "data"

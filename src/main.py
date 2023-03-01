@@ -40,7 +40,7 @@ from src.utils import (
     text_to_png,
     wrapped_send_text, USER_DATA_KEY,
 )
-from src.user_state import UserData, AskingState
+from src.user_data import UserData, AskingState
 
 
 async def send_ask_question(q: QuestionDB, send_message_f: Callable):

@@ -16,18 +16,13 @@ class EventDB(Table):
         tablename = "event"
 
 
-def get_ordered_events_names() -> list[str]:
-    rows: list[EventDB] = EventDB.select(
-        where_clauses=None,
-        order_by_columns=[
-            ColumnDC(column_name="order_by")
-        ]
-    )
-
-    return list(map(lambda x: x.name, rows))
-
-
 if __name__ == "__main__":
+    # rows: list[EventDB] = EventDB.select(
+    #     order_by_columns=[
+    #         ColumnDC(column_name="order_by")
+    #     ]
+    # )
+
     objs = EventDB.select(
         where_clauses={
             ColumnDC(table_name="event", column_name="pk"): 1

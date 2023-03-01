@@ -18,6 +18,25 @@ class AnswerDB(Table):
     time: datetime.time
     text: str
 
+    @property
+    def question(self) -> QuestionDB | None:
+        return self.get_fk_value("question_fk")
+
+    @property
+    def event(self) -> EventDB | None:
+        return self.get_fk_value("event_fk")
+
+    @classmethod
+    def select_all(cls):
+        return cls.select(
+            join_on_fkeys=True,
+            where_clauses=None,
+            order_by_columns=[
+                ColumnDC(table_name=cls.Meta.tablename, column_name="date"),
+                ColumnDC(table_name="question", column_name="order_by"),
+            ]
+        )
+
     class Meta:
         foreign_keys = [
             ForeignKeyRelation(QuestionDB, "question_fk", "pk"),
@@ -29,7 +48,6 @@ class AnswerDB(Table):
 if __name__ == "__main__":
     answers = AnswerDB.select(
         join_on_fkeys=True,
-        where_clauses=None,
         order_by_columns=[
             ColumnDC(table_name="answer", column_name="date")
         ]

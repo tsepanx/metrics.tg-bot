@@ -93,54 +93,22 @@ class QuestionDB(Table):
         return qtype_answer_func_mapping[self.type_id]
 
 
-def build_answers_df(days_range=None, include_empty_cols=True) -> pd.DataFrame:
-    df = pd.DataFrame()
-
-    if not days_range:
-        query = "SELECT date FROM day ORDER BY date"
-        query = "SELECT date from answer GROUP BY date ORDER BY date"
-
-        rows = _query_get(query)
-
-        days = list(map(lambda x: x[0].isoformat(), rows))
-    else:
-        days = days_range
-
-    for day in days:
-        # format: [('quest_name', 'answer_text'), ...]
-        col_from_db = get_answers_on_day(day)
-
-        if col_from_db is None:
-            if include_empty_cols:
-                df[day] = pd.Series()
-            continue
-
-        questions_names = col_from_db.index
-        df = df.reindex(df.index.union(questions_names))
-        df[day] = col_from_db
-
-    qnames = get_ordered_questions_names()
-    df = df.reindex(qnames)
-
-    return df
+# def get_ordered_questions_names() -> list[str]:
+#     query = """SELECT name FROM question WHERE is_activated = True ORDER BY num_int;"""
+#
+#     query_results = _query_get(query)
+#     first_col = list(map(lambda x: x[0], query_results))
+#
+#     return first_col
 
 
-def get_ordered_questions_names() -> list[str]:
-    query = """SELECT name FROM question WHERE is_activated = True ORDER BY num_int;"""
-
-    query_results = _query_get(query)
-    first_col = list(map(lambda x: x[0], query_results))
-
-    return first_col
-
-
-def get_question_by_name(name: str) -> QuestionDB | None:
-    rows = _select(tablename="question", where_clauses={"name": name})
-    assert len(rows) == 1
-    row = rows[0]
-
-    obj = QuestionDB(*row)
-    return obj
+# def get_question_by_name(name: str) -> QuestionDB | None:
+#     rows = _select(tablename="question", where_clauses={"name": name})
+#     assert len(rows) == 1
+#     row = rows[0]
+#
+#     obj = QuestionDB(*row)
+#     return obj
 
 
 def get_questions_with_type_fk(qnames: list[str]) -> list[QuestionDB] | None:
