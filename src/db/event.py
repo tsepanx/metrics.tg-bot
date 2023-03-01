@@ -35,7 +35,14 @@ class EventDB(Table):
 
 if __name__ == "__main__":
     objs = get_dataclasses_where(
-        EventDB, join_foreign_keys=False, where_clauses=None, order_by_columns=[ColumnDC(column_name="order_by")]
+        EventDB,
+        join_foreign_keys=False,
+        where_clauses={
+            ColumnDC(table_name="event", column_name="pk"): 1
+        },
+        order_by_columns=[
+            ColumnDC(column_name="order_by")
+        ]
     )
     print(objs)
 

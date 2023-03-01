@@ -122,13 +122,9 @@ def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
 
 def get_where(
     tablename: TableName,
-    # select_cols: dict[str, Sequence[str]] | None = None,
     select_columns: list[ColumnDC] | None = None,
-    # join_dict: dict[str, tuple[str, str]] | None = None,
     join_clauses: list[JoinByClauseDC] | None = None,
     where_clauses: dict[ColumnDC, ValueType] | None = None,
-    # where_clauses: list[WhereClauseDC] | None = None,
-    # order_by_clause: list[tuple[str, str]] | None = None,
     order_by_columns: list[ColumnDC] | None = None,
 ) -> Sequence:
     """
@@ -315,7 +311,13 @@ if __name__ == "__main__":
         "question_answer",
     )
 
-    _insert_row({"day_fk": "2023-02-24", "question_fk": "x_small"}, "question_answer")
+    _insert_row(
+        {
+            "day_fk": "2023-02-24",
+            "question_fk": "x_small"
+        },
+        "question_answer"
+    )
 
     update_or_insert_row(
         {"day_fk": "2023-02-25", "answer_text": "walkn1"}, {"question_fk": "vegetables_eat"}, "question_answer"

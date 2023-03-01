@@ -1,4 +1,3 @@
-import pprint
 from dataclasses import (
     dataclass,
 )
@@ -23,8 +22,6 @@ class ForeignKeyRelation:
     from_column: str
     to_column: str
 
-    # join_table_name = self.class_.Meta.tablename
-
     def __post_init__(self):
         assert self.to_column in self.class_.__annotations__
 
@@ -43,7 +40,7 @@ class Table:
         return self.__getattribute__(self.__FK_VALUES_ATTR_NAME)[fkey]
 
     class Meta:
-        foreign_keys: list[ForeignKeyRelation]
+        foreign_keys: ClassVar[list[ForeignKeyRelation]]
         tablename: ClassVar[str] = None
 
 
