@@ -24,6 +24,7 @@ from telegram.ext import (
 )
 
 from src.orm.base import update_or_insert_row, ColumnDC
+from src.tables.answer import AnswerType
 from src.tables.question import QuestionDB
 from src.utils import (
     ASK_WRONG_FORMAT,
@@ -61,15 +62,30 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable):
     )
 
 
+def build_transpose_callback_data(answer_type: AnswerType) -> str:
+    return f"transpose {answer_type.name}"
+
+
+async def send_entity_answers_df(answers_entity: AnswerType, *args, **kwargs):
+    transpose_callback_data = build_transpose_callback_data(answers_entity)
+
+    return await send_dataframe(
+        *args,
+        transpose_button_callback_data=transpose_callback_data,
+        **kwargs
+    )
+
+
 # pylint: disable=too-many-arguments, too-many-locals
 async def send_dataframe(
-    update: Update,
-    df: pd.DataFrame,
-    send_csv=False,
-    send_img=True,
-    send_text=False,
-    transpose_table=False,
-    with_question_indices=True,
+        update: Update,
+        df: pd.DataFrame,
+        send_csv=False,
+        send_img=True,
+        send_text=False,
+        transpose_table=False,
+        transpose_button_callback_data: str = None,
+        with_question_indices=True,
 ):
     # Fix dirty function applying changes directly to passed DataFrame
     df = df.copy()
@@ -113,7 +129,10 @@ async def send_dataframe(
         bio2 = copy.copy(bio)
 
         if not transpose_table:
-            keyboard = [[telegram.InlineKeyboardButton("transposed table IMG", callback_data="transpose")]]
+            keyboard = [[telegram.InlineKeyboardButton(
+                "transposed table IMG",
+                callback_data=transpose_button_callback_data
+            )]]
             reply_markup = telegram.InlineKeyboardMarkup(keyboard)
         else:
             reply_markup = None
@@ -172,7 +191,12 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
         fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
         answers_df.to_csv(fname_backup)
 
-    await send_dataframe(update, answers_df, send_csv=True)
+    await send_entity_answers_df(
+        answers_entity=AnswerType.QUESTION,
+        update=update,
+        df=answers_df,
+        send_csv=True
+    )
 
 
 @handler_decorator
@@ -314,8 +338,17 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quest_answers_df = user_data.db_cache.questions_answers_df()
     event_answers_df = user_data.db_cache.events_answers_df()
 
-    await send_dataframe(update, quest_answers_df)
-    await send_dataframe(update, event_answers_df)
+    await send_entity_answers_df(
+        answers_entity=AnswerType.QUESTION,
+        update=update,
+        df=quest_answers_df
+    )
+
+    await send_entity_answers_df(
+        answers_entity=AnswerType.EVENT,
+        update=update,
+        df=event_answers_df
+    )
 
 
 def on_add_question(user_data: UserData):
@@ -340,17 +373,29 @@ async def exit_command(update: Update, _):
 
 @handler_decorator
 async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
+    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     query = update.callback_query
     assert query is not None
 
     await query.answer()
 
-    if query.data == "transpose":
-        await send_dataframe(
+    if query.data.startswith("transpose"):
+        answers_type: AnswerType | None = None
+        if query.data == build_transpose_callback_data(AnswerType.QUESTION):
+            answers_type = AnswerType.QUESTION
+        elif query.data == build_transpose_callback_data(AnswerType.EVENT):
+            answers_type = AnswerType.EVENT
+
+        if answers_type is None:
+            raise Exception(f"Wrong callback data: {query.data}")
+
+        answers_df = user_data.db_cache.common_answers_df(answers_type=answers_type)
+
+        await send_entity_answers_df(
+            answers_type,
             update,
-            user_data.answers_df,
+            answers_df,
             send_csv=False,
             send_img=True,
             send_text=False,
