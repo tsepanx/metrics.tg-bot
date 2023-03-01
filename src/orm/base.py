@@ -84,10 +84,11 @@ def get_psql_conn():
     return _pg_conn
 
 
-def prefix_keys(d: dict[str, Any], pref: str) -> dict[str, Any]:
+def prefix_keys(d: dict[ColumnDC, ValueType], pref: str) -> dict[str, Any]:
     new_d = {}
+
     for key in d:
-        new_key = f"{pref}{key}"
+        new_key = f"{pref}{key.underscore_notation()}"
         new_d[new_key] = d[key]
 
     return new_d
@@ -240,36 +241,50 @@ def _select(
     return _query_get(query=query, params=where_placeholders_params)
 
 
-def _exists(where_dict: dict[ColumnDC, Any], tablename: TableName):
-    return len(_select(tablename=tablename, where_clauses=where_dict)) > 0
+def _exists(
+        tablename: TableName,
+        where_clauses: dict[ColumnDC, ValueType],
+):
+    return len(_select(tablename=tablename, where_clauses=where_clauses)) > 0
 
 
-def _insert_row(row_dict: dict[str, Any], tablename: str):
+def _insert_row(
+        tablename: TableName,
+        row_dict: dict[ColumnDC, Any]
+):
     names = tuple(row_dict.keys())
 
     query = (
         SQL("INSERT INTO {} ({}) VALUES ({});")
         .format(
-            Identifier(tablename),  # tablename
-            SQL(", ").join(map(Identifier, names)),  # (col1, col2)
-            SQL(", ").join(map(Placeholder, names)),  # (%(col1)s, %(col1)s) -> ('val1', 'val2')
+            # tablename
+            Identifier(tablename),
+            # (col1, col2)
+            SQL(", ").join(map(ColumnDC.compose_by_dot, names)),
+            # (%(col1)s, %(col1)s) -> ('val1', 'val2')
+            SQL(", ").join(map(Placeholder, map(lambda x: x.column_name, names))),
         )
         .as_string(get_psql_conn())
     )
 
     try:
-        _query_set(query, row_dict)
+        placeholder_values = prefix_keys(row_dict, "")
+        _query_set(query, placeholder_values)
     except psycopg.errors.UniqueViolation as e:
         raise e
 
 
-def _update_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename: str):
-    where_names = tuple(where_dict.keys())
+def _update_row(
+        tablename: TableName,
+        where_clauses: dict[ColumnDC, ValueType],
+        set_dict: dict[ColumnDC, ValueType],
+):
+    where_names = tuple(where_clauses.keys())
     set_names = tuple(set_dict.keys())
 
     # This is done to avoid duplicate placeholder names in template query:
     # UPDATE table SET "col1" = %(set_col1)s WHERE ("col1", "col2") = (%(where_col1)s, %(where_col2)s)
-    prefixed_where_dict = prefix_keys(where_dict, "where_")
+    prefixed_where_dict = prefix_keys(where_clauses, "where_")
     prefixed_set_dict = prefix_keys(set_dict, "set_")
 
     prefixed_where_names = tuple(prefixed_where_dict.keys())
@@ -279,7 +294,7 @@ def _update_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename:
         # "UPDATE {tablename} SET answer_text = '66664' WHERE (day_fk, question_fk) = ('2023-02-23', 'weight')"
         template_query = "UPDATE {} SET {} = {} WHERE ({}) = ({})"
     elif len(set_names) > 1:
-        template_query = "UPDATE {} SET ({}) = ({}) WHERE ({}) = ({})"
+        template_query = "UPDATE {} SET ({}) = ({}) col3, col4WHERE ({}) = ({})"
     else:
         raise Exception
 
@@ -287,11 +302,16 @@ def _update_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename:
     query = (
         SQL(template_query)
         .format(
-            Identifier(tablename),  # tablename     "question_answer"
-            SQL(", ").join(map(Identifier, set_names)),  # set columns   (col3, col4)
-            SQL(", ").join(map(Placeholder, prefixed_set_names)),  # set values    ('val1', 'val2')
-            SQL(", ").join(map(Identifier, where_names)),  # where columns (col1, col2)
-            SQL(", ").join(map(Placeholder, prefixed_where_names)),  # where values  (%s, %s)
+            # tablename     "question_answer"
+            Identifier(tablename),
+            # set columns   (col3, col4)
+            SQL(", ").join(map(ColumnDC.compose_by_dot, set_names)),
+            # set values    ('val1', 'val2')
+            SQL(", ").join(map(Placeholder, prefixed_set_names)),
+            # where columns (col1, col2)
+            SQL(", ").join(map(ColumnDC.compose_by_dot, where_names)),
+            # where values  (%s, %s)
+            SQL(", ").join(map(Placeholder, prefixed_where_names)),
         )
         .as_string(get_psql_conn())
     )
@@ -301,41 +321,43 @@ def _update_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename:
     _query_set(query, placeholder_values)
 
 
-def update_or_insert_row(where_dict: dict[str, Any], set_dict: dict[str, Any], tablename: str):
+def update_or_insert_row(
+        tablename: TableName,
+        where_clauses: dict[ColumnDC, ValueType],
+        set_dict: dict[ColumnDC, ValueType],
+):
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
     # assert set(where_dict).union(set(set_dict)) == columns_set
 
-    if _exists(where_dict, tablename):
-        _update_row(where_dict, set_dict, tablename)
+    if _exists(tablename, where_clauses):
+        _update_row(tablename, where_clauses, set_dict)
     else:
-        row_dict = {**where_dict, **set_dict}
-        _insert_row(row_dict, tablename)
+        row_dict = {**where_clauses, **set_dict}
+        _insert_row(tablename, row_dict)
 
 
 if __name__ == "__main__":
-    # answers_df = build_answers_df()
-    # print(answers_df)
-
+    pass
     # questions_list = get_questions_names()
     # print(questions_list)
 
     # "UPDATE {tablename} SET answer_text = '66664' WHERE (day_fk, question_fk) = ('2023-02-23', 'weight')"
-    _update_row(
-        {"day_fk": "2023-02-23", "question_fk": "weight"},
-        # {'answer_text': '2345'},
-        {"answer_text": "new_2345"},
-        "question_answer",
-    )
-
-    _insert_row(
-        {
-            "day_fk": "2023-02-24",
-            "question_fk": "x_small"
-        },
-        "question_answer"
-    )
-
-    update_or_insert_row(
-        {"day_fk": "2023-02-25", "answer_text": "walkn1"}, {"question_fk": "vegetables_eat"}, "question_answer"
-    )
+    # _update_row(
+    #     {"day_fk": "2023-02-23", "question_fk": "weight"},
+    #     # {'answer_text': '2345'},
+    #     {"answer_text": "new_2345"},
+    #     "question_answer",
+    # )
+    #
+    # _insert_row(
+    #     {
+    #         "day_fk": "2023-02-24",
+    #         "question_fk": "x_small"
+    #     },
+    #     "question_answer"
+    # )
+    #
+    # update_or_insert_row(
+    #     {"day_fk": "2023-02-25", "answer_text": "walkn1"}, {"question_fk": "vegetables_eat"}, "question_answer"
+    # )
