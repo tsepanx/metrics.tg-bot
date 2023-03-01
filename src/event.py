@@ -2,23 +2,13 @@ from dataclasses import (
     dataclass,
 )
 
-from src.db.base import (
+from src.orm.base import (
     ColumnDC,
 )
-from src.db.classes import (
+from src.orm.dataclasses import (
     Table,
     get_dataclasses_where,
 )
-
-
-def get_ordered_events_names() -> list[str]:
-    class_ = EventDB
-
-    rows: list[class_] = get_dataclasses_where(
-        class_=class_, where_clauses=None, order_by_columns=[ColumnDC(column_name="order_by")]
-    )
-
-    return list(map(lambda x: x.name, rows))
 
 
 @dataclass(frozen=True)
@@ -31,6 +21,16 @@ class EventDB(Table):
 
     class Meta:
         tablename = "event"
+
+
+def get_ordered_events_names() -> list[str]:
+    class_ = EventDB
+
+    rows: list[class_] = get_dataclasses_where(
+        class_=class_, where_clauses=None, order_by_columns=[ColumnDC(column_name="order_by")]
+    )
+
+    return list(map(lambda x: x.name, rows))
 
 
 if __name__ == "__main__":

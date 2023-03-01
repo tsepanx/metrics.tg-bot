@@ -34,7 +34,7 @@ from telegram.ext import (
 )
 
 from src import (
-    db,
+    orm,
 )
 
 
@@ -68,7 +68,7 @@ MAX_MSG_LEN = 7000
 
 
 class AskingState:
-    include_questions: list[db.QuestionDB] | None
+    include_questions: list[orm.QuestionDB] | None
     asking_day: str
 
     cur_id_ind: int
@@ -79,9 +79,9 @@ class AskingState:
 
         self.cur_id_ind = 0
         self.cur_answers = [None for _ in range(len(include_qnames))]
-        self.include_questions = db.get_questions_with_type_fk(include_qnames)
+        self.include_questions = orm.get_questions_with_type_fk(include_qnames)
 
-    def get_current_question(self) -> db.QuestionDB:
+    def get_current_question(self) -> orm.QuestionDB:
         if not self.include_questions:
             raise Exception
 
@@ -103,16 +103,16 @@ class UserData:
         if cols:
             assert self.answers_df is not None
 
-            new_cols = db.build_answers_df(days_range=cols)
+            new_cols = orm.build_answers_df(days_range=cols)
 
             assign_dict = {cols[i]: new_cols.iloc[:, 0] for i in range(len(cols))}
             self.answers_df = self.answers_df.assign(**assign_dict)
             self.answers_df = sort_answers_df_cols(self.answers_df)
         else:
-            self.answers_df = db.build_answers_df()
+            self.answers_df = orm.build_answers_df()
 
     def reload_qnames(self):
-        self.questions_names = db.get_ordered_questions_names()
+        self.questions_names = orm.get_ordered_questions_names()
 
 
 USER_DATA_KEY = "data"
@@ -138,7 +138,7 @@ def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[db.QuestionDB]):
+def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[orm.QuestionDB]):
     """
     Generate
     Prettify table look by adding questions ids to index

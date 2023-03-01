@@ -14,14 +14,14 @@ from psycopg.sql import (
     Placeholder,
 )
 
-from src.db.base import (
+from src.orm.base import (
     ColumnDC,
     JoinByClauseDC,
     _query_get,
     get_psql_conn,
     get_where,
 )
-from src.db.classes import (
+from src.orm.dataclasses import (
     ForeignKeyRelation,
     Table,
     get_dataclasses_where,

@@ -29,7 +29,7 @@ from telegram.ext import (
     filters,
 )
 
-from src.db import (
+from src.orm import (
     QuestionDB,
     update_or_insert_row,
 )

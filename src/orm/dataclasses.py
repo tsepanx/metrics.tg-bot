@@ -1,3 +1,11 @@
+
+"""
+This file defines two main classes "Table" and "ForeignKeyRelation"
+that are most common in my orm
+
+
+"""
+
 from dataclasses import (
     dataclass,
 )
@@ -8,7 +16,7 @@ from typing import (
     TypeVar,
 )
 
-from src.db.base import (
+from src.orm.base import (
     ColumnDC,
     JoinByClauseDC,
     TableName,
@@ -123,7 +131,7 @@ def get_dataclasses_where(
             table_selected_columns: list[ColumnDC] = auxiliary_table_columns_mapping[table]
             columns_count = len(table_selected_columns)
 
-            values_for_table = row[offset : offset + columns_count]
+            values_for_table = row[offset: offset + columns_count]
 
             # len(colnames) == len(values)
             assert len(table_selected_columns) == len(values_for_table)
