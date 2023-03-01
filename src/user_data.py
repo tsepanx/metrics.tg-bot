@@ -4,6 +4,7 @@ import enum
 import pandas as pd
 
 from src.answer import AnswerDB
+from src.event import EventDB
 from src.question import QuestionDB
 
 
@@ -12,8 +13,9 @@ class UserDBCache:
         EVENT = "event_fk"
         QUESTION = "question_fk"
 
-    questions: list[QuestionDB] = None
-    answers: list[AnswerDB] = None
+    questions: list[QuestionDB] | None = None
+    events: list[EventDB] | None = None
+    answers: list[AnswerDB] | None = None
 
     def __init__(self):
         if not self.questions or not self.answers:
@@ -21,16 +23,24 @@ class UserDBCache:
 
     def reload_all(self):
         self.questions = QuestionDB.select_all()
+        self.events = EventDB.select_all()
         self.answers = AnswerDB.select_all()
 
-    @property
-    def question_names(self) -> list[str]:
+    def questions_names(self) -> list[str]:
         return list(map(lambda x: x.name, self.questions))
 
-    def _common_answers_df(self, entity_type: AnswerEntityType, include_empty_cols=False) -> pd.DataFrame:
-        df = pd.DataFrame()
+    def events_names(self) -> list[str]:
+        return list(map(lambda x: x.name, self.events))
 
-        # days = sorted(set(map(lambda x: x.date.isoformat(), self.answers)))
+    def _common_answers_df(self, entity_type: AnswerEntityType, include_empty_cols=False) -> pd.DataFrame:
+        if entity_type is UserDBCache.AnswerEntityType.EVENT:
+            index = self.events_names()
+        elif entity_type is UserDBCache.AnswerEntityType.QUESTION:
+            index = self.questions_names()
+        else:
+            raise Exception
+
+        df = pd.DataFrame(index=index)
 
         # <day (date)> : tuple(<question_name>, <answer_text>)
         day_answers_mapping: dict[datetime.date, list[tuple[str, str]]] = {}
@@ -43,7 +53,15 @@ class UserDBCache:
                 if not day_answers_mapping.get(answer.date, None):
                     day_answers_mapping[answer.date] = []
 
-                day_answers_mapping[answer.date].append((answer_fk_object.name, answer.text))
+                if entity_type is UserDBCache.AnswerEntityType.EVENT:
+                    # answer_text = f"({answer.time} {answer.text})"
+                    answer_text = (answer.time.isoformat(), answer.text)
+                elif entity_type is UserDBCache.AnswerEntityType.QUESTION:
+                    answer_text = answer.text
+                else:
+                    raise Exception
+
+                day_answers_mapping[answer.date].append((answer_fk_object.name, answer_text))
 
         for day in day_answers_mapping:
             qnames_and_texts = day_answers_mapping[day]
@@ -93,12 +111,11 @@ class AskingState:
 
 class UserData:
     state: AskingState | None
-    db_cache: UserDBCache | None
-    # answers_df: pd.DataFrame | None
+    db_cache: UserDBCache
 
     def __init__(self):
         self.state = None  # AskingState(None)
-        self.db_cache = None
+        self.db_cache = UserDBCache()
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ from src.orm import base
 from src.orm.base import (  # get_where,
     ColumnDC,
     JoinByClauseDC,
-    TableName, JoinTypes,
+    TableName, JoinTypes, ValueType,
 )
 
 Tbl = TypeVar("Tbl", "Table", dataclass)
@@ -48,10 +48,9 @@ class Table:
 
     @classmethod
     def select(
-            # class_: DBClassType,
             cls: Type[Tbl],
             join_on_fkeys: bool = False,
-            where_clauses: dict[ColumnDC, Any] | None = None,
+            where_clauses: dict[ColumnDC, ValueType] | None = None,
             order_by_columns: list[ColumnDC] | None = None,
     ) -> List[Tbl]:
 

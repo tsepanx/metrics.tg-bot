@@ -286,7 +286,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asking_day = get_nth_delta_day(0)  # today
 
     answers_df = user_data.db_cache.questions_answers_df()
-    qnames = user_data.db_cache.question_names
+    qnames = user_data.db_cache.questions_names
     all_questions: list[QuestionDB] = user_data.db_cache.questions
 
     assert answers_df is not None
@@ -328,9 +328,13 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @handler_decorator
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
+    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
 
-    await send_answers_df(update, user_data.answers_df)
+    questions_answers_df = user_data.db_cache.questions_answers_df()
+    events_answers_df = user_data.db_cache.events_answers_df()
+
+    await send_answers_df(update, questions_answers_df)
+    await send_answers_df(update, events_answers_df)
 
 
 def on_add_question(user_data: UserData):
@@ -339,7 +343,7 @@ def on_add_question(user_data: UserData):
 
 @handler_decorator
 async def add_question_command(_: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data = context.chat_data[USER_DATA_KEY]  # type: ignore
+    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
 
     on_add_question(user_data)
 

@@ -55,8 +55,20 @@ class QuestionDB(Table):
         foreign_keys = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
         tablename = "question"
 
+    @classmethod
+    def select_all(cls):
+        return cls.select(
+            join_on_fkeys=True,
+            where_clauses={
+                ColumnDC(column_name="is_activated"): True
+            },
+            order_by_columns=[
+                ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")
+            ]
+        )
+
     @property
-    def question_type(self) -> QuestionTypeDB:
+    def question_type(self) -> QuestionTypeDB | None:
         return self.get_fk_value("type_id")
 
     @property
@@ -169,9 +181,8 @@ def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
 def test_get_questions():
     # get_questions_with_type_fk(["walking", "x_small", "x_big"])
 
-    l = get_dataclasses_where(
-        class_=QuestionDB,
-        join_foreign_keys=True,
+    l = QuestionDB.select(
+        join_on_fkeys=True,
         where_clauses={ColumnDC(column_name="is_activated"): True},
         order_by_columns=[ColumnDC(column_name="order_by")],
     )

@@ -52,7 +52,9 @@ CREATE TABLE day(
 CREATE TABLE event(
     pk SERIAL PRIMARY KEY,
     order_by SERIAL,
-    name VARCHAR(50)
+    name VARCHAR(50),
+    is_activated BOOLEAN
+        NOT NULL DEFAULT True
 );
 
 

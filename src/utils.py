@@ -24,7 +24,6 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from src import orm
 from src.question import QuestionDB
 from src.user_data import UserData
 
@@ -36,7 +35,7 @@ CHAT_DATA_KEYS_DEFAULTS = {
 }
 
 # Flag indicates whether to reload pythonic data in UserDBCache from db
-RELOAD_DB_CACHE = True
+RELOAD_DB_CACHE = False
 
 
 class MyException(Exception):
