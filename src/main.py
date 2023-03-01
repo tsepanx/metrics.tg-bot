@@ -3,7 +3,7 @@ import copy
 import dataclasses
 import datetime
 from io import BytesIO
-from typing import Callable
+from typing import Callable, Sequence
 
 import pandas as pd
 import telegram
@@ -24,7 +24,7 @@ from telegram.ext import (
 )
 
 from src.orm.base import update_or_insert_row, ColumnDC
-from src.question import QuestionDB
+from src.tables.question import QuestionDB
 from src.utils import (
     ASK_WRONG_FORMAT,
     SKIP_QUEST,
@@ -41,57 +41,53 @@ from src.utils import (
 from src.user_data import UserData, AskingState
 
 
-async def send_ask_question(q: QuestionDB, send_message_f: Callable):
-    buttons = [list(map(str, q.suggested_answers_list)), [SKIP_QUEST, STOP_ASKING]]
+async def send_ask_question(q: QuestionDB, send_text_func: Callable):
+    buttons = [
+        list(map(str, q.suggested_answers_list)),
+        [SKIP_QUEST, STOP_ASKING]
+    ]
 
-    reply_markup = telegram.ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
+    reply_markup = telegram.ReplyKeyboardMarkup(
+        buttons,
+        one_time_keyboard=True,
+        resize_keyboard=True
+    )
 
-    question_text = f"<code>{q.question_type.notation_str}</code> {q.fulltext if q.fulltext else q.name}"
-
-    await wrapped_send_text(send_message_f, question_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+    await wrapped_send_text(
+        send_text_func,
+        text=q.html_notation(),
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
 
 
 # pylint: disable=too-many-arguments, too-many-locals
-async def send_answers_df(
+async def send_dataframe(
     update: Update,
-    answers_df: pd.DataFrame,
+    df: pd.DataFrame,
     send_csv=False,
     send_img=True,
     send_text=False,
     transpose_table=False,
     with_question_indices=True,
-    sort_by_quest_indices=True,
 ):
     # Fix dirty function applying changes directly to passed DataFrame
-    answers_df = answers_df.copy()
+    df = df.copy()
 
-    # --- Adding temporary index column, to sort by it, and show it with table
-    # Important thing is not to save this col to df, because question number is not hardly associated with question
-
-    # answers_df = add_questions_sequence_num_as_col(
-    #     answers_df,
-    #     questions_objects
-    # )
-
-    i_col = list(range(len(answers_df.index)))
+    # [0, 1, 2, 3, ...]
+    i_column = list(range(len(df.index)))
     # noinspection PyTypeChecker
-    answers_df.insert(0, "i", i_col)
+    df.insert(0, "i", i_column)
 
-    if sort_by_quest_indices:
-        answers_df = answers_df.sort_values("i")
+    # if sort_by_quest_indices:
+    #     answers_df = answers_df.sort_values("i")
 
     # 'i' column was used just for sorting
     if not with_question_indices:
-        answers_df = answers_df.drop("i", axis=1)
+        df = df.drop("i", axis=1)
 
-    # --- ---
-
-    # await send_df_in_formats(
-    #     update, answers_df, send_csv=send_csv, send_img=send_img, send_text=send_text, transpose_table=transpose_table
-    # )
-
-    md_text = df_to_markdown(answers_df, transpose=transpose_table)
-    csv_text = answers_df.to_csv()
+    md_text = df_to_markdown(df, transpose=transpose_table)
+    csv_text = df.to_csv()
 
     if not transpose_table:
         assert update.message is not None
@@ -102,7 +98,7 @@ async def send_answers_df(
         message_object = update.callback_query.message
 
     if send_csv:
-        bytes_io = data_to_bytesio(csv_text, "answers_df.csv")
+        bytes_io = data_to_bytesio(csv_text, "dataframe.csv")
         await message_object.reply_document(document=bytes_io)
 
     if send_img:
@@ -164,24 +160,19 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             )
 
     assert user_data.state is not None
-    # assert user_data.answers_df is not None
 
-    if any(user_data.state.cur_answers):  # TODO or user_data.state.asking_day in user_data.answers_df.columns:
-        # Updating DataFrame is not needed anymore,
-        # as it will be restored from db: new_answers -> db -> build_answers_df
+    if any(user_data.state.cur_answers):
         update_db_with_answers(user_data.state)
-
         user_data.db_cache.reload_all()
-        # user_data.reload_answers_df_from_db(cols=[user_data.state.asking_day])
-        user_data.state = None
 
+    user_data.state = None
     answers_df = user_data.db_cache.questions_answers_df()
 
     if save_csv:
         fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
         answers_df.to_csv(fname_backup)
 
-    await send_answers_df(update, answers_df, send_csv=True)
+    await send_dataframe(update, answers_df, send_csv=True)
 
 
 @handler_decorator
@@ -191,7 +182,6 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # state = context.chat_data["state"]
     user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
     state = user_data.state
-    # qnames = user_data.questions_names
 
     # if state.current_state == 'ask':
     if isinstance(state, AskingState):
@@ -199,33 +189,28 @@ async def plaintext_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         q: QuestionDB = state.get_current_question()
 
-        user_ans = update.message.text
+        answer_text = update.message.text
 
-        if user_ans not in [SKIP_QUEST, STOP_ASKING]:
+        if answer_text == SKIP_QUEST:
+            answer_text = None
+        elif answer_text == STOP_ASKING:
+            await on_end_asking(user_data, update)
+            return
+        else:
             try:
                 if q.answer_apply_func:
-                    user_ans = q.answer_apply_func(user_ans)
+                    answer_text = q.answer_apply_func(answer_text)
             except Exception as exc:
                 raise MyException("Error parsing answer, try again") from exc
 
-        if user_ans == SKIP_QUEST:
-            user_ans = None
-
-        if user_ans == STOP_ASKING:
-            await on_end_asking(user_data, update)
-            return
-
-        # state.cur_answers[state.include_qnames[state.cur_id_ind]] = user_ans
-        state.cur_answers[state.cur_i] = user_ans
-        print(q.fulltext, ": ", user_ans)
-
+        state.cur_answers[state.cur_i] = answer_text
         state.cur_i += 1
 
-        if state.cur_i < len(state.include_questions):
-            q = state.get_current_question()
-            await send_ask_question(q, update.message.reply_text)
-        else:
-            await on_end_asking(user_data, update)
+        if state.cur_i >= len(state.include_questions):
+            return await on_end_asking(user_data, update)
+
+        q = state.get_current_question()
+        await send_ask_question(q, update.message.reply_text)
 
 
 # pylint: disable=too-many-statements
@@ -236,7 +221,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         questions_ids: list[int] | None
         day: datetime.date | None
 
-    def ask_parse_args(context_args) -> AskParseResult:
+    def ask_parse_args(context_args: Sequence[str]) -> AskParseResult:
         res = AskParseResult(None, None)
 
         if len(context_args) == 0:
@@ -272,11 +257,6 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     assert update.message is not None
 
-    # state = context.chat_data["state"]
-    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
-    if user_data.state is not None:
-        pass  # Existing command is in action
-
     print("command: ask")
     parsed: AskParseResult = ask_parse_args(context.args)
 
@@ -285,6 +265,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         asking_day = get_nth_delta_day(0)  # today
 
+    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
     answers_df = user_data.db_cache.questions_answers_df()
     qnames = user_data.db_cache.questions_names()
     all_questions: list[QuestionDB] = user_data.db_cache.questions
@@ -297,13 +278,15 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         all_indices = list(range(len(qnames)))
 
-        # TODO check str V date conversion
         if asking_day in answers_df.columns:
             day_values_isnull = answers_df[asking_day].isnull().reset_index().drop("index", axis=1)
 
-            # Filter to get index of only null values
+            # Filter to get indices of only null values
             include_indices = list(
-                day_values_isnull.apply(lambda x: None if bool(x[0]) is False else 1, axis=1).dropna().index
+                day_values_isnull
+                .apply(lambda x: None if bool(x[0]) is False else 1, axis=1)
+                .dropna()
+                .index
             )
         else:
             include_indices = all_indices
@@ -311,9 +294,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(include_indices) == 0:
             include_indices = all_indices
 
-    # include_names = list(map(lambda x: qnames[x], include_indices))  # type: ignore
     include_questions = list(map(lambda i: all_questions[i], include_indices))
-
     user_data.state = AskingState(include_questions, asking_day)
 
     await wrapped_send_text(
@@ -322,19 +303,19 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    q = user_data.state.get_current_question()
-    await send_ask_question(q, update.message.reply_text)
+    first_question = user_data.state.get_current_question()
+    await send_ask_question(first_question, update.message.reply_text)
 
 
 @handler_decorator
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
 
-    questions_answers_df = user_data.db_cache.questions_answers_df()
-    events_answers_df = user_data.db_cache.events_answers_df()
+    quest_answers_df = user_data.db_cache.questions_answers_df()
+    event_answers_df = user_data.db_cache.events_answers_df()
 
-    await send_answers_df(update, questions_answers_df)
-    await send_answers_df(update, events_answers_df)
+    await send_dataframe(update, quest_answers_df)
+    await send_dataframe(update, event_answers_df)
 
 
 def on_add_question(user_data: UserData):
@@ -367,7 +348,7 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "transpose":
-        await send_answers_df(
+        await send_dataframe(
             update,
             user_data.answers_df,
             send_csv=False,
@@ -378,28 +359,14 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-@handler_decorator
-async def on_inline_query(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    query = update.inline_query.query
-    print(query)
-    results = [telegram.InlineQueryResultArticle("123", "title1")]
-    # отвечаем на сообщение результатом
-    await update.inline_query.answer(results)
-
-
 async def post_init(application: Application) -> None:
     for _, chat_data in application.chat_data.items():
         user_data: UserData = chat_data[USER_DATA_KEY]
         user_data.db_cache.reload_all()
 
-    await application.bot.set_my_commands(
-        list(
-            filter(
-                lambda x: x is not None,
-                (map(lambda x: [x[0], x[1][1]] if len(x[1]) > 1 else None, commands_mapping.items())),
-            )
-        )
-    )
+    await application.bot.set_my_commands([
+        (k, v[1]) for k, v in commands_mapping.items() if v[1]
+    ])
 
 
 if __name__ == "__main__":
@@ -412,16 +379,15 @@ if __name__ == "__main__":
     app = ApplicationBuilder().persistence(persistence).token(TOKEN).post_init(post_init).build()
 
     commands_mapping = {
-        "ask": (ask_command, "Start asking"),
-        "stats": (stats_command, "Get stats"),
-        "exitt": (exit_command,),
+        "ask": (ask_command, "Ask for 'Questions' on given day"),
+        "stats": (stats_command, "Get statddds"),
+        "exitt": (exit_command, ""),
     }
 
-    for command_string, value in commands_mapping.items():
-        func = value[0]
+    for command_string, (func, _) in commands_mapping.items():
         app.add_handler(CommandHandler(command_string, func))
 
     app.add_handler(MessageHandler(filters.TEXT, plaintext_handler))
     app.add_handler(CallbackQueryHandler(on_callback_query))
-    app.add_handler(InlineQueryHandler(on_inline_query))
+    # app.add_handler(InlineQueryHandler(on_inline_query))
     app.run_polling()

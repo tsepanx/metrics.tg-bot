@@ -1,13 +1,9 @@
 """
-This file defines two main classes "Table" and "ForeignKeyRelation"
-that are most common in my orm
-
-
+This file defines two main classes "Table" and "ForeignKeyRelation" that are most common in my orm.
 """
 
 from dataclasses import dataclass
 from typing import (
-    Any,
     ClassVar,
     List,
     Type,
@@ -15,7 +11,7 @@ from typing import (
 )
 
 from src.orm import base
-from src.orm.base import (  # get_where,
+from src.orm.base import (
     ColumnDC,
     JoinByClauseDC,
     TableName, JoinTypes, ValueType,
@@ -57,7 +53,7 @@ class Table:
         def create_dataclass_instance(
                 class_to_create: Tbl,
                 columns_list: list[ColumnDC],
-                values_list: list[Any]
+                values_list: list[ValueType]
         ) -> Tbl:
             return class_to_create(**{
                 columns_list[i].column_name: values_list[i]
@@ -122,7 +118,7 @@ class Table:
 
         objs_list: List[Tbl] = []
 
-        row: list[Any]
+        row: list[ValueType]
         for row in query_results:
             primary_table_obj: cls = None
 

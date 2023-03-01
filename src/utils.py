@@ -24,7 +24,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from src.question import QuestionDB
+from src.tables.question import QuestionDB
 from src.user_data import UserData
 
 

@@ -1,11 +1,24 @@
 import datetime
+import enum
 import pprint
 from dataclasses import dataclass
 
-from src.event import EventDB
+from src.tables.event import EventDB
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import Table, ForeignKeyRelation
-from src.question import QuestionDB
+from src.tables.question import QuestionDB
+
+
+class MyEnum(enum.Enum):
+    @classmethod
+    def values_list(cls):
+        return list(map(lambda x: x.value, cls.__members__.values()))
+
+
+class AnswerType(MyEnum):
+    # NAME = <ForeignKey object> in "answer" table
+    QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
+    EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
 
 
 @dataclass(frozen=True)
@@ -38,10 +51,7 @@ class AnswerDB(Table):
         )
 
     class Meta:
-        foreign_keys = [
-            ForeignKeyRelation(QuestionDB, "question_fk", "pk"),
-            ForeignKeyRelation(EventDB, "event_fk", "pk"),
-        ]
+        foreign_keys = AnswerType.values_list()
         tablename = "answer"
 
 
