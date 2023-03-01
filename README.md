@@ -1,10 +1,7 @@
 ## `Metrics.tg-bot`
 
-### TODO
-
-- [ ] === **TODO** Add `Events` ===
-
 ---
+- [x] Display events as {index - time, value - tuple (event_name, text)}
 - Involve `groups`
 - [x] -> Optimize number of `SQL` requests
   - Check whether any `table` changed to reload "db attrs"

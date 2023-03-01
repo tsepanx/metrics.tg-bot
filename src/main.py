@@ -66,12 +66,23 @@ def build_transpose_callback_data(answer_type: AnswerType) -> str:
     return f"transpose {answer_type.name}"
 
 
-async def send_entity_answers_df(answers_entity: AnswerType, *args, **kwargs):
-    transpose_callback_data = build_transpose_callback_data(answers_entity)
+async def send_entity_answers_df(update: Update, user_data: UserData, answers_entity: AnswerType, **kwargs):
+    file_name = f"{answers_entity.name.lower()}s.csv"
+
+    if answers_entity is AnswerType.QUESTION:
+        transpose_callback_data = build_transpose_callback_data(answers_entity)
+        answers_df = user_data.db_cache.questions_answers_df()
+    elif answers_entity is AnswerType.EVENT:
+        transpose_callback_data = None
+        answers_df = user_data.db_cache.events_answers_df()
+    else:
+        raise Exception
 
     return await send_dataframe(
-        *args,
+        update=update,
+        df=answers_df,
         transpose_button_callback_data=transpose_callback_data,
+        file_name=file_name,
         **kwargs
     )
 
@@ -86,6 +97,7 @@ async def send_dataframe(
         transpose_table=False,
         transpose_button_callback_data: str = None,
         with_question_indices=True,
+        file_name: str = "dataframe.csv"
 ):
     # Fix dirty function applying changes directly to passed DataFrame
     df = df.copy()
@@ -114,7 +126,7 @@ async def send_dataframe(
         message_object = update.callback_query.message
 
     if send_csv:
-        bytes_io = data_to_bytesio(csv_text, "dataframe.csv")
+        bytes_io = data_to_bytesio(csv_text, file_name)
         await message_object.reply_document(document=bytes_io)
 
     if send_img:
@@ -128,7 +140,7 @@ async def send_dataframe(
 
         bio2 = copy.copy(bio)
 
-        if not transpose_table:
+        if not transpose_table and transpose_button_callback_data:
             keyboard = [[telegram.InlineKeyboardButton(
                 "transposed table IMG",
                 callback_data=transpose_button_callback_data
@@ -185,16 +197,15 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
         user_data.db_cache.reload_all()
 
     user_data.state = None
-    answers_df = user_data.db_cache.questions_answers_df()
 
-    if save_csv:
-        fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
-        answers_df.to_csv(fname_backup)
+    # if save_csv:
+    #     fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
+    #     answers_df.to_csv(fname_backup)
 
     await send_entity_answers_df(
-        answers_entity=AnswerType.QUESTION,
         update=update,
-        df=answers_df,
+        user_data=user_data,
+        answers_entity=AnswerType.QUESTION,
         send_csv=True
     )
 
@@ -335,19 +346,16 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
 
-    quest_answers_df = user_data.db_cache.questions_answers_df()
-    event_answers_df = user_data.db_cache.events_answers_df()
-
     await send_entity_answers_df(
-        answers_entity=AnswerType.QUESTION,
         update=update,
-        df=quest_answers_df
+        user_data=user_data,
+        answers_entity=AnswerType.QUESTION,
     )
 
     await send_entity_answers_df(
-        answers_entity=AnswerType.EVENT,
         update=update,
-        df=event_answers_df
+        user_data=user_data,
+        answers_entity=AnswerType.EVENT,
     )
 
 
@@ -381,21 +389,18 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data.startswith("transpose"):
-        answers_type: AnswerType | None = None
+        # answers_type: AnswerType | None = None
         if query.data == build_transpose_callback_data(AnswerType.QUESTION):
             answers_type = AnswerType.QUESTION
         elif query.data == build_transpose_callback_data(AnswerType.EVENT):
             answers_type = AnswerType.EVENT
-
-        if answers_type is None:
+        else:
             raise Exception(f"Wrong callback data: {query.data}")
 
-        answers_df = user_data.db_cache.common_answers_df(answers_type=answers_type)
-
         await send_entity_answers_df(
-            answers_type,
             update,
-            answers_df,
+            user_data=user_data,
+            answers_entity=answers_type,
             send_csv=False,
             send_img=True,
             send_text=False,

@@ -2,6 +2,7 @@ import datetime
 
 import pandas as pd
 
+from src.orm.dataclasses import ForeignKeyRelation
 from src.tables.answer import AnswerDB, AnswerType
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
@@ -27,13 +28,16 @@ class UserDBCache:
     def events_names(self) -> list[str]:
         return list(map(lambda x: x.name, self.events))
 
-    def common_answers_df(self, answers_type: AnswerType, include_empty_cols=False) -> pd.DataFrame:
-        if answers_type is AnswerType.EVENT:
-            index = self.events_names()
-        elif answers_type is AnswerType.QUESTION:
-            index = self.questions_names()
-        else:
-            raise Exception
+    def questions_answers_df(self, include_empty_cols=False) -> pd.DataFrame:
+        # answers_type.value: ForeignKeyRelation
+        # answers_type.name: str
+
+        # if answers_type is AnswerType.EVENT:
+        #     index = self.events_names()
+        # elif answers_type is AnswerType.QUESTION:
+        index = self.questions_names()
+        # else:
+        #     raise Exception
 
         df = pd.DataFrame(index=index)
 
@@ -42,21 +46,24 @@ class UserDBCache:
 
         for answer in self.answers:
             # One of QuestionDB / EventDB
-            answer_fk_object = answer.get_fk_value(answers_type.value)
 
-            if answer_fk_object:
+            # fk_column: str = AnswerType.QUESTION.value.from_column
+            # answer_fk_object = answer.get_fk_value(fk_column)
+
+            # if answer_fk_object:
+            if answer.question:
                 if not day_answers_mapping.get(answer.date, None):
                     day_answers_mapping[answer.date] = []
 
-                if answers_type is AnswerType.EVENT:
-                    # answer_text = f"({answer.time} {answer.text})"
-                    answer_text = (answer.time.isoformat(), answer.text)
-                elif answers_type is AnswerType.QUESTION:
-                    answer_text = answer.text
-                else:
-                    raise Exception
+                # if answers_type is AnswerType.EVENT:
+                #     # answer_text = f"({answer.time} {answer.text})"
+                #     answer_text = (answer.time.isoformat(), answer.text)
+                # elif answers_type is AnswerType.QUESTION:
+                answer_text = answer.text
+                # else:
+                #     raise Exception
 
-                day_answers_mapping[answer.date].append((answer_fk_object.name, answer_text))
+                day_answers_mapping[answer.date].append((answer.question.name, answer_text))
 
         for day in day_answers_mapping:
             qnames_and_texts = day_answers_mapping[day]
@@ -70,17 +77,20 @@ class UserDBCache:
 
         return df
 
-    def questions_answers_df(self, **kwargs) -> pd.DataFrame:
-        return self.common_answers_df(
-            AnswerType.QUESTION,
-            **kwargs
-        )
+    def events_answers_df(self, for_day: datetime.date = datetime.date.today()) -> pd.DataFrame:
+        """
+        A table consists of only 1 column
+        Each row format is described as:
+            Index   | Value
+            <time>  | tuple(<event.name>, <answer_text>)
+        """
 
-    def events_answers_df(self, **kwargs) -> pd.DataFrame:
-        return self.common_answers_df(
-            AnswerType.EVENT,
-            **kwargs
-        )
+        event_answers = sorted(filter(lambda x: x.event is not None, self.answers), key=lambda x: x.time)
+
+        row_list = list(map(lambda x: [x.time, (x.event.name, x.text)], event_answers))
+        df = pd.DataFrame(row_list).set_index(0)
+        df.columns = [for_day]
+        return df
 
 
 class AskingState:

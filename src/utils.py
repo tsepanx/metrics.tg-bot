@@ -64,7 +64,7 @@ ASK_WRONG_FORMAT = MyException("`=== /ask: wrong format ===`\n" + ask_format_exa
 
 STOP_ASKING = "Stop asking"
 SKIP_QUEST = "Skip question"
-MAX_MSG_LEN = 7000
+MAX_MSG_LEN = 4096
 
 
 def to_list(func):
