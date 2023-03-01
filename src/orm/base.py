@@ -5,7 +5,7 @@ from typing import (
     Any,
     Iterable,
     Optional,
-    Sequence,
+    Sequence, Callable,
 )
 
 import psycopg
@@ -38,7 +38,9 @@ class ColumnDC:
             return Identifier(self.table_name, self.column_name)
         return Identifier(self.column_name)
 
-    def underscore_notation(self):
+    def underscore_notation(self) -> str:
+        if not self.table_name:
+            return self.column_name
         return f"{self.table_name}_{self.column_name}"
 
 
@@ -84,19 +86,31 @@ def get_psql_conn():
     return _pg_conn
 
 
-def prefix_keys(d: dict[ColumnDC, ValueType], pref: str) -> dict[str, Any]:
+def dict_cols_to_str(
+        d: dict[ColumnDC, ValueType],
+        prefix: str | None = None,
+        column_apply_function: Callable[[ColumnDC], str] = ColumnDC.underscore_notation
+) -> dict[str, Any]:
+    """
+    Builds new dict from old, rebuilding keys by some rule (ColumnDC -> str):
+    Result type conversion:
+        dict[ColumnDC, ValueType] -> dict[str, ValueType]
+    """
     new_d = {}
 
-    for key in d:
-        new_key = f"{pref}{key.underscore_notation()}"
-        new_d[new_key] = d[key]
+    for column_dc in d:
+        new_key = column_apply_function(column_dc)
+        if prefix:
+            new_key = prefix + new_key
+
+        new_d[new_key] = d[column_dc]
 
     return new_d
 
 
 def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Sequence:
     print(sqlparse.format(query, reindent=True,))
-    # print(query, params)
+    print("Params:", params)
 
     conn = get_psql_conn()
     cur = conn.cursor()
@@ -138,8 +152,8 @@ def _select(
     order_by_columns: list[ColumnDC] | None = None,
 ) -> Sequence:
     """
-    Common parametrized function to execute "SELECT" clause
-        possibly with "WHERE", "JOIN ON", "ORDER BY" clauses
+    Common parametrized function trying to fully imitate "SELECT" clause
+        optionally added with "WHERE", "JOIN ON", "ORDER BY" clauses
 
     @param tablename: TableName (str)
         name of table goes after "FROM" clause
@@ -161,7 +175,7 @@ def _select(
         List of rows, each length of @param<select_cols>, consisting of columns values
     """
 
-    # TODO add availability for "WHERE col1 IN (1, 2)" clause
+    # TODO add option for "WHERE col1 IN (1, 2)" clause
     # TODO needed to search dict values for list, and add additional query string for those pairs
 
     format_list: list[Composable] = []
@@ -254,22 +268,29 @@ def _insert_row(
 ):
     names = tuple(row_dict.keys())
 
+    # ColumnDC -> str placeholder
+    # placeholder_apply_func = ColumnDC.underscore_notation
+    placeholder_apply_func = lambda x: x.column_name
+
     query = (
-        SQL("INSERT INTO {} ({}) VALUES ({});")
-        .format(
+        SQL("INSERT INTO {} ({}) VALUES ({})").format(
             # tablename
             Identifier(tablename),
             # (col1, col2)
             SQL(", ").join(map(ColumnDC.compose_by_dot, names)),
             # (%(col1)s, %(col1)s) -> ('val1', 'val2')
-            SQL(", ").join(map(Placeholder, map(lambda x: x.column_name, names))),
+            SQL(", ").join(map(Placeholder, map(placeholder_apply_func, names))),
         )
         .as_string(get_psql_conn())
     )
 
     try:
-        placeholder_values = prefix_keys(row_dict, "")
-        _query_set(query, placeholder_values)
+        prefixed_row_dict = dict_cols_to_str(
+            row_dict,
+            prefix=None,
+            column_apply_function=placeholder_apply_func
+        )
+        _query_set(query, prefixed_row_dict)
     except psycopg.errors.UniqueViolation as e:
         raise e
 
@@ -284,8 +305,8 @@ def _update_row(
 
     # This is done to avoid duplicate placeholder names in template query:
     # UPDATE table SET "col1" = %(set_col1)s WHERE ("col1", "col2") = (%(where_col1)s, %(where_col2)s)
-    prefixed_where_dict = prefix_keys(where_clauses, "where_")
-    prefixed_set_dict = prefix_keys(set_dict, "set_")
+    prefixed_where_dict = dict_cols_to_str(where_clauses, prefix="where_")
+    prefixed_set_dict = dict_cols_to_str(set_dict, prefix="set_")
 
     prefixed_where_names = tuple(prefixed_where_dict.keys())
     prefixed_set_names = tuple(prefixed_set_dict.keys())

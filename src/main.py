@@ -147,7 +147,7 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
             day = state.asking_day
 
             assert state.include_questions is not None
-            qname = state.include_questions[i].name
+            question_pk = state.include_questions[i].pk
 
             if text is None:
                 continue
@@ -156,7 +156,7 @@ async def on_end_asking(user_data: UserData, update: Update, save_csv=True):
                 tablename="answer",
                 where_clauses={
                     ColumnDC(column_name="date"): day,
-                    ColumnDC(column_name="question_fk"): qname
+                    ColumnDC(column_name="question_fk"): question_pk
                 },
                 set_dict={
                     ColumnDC(column_name="text"): text
@@ -286,7 +286,7 @@ async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asking_day = get_nth_delta_day(0)  # today
 
     answers_df = user_data.db_cache.questions_answers_df()
-    qnames = user_data.db_cache.questions_names
+    qnames = user_data.db_cache.questions_names()
     all_questions: list[QuestionDB] = user_data.db_cache.questions
 
     assert answers_df is not None
@@ -379,7 +379,7 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @handler_decorator
-async def on_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def on_inline_query(update: Update, _: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query.query
     print(query)
     results = [telegram.InlineQueryResultArticle("123", "title1")]
