@@ -1,5 +1,10 @@
 ## `Metrics.tg-bot`
 
+### TODO for `Tomorrow`
+
+- Find ability to select in entities names
+- Add ability to create `event` answer
+
 ---
 - [x] Display events as {index - time, value - tuple (event_name, text)}
 - Involve `groups`

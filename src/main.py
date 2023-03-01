@@ -414,9 +414,17 @@ async def post_init(application: Application) -> None:
         user_data: UserData = chat_data[USER_DATA_KEY]
         user_data.db_cache.reload_all()
 
-    await application.bot.set_my_commands([
-        (k, v[1]) for k, v in commands_mapping.items() if v[1]
-    ])
+        commands_list = [
+            (k, v[1]) for k, v in commands_mapping.items() if v[1]
+        ]
+
+        events_names: list[str] = user_data.db_cache.events_names()
+        commands_list += list(map(lambda x: [f"event_{x}", x], events_names))
+
+        question_names: list[str] = user_data.db_cache.questions_names()
+        commands_list += list(map(lambda x: [f"question_{x}", x], question_names))
+
+        await application.bot.set_my_commands(commands_list)
 
 
 if __name__ == "__main__":
