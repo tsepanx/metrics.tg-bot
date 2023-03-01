@@ -13,9 +13,7 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 import logging
-from uuid import (
-    uuid4,
-)
+from uuid import uuid4
 
 from telegram import (
     __version__ as TG_VER,

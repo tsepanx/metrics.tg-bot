@@ -2,18 +2,12 @@ import asyncio
 import copy
 import dataclasses
 import datetime
-from io import (
-    BytesIO,
-)
-from typing import (
-    Callable,
-)
+from io import BytesIO
+from typing import Callable
 
 import pandas as pd
 import telegram
-from telegram import (
-    Update,
-)
+from telegram import Update
 from telegram.constants import (
     ParseMode,
 )
@@ -37,18 +31,16 @@ from src.utils import (
     ASK_WRONG_FORMAT,
     SKIP_QUEST,
     STOP_ASKING,
-    USER_DATA_KEY,
-    AskingState,
     MyException,
-    UserData,
     answers_df_backup_fname,
     data_to_bytesio,
     df_to_markdown,
     get_nth_delta_day,
     handler_decorator,
     text_to_png,
-    wrapped_send_text,
+    wrapped_send_text, USER_DATA_KEY,
 )
+from src.user_state import UserData, AskingState
 
 
 async def send_ask_question(q: QuestionDB, send_message_f: Callable):

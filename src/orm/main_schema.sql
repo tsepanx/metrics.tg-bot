@@ -116,6 +116,15 @@ SELECT * FROM question q
     JOIN question_type qt
         ON "q"."type_id" = qt.pk;
 
+SELECT date from answer
+GROUP BY date
+ORDER BY date;
+
+SELECT * FROM "answer" a
+    LEFT JOIN "question" q ON a."question_fk" = q."pk"
+    LEFT JOIN "event" e ON a."event_fk" = e."pk"
+ORDER BY a."date";
+
 
 ----------- DELETE OPERATIONS -----------
 

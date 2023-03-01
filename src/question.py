@@ -1,8 +1,6 @@
 import datetime
 import pprint
-from dataclasses import (
-    dataclass,
-)
+from dataclasses import dataclass
 from typing import (
     Callable,
     Optional,
@@ -17,14 +15,12 @@ from psycopg.sql import (
 from src.orm.base import (
     ColumnDC,
     JoinByClauseDC,
-    _query_get,
     get_psql_conn,
-    get_where,
+    _select,
 )
 from src.orm.dataclasses import (
     ForeignKeyRelation,
     Table,
-    get_dataclasses_where,
 )
 
 
@@ -39,28 +35,11 @@ class QuestionTypeDB(Table):
         tablename = "question_type"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=True, slots=True, unsafe_hash=True, match_args=True, kw_only=True)
 class QuestionDB(Table):
     # pylint: disable=too-many-instance-attributes
 
-    # def __post_init__(self):
-    #     # object.__setattr__(self, 'value', None)
-    #     columns = self.__annotations__
-    #
-    #     for col in columns.items():
-    #         col_type = col[1]
-    #
-    #         if issubclass(col_type, Table):
-    #             print(col)
-    #         print(col)
-    #
-    #     rows: list[QuestionTypeDB] = get_dataclasses_where(
-    #         QuestionTypeDB,
-    #         where_dict={"id": self.type_id},
-    #     )
-    #     assert len(rows) == 1
-    #     self.__type_fk = rows[0]
-    #     return self.__type_fk
+    pk: int
 
     name: str
     fulltext: str
@@ -72,13 +51,8 @@ class QuestionDB(Table):
     # ForeignKey : 'QuestionTypeDB'
     type_id: int
 
-    # type_fk: ForeignKey(QuestionTypeDB, "type_id", int)
-
     class Meta:
-        # foreign_keys: dict = {
-        #     "type_id": ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
-        # }
-        foreign_keys: list[ForeignKeyRelation] = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
+        foreign_keys = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
         tablename = "question"
 
     @property
@@ -124,6 +98,8 @@ def build_answers_df(days_range=None, include_empty_cols=True) -> pd.DataFrame:
 
     if not days_range:
         query = "SELECT date FROM day ORDER BY date"
+        query = "SELECT date from answer GROUP BY date ORDER BY date"
+
         rows = _query_get(query)
 
         days = list(map(lambda x: x[0].isoformat(), rows))
@@ -159,7 +135,7 @@ def get_ordered_questions_names() -> list[str]:
 
 
 def get_question_by_name(name: str) -> QuestionDB | None:
-    rows = get_where(tablename="question", where_clauses={"name": name})
+    rows = _select(tablename="question", where_clauses={"name": name})
     assert len(rows) == 1
     row = rows[0]
 
@@ -206,7 +182,7 @@ def get_answers_on_day(day: str | datetime.date) -> pd.Series | None:
     if isinstance(day, datetime.date):
         day = str(day.isoformat())
 
-    rows = get_where(
+    rows = _select(
         tablename="answer",
         select_columns=[ColumnDC("date"), ColumnDC("text")],
         join_clauses=[JoinByClauseDC("question", from_column="question_fk", to_column="pk")],

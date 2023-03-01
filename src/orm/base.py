@@ -1,7 +1,6 @@
+import enum
 import os
-from dataclasses import (
-    dataclass,
-)
+from dataclasses import dataclass
 from typing import (
     Any,
     Iterable,
@@ -10,6 +9,7 @@ from typing import (
 )
 
 import psycopg
+import sqlparse
 from psycopg.sql import (
     SQL,
     Composable,
@@ -21,7 +21,6 @@ PG_DB = os.environ.get("PG_DB", "postgres")
 PG_USER = os.environ.get("PG_USER", "postgres")
 PG_HOST = os.environ.get("PG_HOST", "localhost")
 PG_PASSWORD = os.environ.get("PG_PASSWORD", "")
-
 
 TableName = str
 ValueType = Any
@@ -43,6 +42,13 @@ class ColumnDC:
         return f"{self.table_name}_{self.column_name}"
 
 
+class JoinTypes(enum.Enum):
+    INNER = 0
+    LEFT = 1
+    RIGHT = 2
+    FULL = 3
+
+
 @dataclass(frozen=True)
 class JoinByClauseDC:
     """
@@ -56,6 +62,8 @@ class JoinByClauseDC:
     table_name: str
     from_column: str
     to_column: str
+
+    join_type: JoinTypes = JoinTypes.INNER
 
 
 def _psql_conn():
@@ -86,7 +94,8 @@ def prefix_keys(d: dict[str, Any], pref: str) -> dict[str, Any]:
 
 
 def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Sequence:
-    print(query, params)
+    print(sqlparse.format(query, reindent=True,))
+    # print(query, params)
 
     conn = get_psql_conn()
     cur = conn.cursor()
@@ -120,7 +129,7 @@ def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
         conn.commit()
 
 
-def get_where(
+def _select(
     tablename: TableName,
     select_columns: list[ColumnDC] | None = None,
     join_clauses: list[JoinByClauseDC] | None = None,
@@ -176,8 +185,16 @@ def get_where(
             # template_query += "JOIN question_type ON question.type_id = question_type.pk;"
             # template_query += "JOIN {question_type} ON {question}.{type_id} = {question_type}.{pk}"
             # template_query += f"JOIN {join_tablename} ON {tablename}.{from_col} = {join_tablename}.{to_col}"
-            template_query += " JOIN {} ON {}.{} = {}.{}"
+            template_subquery = " JOIN {} ON {}.{} = {}.{}"
 
+            if join_clause.join_type:
+                if isinstance(join_clause.join_type, JoinTypes):
+                    template_subquery = " {}" + template_subquery
+                    format_list.append(
+                        SQL(join_clause.join_type.name)
+                    )
+
+            template_query += template_subquery
             format_list.extend(
                 map(
                     Identifier,
@@ -224,7 +241,7 @@ def get_where(
 
 
 def _exists(where_dict: dict[ColumnDC, Any], tablename: TableName):
-    return len(get_where(tablename=tablename, where_clauses=where_dict)) > 0
+    return len(_select(tablename=tablename, where_clauses=where_dict)) > 0
 
 
 def _insert_row(row_dict: dict[str, Any], tablename: str):
