@@ -1,13 +1,11 @@
+import dataclasses
 import datetime
+from dataclasses import dataclass
 
 import pandas as pd
 
-from src.orm.dataclasses import (
-    ForeignKeyRelation,
-)
 from src.tables.answer import (
-    AnswerDB,
-    AnswerType,
+    AnswerDB, AnswerType,
 )
 from src.tables.event import (
     EventDB,
@@ -15,6 +13,38 @@ from src.tables.event import (
 from src.tables.question import (
     QuestionDB,
 )
+
+
+@dataclass
+class ConversationStorage:
+    day: datetime.date | None = None
+    entity_type: AnswerType | None = None
+
+
+@dataclass
+class QuestionsConversationStorage(ConversationStorage):
+    entity_type = AnswerType.QUESTION
+    include_indices: list[int] = dataclasses.field(default_factory=list)
+
+    cur_i: int = 0
+    cur_answers: list[str | None] = None
+
+    def current_question(self, questions: list[QuestionDB]) -> QuestionDB:
+        index = self.include_indices[self.cur_i]
+        return questions[index]
+
+    def set_current_answer(self, val: str):
+        self.cur_answers[self.cur_i] = val
+
+
+@dataclass
+class EventConversationStorage(ConversationStorage):
+    entity_type = AnswerType.QUESTION
+
+    chosen_event_index: int | None = None
+
+    event_time: datetime.time | None = None
+    event_text: str | None = None
 
 
 class UserDBCache:
@@ -103,11 +133,12 @@ class UserDBCache:
         return df
 
 
-# TODO rm userdata, leave only userDBcache
 class UserData:
+    conv_storage: ConversationStorage
     db_cache: UserDBCache
 
     def __init__(self):
+        self.conv_storage = ConversationStorage()
         self.db_cache = UserDBCache()
 
 

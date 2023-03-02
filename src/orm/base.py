@@ -44,6 +44,12 @@ class ColumnDC:
             return self.column_name
         return f"{self.table_name}_{self.column_name}"
 
+    def __repr__(self):
+        return self.underscore_notation()
+
+    def __str__(self):
+        return self.underscore_notation()
+
 
 class JoinTypes(enum.Enum):
     INNER = 0

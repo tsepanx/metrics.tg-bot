@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, Application
 
 from src.tables.answer import AnswerType
-from src.user_data import UserData
+from src.user_data import UserData, UserDBCache
 from src.utils import handler_decorator, USER_DATA_KEY
 from src.utils_send import send_entity_answers_df
 
@@ -28,6 +28,7 @@ async def post_init(application: Application) -> None:
     for _, chat_data in application.chat_data.items():
         user_data: UserData = chat_data[USER_DATA_KEY]
         user_data.db_cache.reload_all()
+        # user_data.db_cache = UserDBCache()
 
     commands_list = [
         # (k, v[1]) for k, v in commands_mapping.items() if v[1]

@@ -3,7 +3,6 @@ import functools
 import traceback
 from functools import wraps
 from io import BytesIO
-from pprint import pprint
 from typing import Any, Tuple
 
 import numpy as np
@@ -26,7 +25,7 @@ from src.tables.question import (
 )
 from src.user_data import UserData
 
-USER_DATA_KEY = "data"
+USER_DATA_KEY = "user_data"
 CHAT_DATA_KEYS_DEFAULTS = {
     # 'state': State(None),
     USER_DATA_KEY: UserData
@@ -40,25 +39,9 @@ class MyException(Exception):
     pass
 
 
-def ask_format_example():
-    n = 18
-    return "\n".join(
-        [
-            "Examples:",
-            f"`{'/ask':{n}}` For today, unanswered questions",
-            f"`{'/ask -d=2023-01-01':{n}}` Specific day (isoformat)",
-            f"`{'/ask -d=-1':{n}}` Yesterday",
-            f"`{'/ask -q=1,2,3':{n}}` Specify questions to ask",
-            f"`{'/ask -q=1,2,3 -d=2023-01-01':{n}}` Multiple args",
-        ]
-    )
-
-
 def answers_df_backup_fname(chat_id: int) -> str:
     return f"answers_df_backups/{chat_id}.csv"
 
-
-ASK_WRONG_FORMAT = MyException("`=== /ask: wrong format ===`\n" + ask_format_example())
 
 STOP_ASKING = "Stop asking"
 SKIP_QUEST = "Skip question"
@@ -167,9 +150,6 @@ def handler_decorator(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         global RELOAD_DB_CACHE
 
-        pprint(context.application.chat_data)
-        pprint(context.bot_data)
-
         assert context.chat_data is not None
 
         # pylint: disable=consider-using-dict-items
@@ -177,15 +157,12 @@ def handler_decorator(func):
             if KEY not in context.chat_data or context.chat_data[KEY] is None:
                 context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY]()
 
-        user_data: UserData = context.chat_data[USER_DATA_KEY]
+        ud: UserData = context.chat_data[USER_DATA_KEY]
 
         if RELOAD_DB_CACHE:
             print("DB Cache: RELOADING FROM DB")
-            user_data.db_cache.reload_all()
+            ud.db_cache.reload_all()
             RELOAD_DB_CACHE = False
-
-        # if not user_data.questions_names:
-        #     user_data.reload_qnames()
 
         try:
             result = await func(update, context, *args, **kwargs)

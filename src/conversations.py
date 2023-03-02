@@ -15,39 +15,37 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     CallbackQueryHandler,
-    filters, ApplicationBuilder,
+    filters, ApplicationBuilder, PicklePersistence,
 )
 
 from src.other_commands import stats_command, post_init
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
-from src.user_data import UserData
+from src.user_data import UserData, ConversationStorage, QuestionsConversationStorage, EventConversationStorage
 from src.utils import (
     USER_DATA_KEY,
     get_nth_delta_day,
     handler_decorator, wrapped_send_text, SKIP_QUEST, STOP_ASKING, MyException, )
 from src.utils_send import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
-    on_end_asking_event, AskConversationStorage, QuestionsAskConversationStorage, EventAskConversationStorage
+    on_end_asking_event
 
 CHOOSE_DAY, \
     CHOOSE_ENTITY_TYPE, \
     CHOOSE_QUESTION_OPTION, \
     CHOOSE_EVENT_NAME, \
-    ASK_QUESTIONS, \
+    ASK_QUESTION, \
     ASK_EVENT_TIME, \
     ASK_EVENT_TEXT, \
     END_ASKING_QUESTIONS, \
     END_ASKING_EVENT, \
     = range(9)
 
-storage_global: AskConversationStorage | None = None
-
 
 # pylint: disable=too-many-statements
 @handler_decorator
 async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
-    storage_global = AskConversationStorage()
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+    ud.conv_storage = ConversationStorage()
 
     reply_keyboard = [["-5", "-4", "-3", "-2", "-1", "+1"], ["Today"]]
     text = "Select day"
@@ -68,7 +66,7 @@ async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 @handler_decorator
 async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # global storage_global
+    ud: UserData = context.chat_data[USER_DATA_KEY]
 
     text = update.message.text  # 2023-01-01 / Today / +1
 
@@ -83,7 +81,7 @@ async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         await update.message.reply_text("Wrong message, try again")
         return CHOOSE_DAY
 
-    storage_global.day = day
+    ud.conv_storage.day = day
 
     reply_keyboard = [["Question", "Event"]]
     text = "Select entity type"
@@ -104,19 +102,17 @@ async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 @handler_decorator
 async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
-
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
+    ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
-    storage_global = QuestionsAskConversationStorage(
-        **storage_global.__dict__
+    ud.conv_storage = QuestionsConversationStorage(
+        **ud.conv_storage.__dict__
     )
 
     text = update.message.text
     assert text == "Question"
 
-    questions_names: list[str] = user_data.db_cache.questions_names()
+    questions_names: list[str] = ud.db_cache.questions_names()
 
     keyboard = [
         [
@@ -138,17 +134,16 @@ async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_
 
 @handler_decorator
 async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
+    ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
-    storage_global = EventAskConversationStorage(
-        **storage_global.__dict__
+    ud.conv_storage = EventConversationStorage(
+        **ud.conv_storage.__dict__
     )
 
     assert update.message.text == "Event"
 
-    events_names: list[str] = user_data.db_cache.events_names()
+    events_names: list[str] = ud.db_cache.events_names()
 
     buttons_column = []
     for i, name in enumerate(events_names):
@@ -171,31 +166,29 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @handler_decorator
 async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
-    assert isinstance(storage_global, QuestionsAskConversationStorage)
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+    assert isinstance(ud.conv_storage, QuestionsConversationStorage)
 
     send_text_func = update.effective_chat.send_message
 
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
-    # qnames = user_data.db_cache.questions_names()
-    answers_df: pd.DataFrame = user_data.db_cache.questions_answers_df()
+    # qnames = ud.db_cache.questions_names()
+    answers_df: pd.DataFrame = ud.db_cache.questions_answers_df()
 
     await update.callback_query.answer()
     query: str = update.callback_query.data
 
-    # all_indices = list(range(len(qnames)))
-    all_questions = user_data.db_cache.questions
+    all_indices = list(range(len(ud.db_cache.questions)))
 
     if query == "all":
         # include_indices = all_indices
-        # storage_global.include_questions = include_indices
-        storage_global.include_questions = all_questions
+        # ud.conv_storage.include_questions = include_indices
+        ud.conv_storage.include_indices = all_indices
     elif query == "unanswered":
-        if storage_global.day not in answers_df.columns:
-            # include_indices = all_indices
-            include_questions = all_questions
+        if ud.conv_storage.day not in answers_df.columns:
+            include_indices = all_indices
+            # include_questions = all_questions
         else:
-            day_values_isnull = answers_df[storage_global.day] \
+            day_values_isnull = answers_df[ud.conv_storage.day] \
                 .isnull() \
                 .reset_index() \
                 .drop("index", axis=1)
@@ -209,28 +202,29 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
             )
 
             if len(include_indices) == 0:
-                include_questions = all_questions
-            else:
-                include_questions = [all_questions[i] for i in include_indices]
+                # include_questions = all_questions
+                include_indices = all_indices
+            # else:
+            #     include_questions = [all_questions[i] for i in include_indices]
 
-        storage_global.include_questions = include_questions
+        ud.conv_storage.include_indices = include_indices
     elif query == "end_choosing":
         pass
     else:  # Selected question name
         if not query.isdigit():
             raise Exception(f"query {query} is not digit-like")
 
-        # storage_global.include_questions.append(int(query))
-        storage_global.include_questions.append(
-            all_questions[int(query)]
+        # ud.conv_storage.include_questions.append(int(query))
+        ud.conv_storage.include_indices.append(
+            all_indices[int(query)]
         )
         return CHOOSE_QUESTION_OPTION
 
-    storage_global.cur_answers = [None for _ in range(len(storage_global.include_questions))]
-    # asking_day = storage_global.day
-    # user_data.state = QuestionsAskingState(include_indices, asking_day)
+    ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
+    # asking_day = ud.conv_storage.day
+    # ud.state = QuestionsAskingState(include_indices, asking_day)
 
-    include_names = [i.name for i in storage_global.include_questions]
+    include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
 
     await wrapped_send_text(
         send_text_func,
@@ -240,34 +234,33 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    # first_question = user_data.state.get_current_question()
-    first_question = storage_global.current_question()
+    # first_question = ud.state.get_current_question()
+    first_question = ud.conv_storage.current_question(ud.db_cache.questions)
     await send_ask_question(first_question, send_text_func)
 
-    return ASK_QUESTIONS
+    return ASK_QUESTION
 
 
 @handler_decorator
 async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
+    ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    assert isinstance(storage_global, EventAskConversationStorage)
+    assert isinstance(ud.conv_storage, EventConversationStorage)
 
     await update.callback_query.answer()
     query: str = update.callback_query.data
 
     send_text_func = update.effective_chat.send_message
 
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
-    events_names = user_data.db_cache.events_names()
-    # answers_df: pd.DataFrame = user_data.db_cache.events_answers_df()
+    events_names = ud.db_cache.events_names()
+    # answers_df: pd.DataFrame = ud.db_cache.events_answers_df()
     all_indices = list(range(len(events_names)))
 
     if not query.isdigit():
         raise Exception(f"query {query} is not digit-like")
 
-    storage_global.chosen_event_index = int(query)
-    event: EventDB = user_data.db_cache.events[storage_global.chosen_event_index]
+    ud.conv_storage.chosen_event_index = int(query)
+    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
 
     await send_ask_event_time(event, send_text_func)
     return ASK_EVENT_TIME
@@ -278,20 +271,18 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @handler_decorator
 async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
+    ud: UserData = context.chat_data[USER_DATA_KEY]
 
     assert update.message is not None
-    assert isinstance(storage_global, QuestionsAskConversationStorage)
+    assert isinstance(ud.conv_storage, QuestionsConversationStorage)
 
-    # state = context.chat_data["state"]
-    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
-    # state = user_data.state
+    # state = ud.state
 
     # assert isinstance(state, QuestionsAskingState)
     # assert state.include_questions is not None
 
     # q: QuestionDB = state.get_current_question()
-    q: QuestionDB = storage_global.current_question()
+    q: QuestionDB = ud.conv_storage.current_question(ud.db_cache.questions)
 
     answer_text = update.message.text
 
@@ -299,7 +290,7 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
         answer_text = None
     elif answer_text == STOP_ASKING:
         # return END_ASKING_QUESTIONS
-        await on_end_asking_questions(user_data, storage_global, update)
+        await on_end_asking_questions(ud, update)
         return ConversationHandler.END
     else:
         try:
@@ -308,31 +299,30 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception as exc:
             raise MyException("Error parsing answer, try again") from exc
 
-    storage_global.set_current_answer(answer_text)
-    storage_global.cur_i += 1
+    ud.conv_storage.set_current_answer(answer_text)
+    ud.conv_storage.cur_i += 1
 
-    if storage_global.cur_i >= len(storage_global.include_questions):
+    if ud.conv_storage.cur_i >= len(ud.conv_storage.include_indices):
         # return END_ASKING_QUESTIONS
-        await on_end_asking_questions(user_data, storage_global, update)
+        await on_end_asking_questions(ud, update)
         return ConversationHandler.END
 
-    q = storage_global.current_question()
+    q = ud.conv_storage.current_question(ud.db_cache.questions)
     await send_ask_question(q, update.message.reply_text)
 
-    return ASK_QUESTIONS
+    return ASK_QUESTION
 
 
 @handler_decorator
 async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
-    assert isinstance(storage_global, EventAskConversationStorage)
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+
+    assert isinstance(ud.conv_storage, EventConversationStorage)
 
     assert update.message is not None
     text = update.message.text
 
-    # state = context.chat_data["state"]
-    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
-    event: EventDB = user_data.db_cache.events[storage_global.chosen_event_index]
+    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
 
     if text == "Now":
         time = datetime.datetime.now().time().replace(microsecond=0)
@@ -346,7 +336,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
             )
             return ASK_EVENT_TIME
 
-    storage_global.event_time = time
+    ud.conv_storage.event_time = time
     # TODO reflect changes of Dataclass by class.values -> then .save(), instead of manually updating DB
     await send_ask_event_text(event, update.message.reply_text)
     return ASK_EVENT_TEXT
@@ -354,20 +344,19 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 
 @handler_decorator
 async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global storage_global
-    assert isinstance(storage_global, EventAskConversationStorage)
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+
+    assert isinstance(ud.conv_storage, EventConversationStorage)
 
     assert update.message is not None
     text = update.message.text
 
-    user_data: UserData = context.chat_data[USER_DATA_KEY]
-
     if text == "None":
-        storage_global.event_text = None
+        ud.conv_storage.event_text = None
     else:
-        storage_global.event_text = text
+        ud.conv_storage.event_text = text
 
-    await on_end_asking_event(user_data, storage_global, update)
+    await on_end_asking_event(ud, ud.conv_storage, update)
     return ConversationHandler.END
 
 
@@ -377,9 +366,9 @@ isoformat_regex = "^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
 day_choice_regex = f"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
 
 conv_handler = ConversationHandler(
-    # name="Name",
+    name="Name",
     allow_reentry=True,
-    # persistent=True,
+    persistent=True,
     # per_message=True,
     entry_points=[
         CommandHandler("ask", on_ask)
@@ -398,7 +387,7 @@ conv_handler = ConversationHandler(
         CHOOSE_EVENT_NAME: [
             CallbackQueryHandler(on_chosen_event_name)
         ],
-        ASK_QUESTIONS: [
+        ASK_QUESTION: [
             MessageHandler(filters.TEXT, on_question_answered)
         ],
         ASK_EVENT_TIME: [
@@ -413,18 +402,17 @@ conv_handler = ConversationHandler(
     ],
 )
 
-
 if __name__ == "__main__":
     with open(".token", encoding="utf-8") as f:
         TOKEN = f.read()
         print(TOKEN)
 
-    # persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
+    persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
 
-        # .persistence(persistence)\
     app = ApplicationBuilder() \
-        .token(TOKEN)\
-        .post_init(post_init)\
+        .token(TOKEN) \
+        .persistence(persistence) \
+        .post_init(post_init) \
         .build()
 
     app.add_handler(conv_handler)

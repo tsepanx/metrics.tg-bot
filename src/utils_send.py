@@ -1,7 +1,5 @@
 import copy
-import dataclasses
 import datetime
-from dataclasses import dataclass
 from io import BytesIO
 from typing import Callable
 
@@ -14,40 +12,8 @@ from src.orm.base import update_or_insert_row, ColumnDC, ValueType, _insert_row
 from src.tables.answer import AnswerType
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
-from src.user_data import UserData
+from src.user_data import UserData, QuestionsConversationStorage, EventConversationStorage
 from src.utils import df_to_markdown, data_to_bytesio, text_to_png, wrapped_send_text, SKIP_QUEST, STOP_ASKING
-
-
-
-@dataclass
-class AskConversationStorage:
-    day: datetime.date | None = None
-    entity_type: AnswerType | None = None
-
-
-@dataclass
-class QuestionsAskConversationStorage(AskConversationStorage):
-    entity_type = AnswerType.QUESTION
-    include_questions: list[QuestionDB] = dataclasses.field(default_factory=list)
-
-    cur_i: int = 0
-    cur_answers: list[str | None] = None
-
-    def current_question(self):
-        return self.include_questions[self.cur_i]
-
-    def set_current_answer(self, val: str):
-        self.cur_answers[self.cur_i] = val
-
-
-@dataclass
-class EventAskConversationStorage(AskConversationStorage):
-    entity_type = AnswerType.QUESTION
-
-    chosen_event_index: int | None = None
-
-    event_time: datetime.time | None = None
-    event_text: str | None = None
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable):
@@ -211,19 +177,21 @@ async def send_dataframe(
 
 
 async def on_end_asking_questions(
-        user_data: UserData,
-        conversation_storage: QuestionsAskConversationStorage,
+        ud: UserData,
         update: Update,
-        save_csv=True
 ):
-    def update_db_with_answers(conv_storage: QuestionsAskConversationStorage):
-        answers = conv_storage.cur_answers
+    def update_db_with_answers():
+        assert isinstance(ud.conv_storage, QuestionsConversationStorage)
+
+        answers = ud.conv_storage.cur_answers
 
         for i, text in enumerate(answers):
-            day = conv_storage.day
+            day = ud.conv_storage.day
 
-            assert conv_storage.include_questions is not None
-            question_pk = conv_storage.include_questions[i].pk
+            assert ud.conv_storage.include_indices is not None
+
+            question_index: int = ud.conv_storage.include_indices[i]
+            question: QuestionDB = ud.db_cache.questions[question_index]
 
             if text is None:
                 continue
@@ -232,42 +200,37 @@ async def on_end_asking_questions(
                 tablename="answer",
                 where_clauses={
                     ColumnDC(column_name="date"): day,
-                    ColumnDC(column_name="question_fk"): question_pk
+                    ColumnDC(column_name="question_fk"): question.pk
                 },
                 set_dict={
                     ColumnDC(column_name="text"): text
                 },
             )
 
-    if any(conversation_storage.cur_answers):
-        update_db_with_answers(conversation_storage)
-        user_data.db_cache.reload_all()
-
-    # user_data.state = None
-
-    # if save_csv:
-    #     fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
-    #     answers_df.to_csv(fname_backup)
+    assert isinstance(ud.conv_storage, QuestionsConversationStorage)
+    if any(ud.conv_storage.cur_answers):
+        update_db_with_answers()
+        ud.db_cache.reload_all()
 
     await send_entity_answers_df(
         update=update,
-        user_data=user_data,
+        user_data=ud,
         answers_entity=AnswerType.QUESTION,
         send_csv=True
     )
 
 
 async def on_end_asking_event(
-        user_data: UserData,
-        conversation_storage: EventAskConversationStorage,
+        ud: UserData,
         update: Update
 ):
-    def update_db_with_events(conv_storage: EventAskConversationStorage):
-        day = conv_storage.day
+    def update_db_with_events():
+        assert isinstance(ud.conv_storage, EventConversationStorage)
+        day = ud.conv_storage.day
 
-        event: EventDB = user_data.db_cache.events[conv_storage.chosen_event_index]
-        new_time: datetime.time = conv_storage.event_time
-        new_text: str | None = conv_storage.event_text
+        event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
+        new_time: datetime.time = ud.conv_storage.event_time
+        new_text: str | None = ud.conv_storage.event_text
 
         row_dict: dict[ColumnDC, ValueType] = {
             ColumnDC(column_name="date"): day,
@@ -285,12 +248,14 @@ async def on_end_asking_event(
             row_dict=row_dict
         )
 
-    update_db_with_events(conversation_storage)
-    user_data.db_cache.reload_all()
+    assert isinstance(ud.conv_storage, EventConversationStorage)
+
+    update_db_with_events()
+    ud.db_cache.reload_all()
 
     await send_entity_answers_df(
         update=update,
-        user_data=user_data,
+        user_data=ud,
         answers_entity=AnswerType.EVENT,
         send_csv=True
     )

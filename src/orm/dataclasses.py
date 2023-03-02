@@ -16,7 +16,7 @@ from src.orm.base import (
     JoinByClauseDC,
     JoinTypes,
     TableName,
-    ValueType,
+    ValueType, _update_row, _insert_row,
 )
 
 Tbl = TypeVar("Tbl", "Table", dataclass)
@@ -34,9 +34,64 @@ class ForeignKeyRelation:
 
 @dataclass(frozen=True)
 class Table:
+    """
+    TODO cache objects with the same parameterers
+    TODO https://stackoverflow.com/questions/73184156/return-cached-object-for-same-initialization-arguments
+    """
 
     def __post_init__(self):
         object.__setattr__(self, "_fk_values", {})
+
+    @classmethod
+    def dataclass_dict_to_row_dict(cls, d: dict[str, ValueType]) -> dict[ColumnDC, ValueType]:
+        return {
+            ColumnDC(
+                table_name=cls.Meta.tablename,
+                column_name=k
+            ): d[k] for k in d
+        }
+
+    def update(self, **kwargs) -> None:
+        row: dict[str, ValueType] = self.__dict__
+        existing_columns: set[str] = set(row.keys())
+        new_columns: set[str] = set(kwargs.keys())
+
+        unchanged_columns: set[str] = existing_columns - new_columns
+
+        where_clauses: dict[ColumnDC, ValueType] = {
+            ColumnDC(
+                table_name=self.Meta.tablename,
+                column_name=k
+            ): row[k] for k in unchanged_columns
+        }
+
+        set_dict: dict[ColumnDC, ValueType] = {
+            ColumnDC(
+                table_name=self.Meta.tablename,
+                column_name=k
+            ): kwargs[k] for k in kwargs
+        }
+
+        return _update_row(
+            tablename=self.Meta.tablename,
+            where_clauses=where_clauses,
+            set_dict=set_dict,
+        )
+
+    def create(self) -> 'Table':
+        row = self.__dict__
+
+        _insert_row(
+            tablename=self.Meta.tablename,
+            row_dict={
+                ColumnDC(
+                    table_name=self.Meta.tablename,
+                    column_name=k
+                ): row[k] for k in row
+            }
+        )
+
+        return self
 
     def set_fk_value(self, fkey: str, obj: Tbl) -> None:
         self._fk_values[fkey] = obj
@@ -146,7 +201,8 @@ class Table:
                     if primary_table_obj.__getattribute__(fk_obj.from_column) is None:
                         new_dataclass_obj = None
                     else:
-                        new_dataclass_obj = create_dataclass_instance(fk_obj.class_, table_selected_columns, values_for_table)
+                        new_dataclass_obj = create_dataclass_instance(fk_obj.class_, table_selected_columns,
+                                                                      values_for_table)
                     primary_table_obj.set_fk_value(fk_obj.from_column, new_dataclass_obj)
 
                 offset += columns_count
