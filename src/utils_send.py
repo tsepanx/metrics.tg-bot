@@ -16,7 +16,7 @@ from src.user_data import UserData, QuestionsConversationStorage, EventConversat
 from src.utils import df_to_markdown, data_to_bytesio, text_to_png, wrapped_send_text, SKIP_QUEST, STOP_ASKING
 
 
-async def send_ask_question(q: QuestionDB, send_text_func: Callable):
+async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
     buttons = [
         list(map(str, q.suggested_answers_list)),
         [SKIP_QUEST, STOP_ASKING]
@@ -28,9 +28,13 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable):
         resize_keyboard=True
     )
 
+    text = f"{q.html_notation()}"
+    if existing_answer:
+        text += f"\n\nAnswer in DB: <code>{existing_answer}</code>"
+
     await wrapped_send_text(
         send_text_func,
-        text=q.html_notation(),
+        text=text,
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )

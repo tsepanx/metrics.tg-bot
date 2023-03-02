@@ -141,6 +141,21 @@ class UserData:
         self.conv_storage = ConversationStorage()
         self.db_cache = UserDBCache()
 
+    def cur_question_existing_answer(self) -> str | None:
+        assert isinstance(self.conv_storage, QuestionsConversationStorage)
+
+        day = self.conv_storage.day
+        question_name = self.conv_storage.current_question(self.db_cache.questions).name
+        answers_df = self.db_cache.questions_answers_df()
+
+        if day not in answers_df.columns:
+            return None
+
+        existing_answer = answers_df[day][question_name]
+        if pd.isnull(existing_answer):
+            return None
+        return existing_answer
+
 
 if __name__ == "__main__":
     uc = UserDBCache()

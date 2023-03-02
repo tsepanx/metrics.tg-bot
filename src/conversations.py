@@ -235,7 +235,11 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
     )
 
     first_question = ud.conv_storage.current_question(ud.db_cache.questions)
-    await send_ask_question(first_question, send_text_func)
+    await send_ask_question(
+        first_question,
+        send_text_func,
+        existing_answer=ud.cur_question_existing_answer()
+    )
 
     return ASK_QUESTION
 
@@ -307,7 +311,12 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
 
     q = ud.conv_storage.current_question(ud.db_cache.questions)
-    await send_ask_question(q, update.message.reply_text)
+
+    await send_ask_question(
+        q,
+        update.message.reply_text,
+        existing_answer=ud.cur_question_existing_answer()
+    )
 
     return ASK_QUESTION
 
