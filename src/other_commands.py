@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes, Application
 from src.tables.answer import AnswerType
 from src.user_data import UserData
 from src.utils import handler_decorator, USER_DATA_KEY
-from src.utils2 import send_entity_answers_df
+from src.utils_send import send_entity_answers_df
 
 
 @handler_decorator

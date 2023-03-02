@@ -26,7 +26,7 @@ from src.utils import (
     USER_DATA_KEY,
     get_nth_delta_day,
     handler_decorator, wrapped_send_text, SKIP_QUEST, STOP_ASKING, MyException, )
-from src.utils2 import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
+from src.utils_send import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
     on_end_asking_event, AskConversationStorage, QuestionsAskConversationStorage, EventAskConversationStorage
 
 CHOOSE_DAY, \

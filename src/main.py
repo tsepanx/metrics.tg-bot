@@ -22,7 +22,7 @@ from telegram.ext import (
 from src.conversations import (
     conv_handler, on_question_answered, )
 from src.other_commands import stats_command
-from src.utils2 import build_transpose_callback_data, send_entity_answers_df, send_ask_question
+from src.utils_send import build_transpose_callback_data, send_entity_answers_df, send_ask_question
 from src.tables.answer import (
     AnswerType,
 )

@@ -103,36 +103,11 @@ class UserDBCache:
         return df
 
 
-# class QuestionsAskingState:
-#     include_questions: list[QuestionDB] | None
-#     asking_day: datetime.date
-#
-#
-#
-#     def __init__(self, include_questions: list[QuestionDB], asking_day: datetime.date):
-#         self.asking_day = asking_day
-#
-#         self.cur_i = 0
-#         self.cur_answers = [None for _ in range(len(include_questions))]
-#         self.include_questions = include_questions
-#
-#     def get_current_question(self) -> QuestionDB:
-#         if not self.include_questions:
-#             raise Exception
-#
-#         return self.include_questions[self.cur_i]
-
-
-# class EventAskingState:
-#     pass
-
-
+# TODO rm userdata, leave only userDBcache
 class UserData:
-    # state: QuestionsAskingState | EventAskingState | None
     db_cache: UserDBCache
 
     def __init__(self):
-        # self.state = None  # AskingState(None)
         self.db_cache = UserDBCache()
 
 
