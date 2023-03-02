@@ -3,6 +3,7 @@ import logging
 import re
 
 import pandas as pd
+import telegram
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -27,7 +28,7 @@ from src.utils import (
     USER_DATA_KEY,
     get_nth_delta_day,
     handler_decorator, wrapped_send_text, SKIP_QUEST, STOP_ASKING, MyException, )
-from src.utils_tg import toggle_button_emoji_in_reply_markup
+from src.utils_tg import get_questions_select_keyboard, match_question_choice_callback_data
 from src.utils_send import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
     on_end_asking_event
 
@@ -114,17 +115,7 @@ async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_
     text = update.message.text
     assert text == "Question"
 
-    questions_names: list[str] = ud.db_cache.questions_names()
-
-    keyboard = [
-        [
-            InlineKeyboardButton("All", callback_data="all"),
-            InlineKeyboardButton("Unanswered", callback_data="unanswered"),
-            InlineKeyboardButton("OK", callback_data="end_choosing"),
-        ],
-        *[[InlineKeyboardButton(name, callback_data=f"{i} add")] for i, name in enumerate(questions_names)]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = get_questions_select_keyboard(ud.db_cache.questions)
 
     await update.message.reply_text(
         text="Choose question names OR other option",
@@ -165,9 +156,9 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # ==== ENTITY NAME(S) ====
 
-
 @handler_decorator
 async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
     ud: UserData = context.chat_data[USER_DATA_KEY]
     assert isinstance(ud.conv_storage, QuestionsConversationStorage)
 
@@ -181,31 +172,31 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
 
     all_indices = list(range(len(ud.db_cache.questions)))
 
-    if re.compile("^[0-9]+ (add|remove)$").match(query):
-        # Format: ""
+    if match_question_choice_callback_data(query):
         query_index, query_action = query.split()
         query_index = int(query_index)
 
         include_indices_set: set = set(ud.conv_storage.include_indices)
+        old_len = len(include_indices_set)
         if query_action == "add":
-            # ud.conv_storage.include_indices.append(int(query_index))
-            include_indices_set.add(int(query_index))
-            button_new_action = "remove"
-
+            include_indices_set.add(query_index)
         elif query_action == "remove":
-            include_indices_set.remove(int(query_index))
-            button_new_action = "add"
+            include_indices_set.discard(query_index)
         else:
             raise Exception
 
-        ud.conv_storage.include_indices = sorted(include_indices_set)
+        is_changed = old_len != len(include_indices_set)
+        if is_changed:
+            new_ikm = get_questions_select_keyboard(
+                questions=ud.db_cache.questions,
+                include_indices_set=include_indices_set
+            )
+            try:
+                await update.callback_query.message.edit_reply_markup(new_ikm)
+            except telegram.error.BadRequest as exc:
+                logger.error(exc)
 
-        new_reply_markup = toggle_button_emoji_in_reply_markup(
-            update.callback_query.message.reply_markup,
-            query,
-            f"{query_index} {button_new_action}",
-        )
-        await update.callback_query.message.edit_reply_markup(new_reply_markup)
+        ud.conv_storage.include_indices = sorted(include_indices_set)
 
         return CHOOSE_QUESTION_OPTION
     elif query == "all":
@@ -238,8 +229,7 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
 
     await wrapped_send_text(
         send_text_func,
-        text="Asking  questions\n"
-             "List:\n`{}`\n"
+        text="Questions list:\n`{}`\n"
         .format('\n'.join(include_names)),
         parse_mode=ParseMode.MARKDOWN,
     )
