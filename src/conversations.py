@@ -27,6 +27,7 @@ from src.utils import (
     USER_DATA_KEY,
     get_nth_delta_day,
     handler_decorator, wrapped_send_text, SKIP_QUEST, STOP_ASKING, MyException, )
+from src.utils_tg import toggle_button_emoji_in_reply_markup
 from src.utils_send import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
     on_end_asking_event
 
@@ -121,7 +122,7 @@ async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_
             InlineKeyboardButton("Unanswered", callback_data="unanswered"),
             InlineKeyboardButton("OK", callback_data="end_choosing"),
         ],
-        *[[InlineKeyboardButton(name, callback_data=i)] for i, name in enumerate(questions_names)]
+        *[[InlineKeyboardButton(name, callback_data=f"{i} add")] for i, name in enumerate(questions_names)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -180,50 +181,58 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
 
     all_indices = list(range(len(ud.db_cache.questions)))
 
-    if query == "all":
-        # include_indices = all_indices
-        # ud.conv_storage.include_questions = include_indices
+    if re.compile("^[0-9]+ (add|remove)$").match(query):
+        # Format: ""
+        query_index, query_action = query.split()
+        query_index = int(query_index)
+
+        include_indices_set: set = set(ud.conv_storage.include_indices)
+        if query_action == "add":
+            # ud.conv_storage.include_indices.append(int(query_index))
+            include_indices_set.add(int(query_index))
+            button_new_action = "remove"
+
+        elif query_action == "remove":
+            include_indices_set.remove(int(query_index))
+            button_new_action = "add"
+        else:
+            raise Exception
+
+        ud.conv_storage.include_indices = sorted(include_indices_set)
+
+        new_reply_markup = toggle_button_emoji_in_reply_markup(
+            update.callback_query.message.reply_markup,
+            query,
+            f"{query_index} {button_new_action}",
+        )
+        await update.callback_query.message.edit_reply_markup(new_reply_markup)
+
+        return CHOOSE_QUESTION_OPTION
+    elif query == "all":
         ud.conv_storage.include_indices = all_indices
     elif query == "unanswered":
         if ud.conv_storage.day not in answers_df.columns:
             include_indices = all_indices
-            # include_questions = all_questions
         else:
-            day_values_isnull = answers_df[ud.conv_storage.day] \
-                .isnull() \
-                .reset_index() \
-                .drop("index", axis=1)
-
             # Filter to get indices of only null values
             include_indices = list(
-                day_values_isnull
+                answers_df[ud.conv_storage.day].isnull().reset_index().drop("index", axis=1)
                 .apply(lambda x: None if bool(x[0]) is False else 1, axis=1)
                 .dropna()
                 .index
             )
 
             if len(include_indices) == 0:
-                # include_questions = all_questions
                 include_indices = all_indices
-            # else:
-            #     include_questions = [all_questions[i] for i in include_indices]
 
         ud.conv_storage.include_indices = include_indices
     elif query == "end_choosing":
-        pass
-    else:  # Selected question name
-        if not query.isdigit():
-            raise Exception(f"query {query} is not digit-like")
-
-        # ud.conv_storage.include_questions.append(int(query))
-        ud.conv_storage.include_indices.append(
-            all_indices[int(query)]
-        )
-        return CHOOSE_QUESTION_OPTION
+        if len(ud.conv_storage.include_indices) == 0:
+            raise MyException("You haven't selected any name")
+    else:
+        raise Exception
 
     ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
-    # asking_day = ud.conv_storage.day
-    # ud.state = QuestionsAskingState(include_indices, asking_day)
 
     include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
 
@@ -235,7 +244,6 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    # first_question = ud.state.get_current_question()
     first_question = ud.conv_storage.current_question(ud.db_cache.questions)
     await send_ask_question(first_question, send_text_func)
 

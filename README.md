@@ -1,9 +1,14 @@
 ## `Metrics.tg-bot`
 
+### Refactoring TODO's
+
+- Move `conversations` strings to **constants** 
+
 ### TODO for `Tomorrow`
 
-- Find ability to select in entities names
-- Add ability to create `event` answer
+- [ ] Visualise Inline button select with emoji 
+- [ ] Add ability to create `event` answer
+- [x] Find ability to select in entities names
 
 ---
 - [x] Display events as {index - time, value - tuple (event_name, text)}
