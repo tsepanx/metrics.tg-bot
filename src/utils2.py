@@ -10,7 +10,7 @@ import telegram
 from telegram import Update
 from telegram.constants import ParseMode
 
-from src.orm.base import update_or_insert_row, ColumnDC
+from src.orm.base import update_or_insert_row, ColumnDC, ValueType, _insert_row
 from src.tables.answer import AnswerType
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
@@ -213,19 +213,14 @@ async def send_dataframe(
 async def on_end_asking_questions(
         user_data: UserData,
         conversation_storage: QuestionsAskConversationStorage,
-        update: Update, save_csv=True
+        update: Update,
+        save_csv=True
 ):
     def update_db_with_answers(conv_storage: QuestionsAskConversationStorage):
-        # answers = state.cur_answers
         answers = conv_storage.cur_answers
 
         for i, text in enumerate(answers):
-            # answer: str
-            # day = state.asking_day
             day = conv_storage.day
-
-            # assert state.include_questions is not None
-            # question_pk = state.include_questions[i].pk
 
             assert conv_storage.include_questions is not None
             question_pk = conv_storage.include_questions[i].pk
@@ -244,9 +239,6 @@ async def on_end_asking_questions(
                 },
             )
 
-    # assert user_data.state is not None
-
-    # if any(user_data.state.cur_answers):
     if any(conversation_storage.cur_answers):
         update_db_with_answers(conversation_storage)
         user_data.db_cache.reload_all()
@@ -265,6 +257,40 @@ async def on_end_asking_questions(
     )
 
 
-async def on_end_asking_event(user_data: UserData, update: Update):
+async def on_end_asking_event(
+        user_data: UserData,
+        conversation_storage: EventAskConversationStorage,
+        update: Update
+):
+    def update_db_with_events(conv_storage: EventAskConversationStorage):
+        day = conv_storage.day
 
-    await update.message.reply_text("End asking for event")
+        event: EventDB = user_data.db_cache.events[conv_storage.chosen_event_index]
+        new_time: datetime.time = conv_storage.event_time
+        new_text: str | None = conv_storage.event_text
+
+        row_dict: dict[ColumnDC, ValueType] = {
+            ColumnDC(column_name="date"): day,
+            ColumnDC(column_name="event_fk"): event.pk
+        }
+
+        if new_time:
+            row_dict[ColumnDC(column_name="time")] = new_time
+
+        if new_text:
+            row_dict[ColumnDC(column_name="text")] = new_text
+
+        _insert_row(
+            tablename="answer",
+            row_dict=row_dict
+        )
+
+    update_db_with_events(conversation_storage)
+    user_data.db_cache.reload_all()
+
+    await send_entity_answers_df(
+        update=update,
+        user_data=user_data,
+        answers_entity=AnswerType.EVENT,
+        send_csv=True
+    )

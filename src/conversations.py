@@ -311,7 +311,7 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
 
     storage_global.set_current_answer(answer_text)
     storage_global.cur_i += 1
-    
+
     if storage_global.cur_i >= len(storage_global.include_questions):
         # return END_ASKING_QUESTIONS
         await on_end_asking_questions(user_data, storage_global, update)
@@ -368,7 +368,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
     else:
         storage_global.event_text = text
 
-    await on_end_asking_event(user_data, update)
+    await on_end_asking_event(user_data, storage_global, update)
     return ConversationHandler.END
 
 
