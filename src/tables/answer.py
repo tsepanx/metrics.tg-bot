@@ -4,10 +4,17 @@ import pprint
 from dataclasses import dataclass
 from typing import Type
 
-from src.tables.event import EventDB
 from src.orm.base import ColumnDC
-from src.orm.dataclasses import Table, ForeignKeyRelation
-from src.tables.question import QuestionDB
+from src.orm.dataclasses import (
+    ForeignKeyRelation,
+    Table,
+)
+from src.tables.event import (
+    EventDB,
+)
+from src.tables.question import (
+    QuestionDB,
+)
 
 
 class MyEnum(enum.Enum):

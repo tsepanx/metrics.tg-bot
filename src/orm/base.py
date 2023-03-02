@@ -3,9 +3,10 @@ import os
 from dataclasses import dataclass
 from typing import (
     Any,
+    Callable,
     Iterable,
     Optional,
-    Sequence, Callable,
+    Sequence,
 )
 
 import psycopg

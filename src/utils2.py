@@ -1,0 +1,270 @@
+import copy
+import dataclasses
+import datetime
+from dataclasses import dataclass
+from io import BytesIO
+from typing import Callable
+
+import pandas as pd
+import telegram
+from telegram import Update
+from telegram.constants import ParseMode
+
+from src.orm.base import update_or_insert_row, ColumnDC
+from src.tables.answer import AnswerType
+from src.tables.event import EventDB
+from src.tables.question import QuestionDB
+from src.user_data import UserData
+from src.utils import df_to_markdown, data_to_bytesio, text_to_png, wrapped_send_text, SKIP_QUEST, STOP_ASKING
+
+
+
+@dataclass
+class AskConversationStorage:
+    day: datetime.date | None = None
+    entity_type: AnswerType | None = None
+
+
+@dataclass
+class QuestionsAskConversationStorage(AskConversationStorage):
+    entity_type = AnswerType.QUESTION
+    include_questions: list[QuestionDB] = dataclasses.field(default_factory=list)
+
+    cur_i: int = 0
+    cur_answers: list[str | None] = None
+
+    def current_question(self):
+        return self.include_questions[self.cur_i]
+
+    def set_current_answer(self, val: str):
+        self.cur_answers[self.cur_i] = val
+
+
+@dataclass
+class EventAskConversationStorage(AskConversationStorage):
+    entity_type = AnswerType.QUESTION
+
+    chosen_event_index: int | None = None
+
+    event_time: datetime.time | None = None
+    event_text: str | None = None
+
+
+async def send_ask_question(q: QuestionDB, send_text_func: Callable):
+    buttons = [
+        list(map(str, q.suggested_answers_list)),
+        [SKIP_QUEST, STOP_ASKING]
+    ]
+
+    reply_markup = telegram.ReplyKeyboardMarkup(
+        buttons,
+        one_time_keyboard=True,
+        resize_keyboard=True
+    )
+
+    await wrapped_send_text(
+        send_text_func,
+        text=q.html_notation(),
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+
+
+async def send_ask_event_time(e: EventDB, send_text_func: Callable):
+    buttons = [["Now"]]
+
+    reply_markup = telegram.ReplyKeyboardMarkup(
+        buttons,
+        one_time_keyboard=True,
+        # resize_keyboard=True
+    )
+
+    text = f"Event: {e.name}\nwrite time (f.e. 05:04)"
+
+    await wrapped_send_text(
+        send_text_func,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+
+
+async def send_ask_event_text(e: EventDB, send_text_func: Callable):
+    buttons = [["Sample text"], ["None"]]
+
+    reply_markup = telegram.ReplyKeyboardMarkup(
+        buttons,
+        one_time_keyboard=True,
+        resize_keyboard=True
+    )
+
+    text = f"Event: {e.name}\nwrite text (optionally)"
+
+    await wrapped_send_text(
+        send_text_func,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+
+
+def build_transpose_callback_data(answer_type: AnswerType) -> str:
+    return f"transpose {answer_type.name}"
+
+
+async def send_entity_answers_df(update: Update, user_data: UserData, answers_entity: AnswerType, **kwargs):
+    file_name = f"{answers_entity.name.lower()}s.csv"
+
+    if answers_entity is AnswerType.QUESTION:
+        transpose_callback_data = build_transpose_callback_data(answers_entity)
+        answers_df = user_data.db_cache.questions_answers_df()
+    elif answers_entity is AnswerType.EVENT:
+        transpose_callback_data = None
+        answers_df = user_data.db_cache.events_answers_df()
+    else:
+        raise Exception
+
+    return await send_dataframe(
+        update=update,
+        df=answers_df,
+        transpose_button_callback_data=transpose_callback_data,
+        file_name=file_name,
+        **kwargs
+    )
+
+
+async def send_dataframe(
+        update: Update,
+        df: pd.DataFrame,
+        send_csv=False,
+        send_img=True,
+        send_text=False,
+        transpose_table=False,
+        transpose_button_callback_data: str = None,
+        with_question_indices=True,
+        file_name: str = "dataframe.csv"
+):
+    # Fix dirty function applying changes directly to passed DataFrame
+    df = df.copy()
+
+    # [0, 1, 2, 3, ...]
+    i_column = list(range(len(df.index)))
+    # noinspection PyTypeChecker
+    df.insert(0, "i", i_column)
+
+    # if sort_by_quest_indices:
+    #     answers_df = answers_df.sort_values("i")
+
+    # 'i' column was used just for sorting
+    if not with_question_indices:
+        df = df.drop("i", axis=1)
+
+    md_text = df_to_markdown(df, transpose=transpose_table)
+    csv_text = df.to_csv()
+
+    if not transpose_table:
+        assert update.message is not None
+        message_object = update.message
+    else:
+        assert update.callback_query is not None
+        assert update.callback_query.message is not None
+        message_object = update.callback_query.message
+
+    if send_csv:
+        bytes_io = data_to_bytesio(csv_text, file_name)
+        await message_object.reply_document(document=bytes_io)
+
+    if send_img:
+        img = text_to_png(md_text)
+
+        bio = BytesIO()
+        bio.name = "img.png"
+
+        img.save(bio, "png")
+        bio.seek(0)
+
+        bio2 = copy.copy(bio)
+
+        if not transpose_table and transpose_button_callback_data:
+            keyboard = [[telegram.InlineKeyboardButton(
+                "transposed table IMG",
+                callback_data=transpose_button_callback_data
+            )]]
+            reply_markup = telegram.InlineKeyboardMarkup(keyboard)
+        else:
+            reply_markup = None
+
+        try:
+            await message_object.reply_photo(bio, reply_markup=reply_markup)  # type: ignore
+        except telegram.error.BadRequest:
+            await message_object.reply_document(bio2, reply_markup=reply_markup)  # type: ignore
+    if send_text:
+        html_table_text = f"<pre>\n{md_text}\n</pre>"
+
+        # fmt: off
+        await wrapped_send_text(
+            message_object.reply_text,
+            text=html_table_text,
+            parse_mode=ParseMode.HTML
+        )
+        # fmt: on
+
+
+async def on_end_asking_questions(
+        user_data: UserData,
+        conversation_storage: QuestionsAskConversationStorage,
+        update: Update, save_csv=True
+):
+    def update_db_with_answers(conv_storage: QuestionsAskConversationStorage):
+        # answers = state.cur_answers
+        answers = conv_storage.cur_answers
+
+        for i, text in enumerate(answers):
+            # answer: str
+            # day = state.asking_day
+            day = conv_storage.day
+
+            # assert state.include_questions is not None
+            # question_pk = state.include_questions[i].pk
+
+            assert conv_storage.include_questions is not None
+            question_pk = conv_storage.include_questions[i].pk
+
+            if text is None:
+                continue
+
+            update_or_insert_row(
+                tablename="answer",
+                where_clauses={
+                    ColumnDC(column_name="date"): day,
+                    ColumnDC(column_name="question_fk"): question_pk
+                },
+                set_dict={
+                    ColumnDC(column_name="text"): text
+                },
+            )
+
+    # assert user_data.state is not None
+
+    # if any(user_data.state.cur_answers):
+    if any(conversation_storage.cur_answers):
+        update_db_with_answers(conversation_storage)
+        user_data.db_cache.reload_all()
+
+    # user_data.state = None
+
+    # if save_csv:
+    #     fname_backup = answers_df_backup_fname(update.effective_chat.id)  # type: ignore
+    #     answers_df.to_csv(fname_backup)
+
+    await send_entity_answers_df(
+        update=update,
+        user_data=user_data,
+        answers_entity=AnswerType.QUESTION,
+        send_csv=True
+    )
+
+
+async def on_end_asking_event(user_data: UserData, update: Update):
+
+    await update.message.reply_text("End asking for event")

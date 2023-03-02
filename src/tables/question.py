@@ -6,9 +6,7 @@ from typing import (
     Optional,
 )
 
-from src.orm.base import (
-    ColumnDC,
-)
+from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
     ForeignKeyRelation,
     Table,

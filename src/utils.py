@@ -4,10 +4,7 @@ import traceback
 from functools import wraps
 from io import BytesIO
 from pprint import pprint
-from typing import (
-    Any,
-    Tuple,
-)
+from typing import Any, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,9 +21,10 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from src.tables.question import QuestionDB
+from src.tables.question import (
+    QuestionDB,
+)
 from src.user_data import UserData
-
 
 USER_DATA_KEY = "data"
 CHAT_DATA_KEYS_DEFAULTS = {
@@ -190,7 +188,8 @@ def handler_decorator(func):
         #     user_data.reload_qnames()
 
         try:
-            await func(update, context, *args, **kwargs)
+            result = await func(update, context, *args, **kwargs)
+            return result
         except MyException as e:
             await wrapped_send_text(update.effective_chat.send_message, text=str(e), parse_mode=ParseMode.MARKDOWN)
         except Exception:

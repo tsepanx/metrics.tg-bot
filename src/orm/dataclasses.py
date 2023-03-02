@@ -14,7 +14,9 @@ from src.orm import base
 from src.orm.base import (
     ColumnDC,
     JoinByClauseDC,
-    TableName, JoinTypes, ValueType,
+    JoinTypes,
+    TableName,
+    ValueType,
 )
 
 Tbl = TypeVar("Tbl", "Table", dataclass)
