@@ -15,10 +15,10 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     CallbackQueryHandler,
-    filters,
+    filters, ApplicationBuilder,
 )
 
-from src.other_commands import cancel, stats_command
+from src.other_commands import stats_command, post_init
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
 from src.user_data import UserData
@@ -29,7 +29,6 @@ from src.utils import (
 from src.utils2 import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
     on_end_asking_event, AskConversationStorage, QuestionsAskConversationStorage, EventAskConversationStorage
 
-# GENDER, PHOTO, LOCATION, BIO = range(4)
 CHOOSE_DAY, \
     CHOOSE_ENTITY_TYPE, \
     CHOOSE_QUESTION_OPTION, \
@@ -67,7 +66,7 @@ async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 # ==== DAY ====
 
-# @handler_decorator
+@handler_decorator
 async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # global storage_global
 
@@ -410,7 +409,24 @@ conv_handler = ConversationHandler(
         ],
     },
     fallbacks=[
-        CommandHandler("cancel", cancel),
         CommandHandler("stats", stats_command)
     ],
 )
+
+
+if __name__ == "__main__":
+    with open(".token", encoding="utf-8") as f:
+        TOKEN = f.read()
+        print(TOKEN)
+
+    # persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
+
+        # .persistence(persistence)\
+    app = ApplicationBuilder() \
+        .token(TOKEN)\
+        .post_init(post_init)\
+        .build()
+
+    app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("stats", stats_command))
+    app.run_polling()

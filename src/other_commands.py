@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ContextTypes, Application
 
 from src.tables.answer import AnswerType
 from src.user_data import UserData
@@ -24,7 +24,14 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-@handler_decorator
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("On /cancel")
-    return ConversationHandler.END
+async def post_init(application: Application) -> None:
+    for _, chat_data in application.chat_data.items():
+        user_data: UserData = chat_data[USER_DATA_KEY]
+        user_data.db_cache.reload_all()
+
+    commands_list = [
+        # (k, v[1]) for k, v in commands_mapping.items() if v[1]
+        ("ask", "Ask for Question[s] or Event"),
+        ("stats", "Get stats"),
+    ]
+    await application.bot.set_my_commands(commands_list)

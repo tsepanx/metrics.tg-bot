@@ -177,48 +177,4 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-async def post_init(application: Application) -> None:
-    commands_list = [
-        (k, v[1]) for k, v in commands_mapping.items() if v[1]
-    ]
 
-    for _, chat_data in application.chat_data.items():
-        user_data: UserData = chat_data[USER_DATA_KEY]
-        user_data.db_cache.reload_all()
-
-    #     events_names: list[str] = user_data.db_cache.events_names()
-    #     commands_list += list(map(lambda x: [f"event_{x}", x], events_names))
-    #
-    #     question_names: list[str] = user_data.db_cache.questions_names()
-    #     commands_list += list(map(lambda x: [f"question_{x}", x], question_names))
-    #
-    # await application.bot.set_my_commands(commands_list)
-
-
-if __name__ == "__main__":
-    with open(".token", encoding="utf-8") as f:
-        TOKEN = f.read()
-        print(TOKEN)
-
-    # persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
-
-        # .persistence(persistence)\
-    app = ApplicationBuilder() \
-        .token(TOKEN)\
-        .post_init(post_init)\
-        .build()
-
-    commands_mapping = {
-        # "ask": (ask_command, "Ask for 'Questions' on given day"),
-        "stats": (stats_command, "Get statddds"),
-        "exitt": (exit_command, ""),
-    }
-
-    for command_string, (func, _) in commands_mapping.items():
-        app.add_handler(CommandHandler(command_string, func))
-
-    # app.add_handler(MessageHandler(filters.TEXT, on_question_answered))
-    # app.add_handler(CallbackQueryHandler(on_callback_query))
-    app.add_handler(conv_handler)
-    # app.add_handler(InlineQueryHandler(on_inline_query))
-    app.run_polling()
