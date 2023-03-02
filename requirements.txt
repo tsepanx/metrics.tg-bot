@@ -2,11 +2,13 @@ psycopg~=3.1.8
 python-telegram-bot>=20.0
 pandas~=1.5.3
 tabulate
-pillow
+pillow~=9.4.0
 
 isort
 black
 flake8
 pylint
-
 mypy
+
+sqlparse~=0.4.3
+numpy~=1.24.2

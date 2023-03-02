@@ -1,4 +1,5 @@
 import enum
+import logging
 import os
 from dataclasses import dataclass
 from typing import (
@@ -116,8 +117,16 @@ def dict_cols_to_str(
 
 
 def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Sequence:
-    print(sqlparse.format(query, reindent=True,))
-    print("Params:", params)
+
+    query_for_print = query
+    query_for_print = query_for_print.replace('"question"', 'q')
+    query_for_print = query_for_print.replace('"answer"', 'a')
+    query_for_print = query_for_print.replace('"event"', 'e')
+
+    # print(sqlparse.format(query_for_print, reindent=True))
+    # print("Params:", params)
+    logger = logging.getLogger(__name__)
+    logger.info(f"{query_for_print}, {params}")
 
     conn = get_psql_conn()
     cur = conn.cursor()

@@ -1,4 +1,5 @@
 import datetime
+import logging
 import re
 
 import pandas as pd
@@ -356,7 +357,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
     else:
         ud.conv_storage.event_text = text
 
-    await on_end_asking_event(ud, ud.conv_storage, update)
+    await on_end_asking_event(ud, update)
     return ConversationHandler.END
 
 
@@ -374,28 +375,16 @@ conv_handler = ConversationHandler(
         CommandHandler("ask", on_ask)
     ],
     states={
-        CHOOSE_DAY: [
-            MessageHandler(filters.Regex(day_choice_regex), on_chosen_day)
-        ],
+        CHOOSE_DAY: [MessageHandler(filters.Regex(day_choice_regex), on_chosen_day)],
         CHOOSE_ENTITY_TYPE: [
             MessageHandler(filters.Regex("Question"), on_chosen_type_question),
             MessageHandler(filters.Regex("Event"), on_chosen_type_event),
         ],
-        CHOOSE_QUESTION_OPTION: [
-            CallbackQueryHandler(on_chosen_question_option)
-        ],
-        CHOOSE_EVENT_NAME: [
-            CallbackQueryHandler(on_chosen_event_name)
-        ],
-        ASK_QUESTION: [
-            MessageHandler(filters.TEXT, on_question_answered)
-        ],
-        ASK_EVENT_TIME: [
-            MessageHandler(filters.TEXT, on_event_time_answered)
-        ],
-        ASK_EVENT_TEXT: [
-            MessageHandler(filters.TEXT, on_event_text_answered)
-        ],
+        CHOOSE_QUESTION_OPTION: [CallbackQueryHandler(on_chosen_question_option)],
+        CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
+        ASK_QUESTION: [MessageHandler(filters.TEXT, on_question_answered)],
+        ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
+        ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
     fallbacks=[
         CommandHandler("stats", stats_command)
@@ -403,6 +392,12 @@ conv_handler = ConversationHandler(
 )
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=logging.INFO
+    )
+    logger = logging.getLogger(__name__)
+
     with open(".token", encoding="utf-8") as f:
         TOKEN = f.read()
         print(TOKEN)
