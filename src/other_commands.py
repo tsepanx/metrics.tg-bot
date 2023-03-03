@@ -81,7 +81,6 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name_len = 20
     val_len = 20
     for name, value in values:
-
         if isinstance(value, bool):
             value = "True" if value else "False"
 

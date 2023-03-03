@@ -12,7 +12,7 @@ from PIL import (
 )
 
 # DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
-DEFAULT_TZ = pytz.timezone('Europe/Moscow')
+DEFAULT_TZ = pytz.timezone("Europe/Moscow")
 
 
 def get_now() -> datetime.datetime:

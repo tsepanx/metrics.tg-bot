@@ -244,22 +244,25 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
     elif query == "all":
         include_indices = all_indices
     elif query == "unanswered":
-        if ud.conv_storage.day not in answers_df.columns:
-            include_indices = all_indices
-        else:
-            # Filter to get indices of only null values
-            include_indices = list(
-                answers_df[ud.conv_storage.day]
-                .isnull()
-                .reset_index()
-                .drop("index", axis=1)
-                .apply(lambda x: None if bool(x[0]) is False else 1, axis=1)
-                .dropna()
-                .index
-            )
-
-            if len(include_indices) == 0:
+        if answers_df is not None:
+            if ud.conv_storage.day not in answers_df.columns:
                 include_indices = all_indices
+            else:
+                # Filter to get indices of only null values
+                include_indices = list(
+                    answers_df[ud.conv_storage.day]
+                    .isnull()
+                    .reset_index()
+                    .drop("index", axis=1)
+                    .apply(lambda x: None if bool(x[0]) is False else 1, axis=1)
+                    .dropna()
+                    .index
+                )
+
+                if len(include_indices) == 0:
+                    include_indices = all_indices
+        else:
+            include_indices = all_indices
     elif query == "clear":
         include_indices = []
     else:

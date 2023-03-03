@@ -125,6 +125,8 @@ def handler_decorator(func):
             )
         except Exception:
             if ud.DEBUG_ERRORS_OUTPUT:
-                await wrapped_send_text(update.effective_chat.send_message, text=traceback.format_exc())
+                await wrapped_send_text(
+                    update.effective_chat.send_message, text=traceback.format_exc()
+                )
 
     return wrapper
