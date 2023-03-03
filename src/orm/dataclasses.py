@@ -8,7 +8,6 @@ from typing import (
     List,
     Type,
     TypeVar,
-    Union,
 )
 
 from src.orm import base
@@ -21,6 +20,7 @@ from src.orm.base import (
     _insert_row,
     _update_row,
 )
+from src.utils import MyEnum
 
 Tbl = TypeVar("Tbl", "Table", dataclass)
 
@@ -158,8 +158,8 @@ class Table:
         }
 
         join_clauses: list[JoinByClauseDC] | None = []
-        if join_on_fkeys and hasattr(cls.Meta, "foreign_keys"):
-            for fk_dataclass in cls.Meta.foreign_keys:
+        if join_on_fkeys and cls.foreign_keys():  # hasattr(cls.Meta, "foreign_keys"):
+            for fk_dataclass in cls.foreign_keys():
                 # TODO Case: 2nd level of Foreign keys
                 "JOIN question_type qt ON q.type_id = qt.pk;"
 
@@ -257,12 +257,16 @@ class Table:
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
+    @classmethod
+    def foreign_keys(cls) -> list[ForeignKeyRelation]:
+        return cls.ForeignKeys.values_list()
+
     class Meta:
-        foreign_keys: ClassVar[list[Union[BackForeignKeyRelation, ForeignKeyRelation]]] = None
+        # foreign_keys: ClassVar[list[Union[BackForeignKeyRelation, ForeignKeyRelation]]] = None
 
         # Foreign keys referencing to this table
         # back_foreign_keys: ClassVar[list[BackForeignKeyRelation]] = None
         tablename: ClassVar[str] = None
 
-    # TODO
-    # class ForeignKeys:
+    class ForeignKeys(MyEnum):
+        pass

@@ -16,13 +16,6 @@ from src.tables.question import (
 from src.utils import MyEnum
 
 
-class AnswerType(MyEnum):
-    # NAME = <ForeignKey object> in "answer" table
-    QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
-    EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
-    # LASTING_EVENT = ForeignKeyRelation(LastingEventDB, "lasting_event_fk", "pk")
-
-
 @dataclass(frozen=True, slots=True)
 class AnswerDB(Table):
     pk: int
@@ -57,9 +50,23 @@ class AnswerDB(Table):
             ],
         )
 
-    class Meta:
-        foreign_keys = AnswerType.values_list()
+    class Meta(Table.Meta):
+        # foreign_keys = AnswerType.values_list()
         tablename = "answer"
+
+    class ForeignKeys(Table.ForeignKeys):
+        QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
+        EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
+
+
+# class AnswerType(MyEnum):
+#     # NAME = <ForeignKey object> in "answer" table
+#     QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
+#     EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
+#     # LASTING_EVENT = ForeignKeyRelation(LastingEventDB, "lasting_event_fk", "pk")
+
+
+AnswerTygpe = AnswerDB.ForeignKeys
 
 
 if __name__ == "__main__":

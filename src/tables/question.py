@@ -14,7 +14,6 @@ from src.orm.dataclasses import (
 from src.tables.tg_user import (
     TgUserDB,
 )
-from src.utils import MyEnum
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,11 +25,6 @@ class QuestionTypeDB(Table):
 
     class Meta:
         tablename = "question_type"
-
-
-class QuestionFKs(MyEnum):
-    TYPE_ID = ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
-    USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,10 +45,6 @@ class QuestionDB(Table):
 
     type_id: int  # ForeignKey : 'QuestionTypeDB'
 
-    class Meta(Table.Meta):
-        foreign_keys = QuestionFKs.values_list()
-        tablename = "question"
-
     def html_notation(self):
         return f"<code>{self.question_type.notation_str}</code> {self.fulltext if self.fulltext else self.name}"
 
@@ -71,7 +61,7 @@ class QuestionDB(Table):
     @property
     def question_type(self) -> QuestionTypeDB | None:
         # return self.get_fk_value("type_id")
-        return self.get_fk_value(QuestionFKs.TYPE_ID.value)
+        return self.get_fk_value(self.ForeignKeys.TYPE_ID.value)
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
@@ -106,6 +96,14 @@ class QuestionDB(Table):
 
         return qtype_answer_func_mapping[self.type_id]
 
+    class Meta(Table.Meta):
+        # foreign_keys = QuestionFKs.values_list()
+        tablename = "question"
+
+    class ForeignKeys(Table.ForeignKeys):
+        TYPE_ID = ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
+        USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+
 
 if __name__ == "__main__":
     # get_questions_with_type_fk(["walking", "x_small", "x_big"])
@@ -119,7 +117,7 @@ if __name__ == "__main__":
     for i in rows:
         pprint.pprint(i)
 
-        fk_obj = i.get_fk_value(QuestionFKs.TYPE_ID.value)
+        fk_obj = i.get_fk_value(QuestionDB.ForeignKeys.TYPE_ID.value)
         print(i.type_id, fk_obj.pk)
 
         assert i.type_id == fk_obj.pk
