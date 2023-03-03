@@ -1,10 +1,17 @@
 ## `Metrics.tg-bot`
 
-### TODO
+### Refactoring TODO's
 
-- [ ] === **TODO** Add `Events` ===
+- Move `conversations` strings to **constants** 
+
+### TODO for `Tomorrow`
+
+- [ ] Visualise Inline button select with emoji 
+- [ ] Add ability to create `event` answer
+- [x] Find ability to select in entities names
 
 ---
+- [x] Display events as {index - time, value - tuple (event_name, text)}
 - Involve `groups`
 - [x] -> Optimize number of `SQL` requests
   - Check whether any `table` changed to reload "db attrs"

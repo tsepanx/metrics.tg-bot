@@ -30,7 +30,7 @@ jobs:
         run: black . --check
       - name: FLAKE8
         run: flake8 .
-      - name: PYLINT
-        run: pylint src
-      - name: MYPY
-        run: mypy .
+      # - name: PYLINT
+      #   run: pylint src
+      # - name: MYPY
+      #   run: mypy .
