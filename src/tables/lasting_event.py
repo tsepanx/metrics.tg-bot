@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from src.tables.event import EventDB
-
+from src.tables.event import (
+    EventDB,
+)
 
 # @dataclass(frozen=True, slots=True)
 # class LastingEventDB(EventDB):

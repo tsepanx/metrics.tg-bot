@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
-    Table
+    Table,
 )
 
 
@@ -13,11 +13,19 @@ class EventPrefixDB(Table):
     event_fk: int  # ForeignKey : 'EventDB'
     name: str  # TODO rename to text
 
+    def path_dirs(self) -> list[str]:
+        return self.name.split("/")
+
+    def is_subpath(self, path: list[str]) -> bool:
+        return all(path[i] == self.path_dirs()[i] for i in range(len(path)))
+
     @classmethod
     def select_all(cls):
         return cls.select(
             join_on_fkeys=True,
-            where_clauses={ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True},
+            where_clauses={
+                ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True
+            },
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 

@@ -12,7 +12,9 @@ from src.orm.dataclasses import (
     ForeignKeyRelation,
     Table,
 )
-from src.tables.tg_user import TgUserDB
+from src.tables.tg_user import (
+    TgUserDB,
+)
 from src.utils import MyEnum
 
 
@@ -61,7 +63,9 @@ class QuestionDB(Table):
     def select_all(cls):
         return cls.select(
             join_on_fkeys=True,
-            where_clauses={ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True},
+            where_clauses={
+                ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True
+            },
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 

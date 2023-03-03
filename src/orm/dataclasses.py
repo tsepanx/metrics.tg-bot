@@ -7,7 +7,8 @@ from typing import (
     ClassVar,
     List,
     Type,
-    TypeVar, Union,
+    TypeVar,
+    Union,
 )
 
 from src.orm import base
@@ -40,7 +41,7 @@ class ForeignKeyRelation:
 @dataclass(frozen=True)
 class BackForeignKeyRelation(ForeignKeyRelation):
     def __str__(self):
-        return f"back_{self.__str__()}"
+        return f"back_{super().__str__()}"
 
 
 # slots=False to add availability for __setattr__ of new attribute
@@ -126,11 +127,13 @@ class Table:
             columns_list: list[ColumnDC],
             values_list: list[ValueType],
         ) -> Tbl:
-
             value_apply = lambda x: tuple(x) if isinstance(x, list) else x
 
             return class_to_create(
-                **{columns_list[i].column_name: value_apply(values_list[i]) for i in range(len(columns_list))}
+                **{
+                    columns_list[i].column_name: value_apply(values_list[i])
+                    for i in range(len(columns_list))
+                }
             )
 
         primary_tablename: TableName = cls.Meta.tablename
@@ -202,7 +205,7 @@ class Table:
                 table_selected_columns: list[ColumnDC] = auxiliary_table_columns_mapping[table]
                 columns_count = len(table_selected_columns)
 
-                values_for_table = row[offset: offset + columns_count]
+                values_for_table = row[offset : offset + columns_count]
 
                 # len(colnames) == len(values)
                 assert len(table_selected_columns) == len(values_for_table)
@@ -255,10 +258,7 @@ class Table:
         )
 
     class Meta:
-        foreign_keys: ClassVar[list[Union[
-            BackForeignKeyRelation,
-            ForeignKeyRelation
-        ]]] = None
+        foreign_keys: ClassVar[list[Union[BackForeignKeyRelation, ForeignKeyRelation]]] = None
 
         # Foreign keys referencing to this table
         # back_foreign_keys: ClassVar[list[BackForeignKeyRelation]] = None

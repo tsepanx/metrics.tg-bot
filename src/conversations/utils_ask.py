@@ -22,6 +22,9 @@ from src.tables.answer import (
 from src.tables.event import (
     EventDB,
 )
+from src.tables.event_text_prefix import (
+    EventPrefixDB,
+)
 from src.tables.question import (
     QuestionDB,
 )
@@ -68,9 +71,7 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
     buttons = [["Now"]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
-        buttons,
-        one_time_keyboard=True,
-        # resize_keyboard=True
+        buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
     text = f"Event: {e.name}\nwrite time (f.e. 05:04)"
@@ -83,19 +84,34 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
     )
 
 
-async def send_ask_event_text(e: EventDB, send_text_func: Callable):
+async def send_ask_event_prefix(e: EventDB, send_text_func: Callable):
     if e.type == "Durable":
         text_choices = ["start", "end"]
     else:
-        text_choices = []
+        text_choices = list(map(lambda x: x.name, e.prefixes_list))
 
-    buttons = [text_choices, ["None"]]
+    text_choices = [[i] for i in text_choices]
+    buttons = [*text_choices, ["None"]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
-    text = f"Event: {e.name}\nwrite text (optionally)"
+    await wrapped_send_text(
+        send_message_func=send_text_func,
+        text=f"Select [optional] prefix",
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def send_ask_event_text(e: EventDB, send_text_func: Callable):
+    text = f"Event: {e.name}\nwrite text value (optionally)"
+
+    buttons = [["None"]]
+    reply_markup = telegram.ReplyKeyboardMarkup(
+        keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
+    )
 
     await wrapped_send_text(
         send_message_func=send_text_func,

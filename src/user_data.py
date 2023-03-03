@@ -50,6 +50,8 @@ class ASKEventConvStorage(ASKConversationStorage):
     chosen_event_index: int | None = None
 
     event_time: datetime.time | None = None
+    # event_prefix_path: list[str] = dataclasses.field(default_factory=list)
+    # event_prefix: str | None = None
     event_text: str | None = None
 
 
@@ -103,7 +105,9 @@ class UserDBCache:
 
         return df
 
-    def events_answers_df(self, for_day: datetime.date = datetime.date.today()) -> pd.DataFrame | None:
+    def events_answers_df(
+        self, for_day: datetime.date = datetime.date.today()
+    ) -> pd.DataFrame | None:
         """
         A table consists of only 1 column
         Each row format is described as:
