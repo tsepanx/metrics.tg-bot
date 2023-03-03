@@ -124,6 +124,7 @@ def handler_decorator(func):
                 parse_mode=ParseMode.MARKDOWN,
             )
         except Exception:
-            await wrapped_send_text(update.effective_chat.send_message, text=traceback.format_exc())
+            if ud.DEBUG_ERRORS_OUTPUT:
+                await wrapped_send_text(update.effective_chat.send_message, text=traceback.format_exc())
 
     return wrapper

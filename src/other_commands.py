@@ -64,11 +64,12 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     values: list[tuple[str, str]] = [
         ("User id", update.effective_user.id),
         ("Time on server", cur_time),
-        ("DB_LAST_RELOAD", format_dt(ud.db_cache.LAST_RELOAD_TIME)),
+        ("DB last reload", format_dt(ud.db_cache.LAST_RELOAD_TIME)),
         ("DEBUG_SQL_OUTPUT", ud.DEBUG_SQL_OUTPUT),
+        ("DEBUG_ERRORS_OUTPUT", ud.DEBUG_ERRORS_OUTPUT),
         ("", ""),
-        ("Questions count", len(ud.db_cache.questions)),
-        ("Events count", len(ud.db_cache.events)),
+        ("Questions entries", len(ud.db_cache.questions)),
+        ("Events entries", len(ud.db_cache.events)),
         ("Answers entries", len(ud.db_cache.answers)),
     ]
 
@@ -80,6 +81,10 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name_len = 20
     val_len = 20
     for name, value in values:
+
+        if isinstance(value, bool):
+            value = "True" if value else "False"
+
         text_lines.append(
             f"{name:<{name_len}}: {value:<{val_len}}",
         )

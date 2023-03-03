@@ -142,6 +142,7 @@ class UserData:
     db_cache: UserDBCache
 
     DEBUG_SQL_OUTPUT = False
+    DEBUG_ERRORS_OUTPUT = True
 
     def __init__(self):
         self.conv_storage = ASKConversationStorage()
