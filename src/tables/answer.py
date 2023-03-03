@@ -13,7 +13,6 @@ from src.tables.event import (
 from src.tables.question import (
     QuestionDB,
 )
-from src.utils import MyEnum
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,14 +58,7 @@ class AnswerDB(Table):
         EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
 
 
-# class AnswerType(MyEnum):
-#     # NAME = <ForeignKey object> in "answer" table
-#     QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
-#     EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
-#     # LASTING_EVENT = ForeignKeyRelation(LastingEventDB, "lasting_event_fk", "pk")
-
-
-AnswerTygpe = AnswerDB.ForeignKeys
+AnswerType = AnswerDB.ForeignKeys
 
 
 if __name__ == "__main__":

@@ -106,8 +106,6 @@ class QuestionDB(Table):
 
 
 if __name__ == "__main__":
-    # get_questions_with_type_fk(["walking", "x_small", "x_big"])
-
     rows = QuestionDB.select(
         join_on_fkeys=True,
         where_clauses={ColumnDC(column_name="is_activated"): True},

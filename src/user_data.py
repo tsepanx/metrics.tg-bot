@@ -50,8 +50,6 @@ class ASKEventConvStorage(ASKConversationStorage):
     chosen_event_index: int | None = None
 
     event_time: datetime.time | None = None
-    # event_prefix_path: list[str] = dataclasses.field(default_factory=list)
-    # event_prefix: str | None = None
     event_text: str | None = None
 
 

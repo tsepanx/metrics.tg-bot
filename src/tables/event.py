@@ -8,7 +8,6 @@ from src.orm.dataclasses import (
 from src.tables.tg_user import (
     TgUserDB,
 )
-from src.utils import MyEnum
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,14 +32,10 @@ class EventDB(Table):
         )
 
     class Meta(Table.Meta):
-        # foreign_keys = EventFKs.values_list()
         tablename = "event"
 
     class ForeignKeys(Table.ForeignKeys):
         USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
-        # BACK_EVENT_PREFIX = BackForeignKeyRelation(
-        #     EventPrefixDB, other_column="event_fk", my_column="pk"
-        # )
 
 
 if __name__ == "__main__":

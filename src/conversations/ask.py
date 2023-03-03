@@ -67,11 +67,10 @@ logger = logging.getLogger(__name__)
     ASK_CHOOSE_EVENT_NAME,
     ASK_QUESTION_ANSWER,
     ASK_EVENT_TIME,
-    ASK_EVENT_PREFIX,
     ASK_EVENT_TEXT,
     END_ASKING_QUESTIONS,
     END_ASKING_EVENT,
-) = range(10)
+) = range(9)
 
 
 # pylint: disable=too-many-statements
@@ -309,12 +308,6 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
     assert update.message is not None
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
-    # state = ud.state
-
-    # assert isinstance(state, QuestionsAskingState)
-    # assert state.include_questions is not None
-
-    # q: QuestionDB = state.get_current_question()
     q: QuestionDB = ud.conv_storage.current_question(ud.db_cache.questions)
 
     answer_text = update.message.text
@@ -376,8 +369,6 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     ud.conv_storage.event_time = time
     # TODO reflect changes of Dataclass by class.values -> then .save(), instead of manually updating DB
 
-    # await send_ask_event_prefix(event, update.message.reply_text)
-    # return ASK_EVENT_PREFIX
     await send_ask_event_text(event, update.message.reply_text)
     return ASK_EVENT_TEXT
 
@@ -424,7 +415,6 @@ ask_conv_handler = ConversationHandler(
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
         ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT, on_question_answered)],
         ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
-        # ASK_EVENT_PREFIX: [MessageHandler(filters.TEXT, on_event_prefix_answered)],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
     fallbacks=[CommandHandler("stats", stats_command)],
