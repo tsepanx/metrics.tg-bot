@@ -57,3 +57,20 @@ ALTER TABLE answer ADD CONSTRAINT answer_is_time_for_event CHECK (
     ( (event_fk IS NULL) )
 );
 
+
+--- PREFIXES ---
+
+-- ALTER TABLE event ADD COLUMN text_prefix_choices
+
+-- DROP TABLE food;
+CREATE TABLE event_prefix (
+    pk SERIAL PRIMARY KEY,
+
+    event_fk INTEGER
+        REFERENCES event(pk),
+
+    name VARCHAR(50)
+        NOT NULL
+        UNIQUE,
+    order_by SERIAL
+);
