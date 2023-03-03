@@ -41,9 +41,7 @@ class QuestionDB(Table):
     type_id: int  # ForeignKey : 'QuestionTypeDB'
 
     class Meta:
-        foreign_keys = [
-            ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
-        ]
+        foreign_keys = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
         tablename = "question"
 
     def html_notation(self):
@@ -53,12 +51,8 @@ class QuestionDB(Table):
     def select_all(cls):
         return cls.select(
             join_on_fkeys=True,
-            where_clauses={
-                ColumnDC(column_name="is_activated"): True
-            },
-            order_by_columns=[
-                ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")
-            ]
+            where_clauses={ColumnDC(column_name="is_activated"): True},
+            order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
     @property
@@ -100,6 +94,7 @@ class QuestionDB(Table):
 
 
 if __name__ == "__main__":
+
     def test_get_questions():
         # get_questions_with_type_fk(["walking", "x_small", "x_big"])
 

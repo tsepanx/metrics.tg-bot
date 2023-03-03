@@ -20,7 +20,7 @@ from src.utils_tg import (
 
 @handler_decorator
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ud: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
+    ud: UserData = context.chat_data[USER_DATA_KEY]
 
     await send_entity_answers_df(
         update=update,
@@ -67,8 +67,8 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(application: Application) -> None:
     for _, chat_data in application.chat_data.items():
-        user_data: UserData = chat_data[USER_DATA_KEY]
-        user_data.db_cache.reload_all()
+        ud: UserData = chat_data[USER_DATA_KEY]
+        ud.db_cache.reload_all()
         # user_data.db_cache = UserDBCache()
 
     commands_list = [

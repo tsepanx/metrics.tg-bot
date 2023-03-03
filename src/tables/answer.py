@@ -23,7 +23,7 @@ class MyEnum(enum.Enum):
         return list(map(lambda x: x.value, cls.__members__.values()))
 
     @classmethod
-    def enum_by_name(cls, name: str) -> Type['MyEnum'] | None:
+    def enum_by_name(cls, name: str) -> Type["MyEnum"] | None:
         return cls.__members__.get(name)
 
 
@@ -59,7 +59,7 @@ class AnswerDB(Table):
             order_by_columns=[
                 ColumnDC(table_name=cls.Meta.tablename, column_name="date"),
                 ColumnDC(table_name="question", column_name="order_by"),
-            ]
+            ],
         )
 
     class Meta:
@@ -70,9 +70,7 @@ class AnswerDB(Table):
 if __name__ == "__main__":
     answers = AnswerDB.select(
         join_on_fkeys=True,
-        order_by_columns=[
-            ColumnDC(table_name="answer", column_name="date")
-        ]
+        order_by_columns=[ColumnDC(table_name="answer", column_name="date")],
     )
 
     pprint.pprint(answers)

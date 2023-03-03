@@ -46,12 +46,7 @@ class Table:
 
     @classmethod
     def dataclass_dict_to_row_dict(cls, d: dict[str, ValueType]) -> dict[ColumnDC, ValueType]:
-        return {
-            ColumnDC(
-                table_name=cls.Meta.tablename,
-                column_name=k
-            ): d[k] for k in d
-        }
+        return {ColumnDC(table_name=cls.Meta.tablename, column_name=k): d[k] for k in d}
 
     def update(self, **kwargs) -> None:
         row: dict[str, ValueType] = self.__dict__
@@ -61,17 +56,12 @@ class Table:
         unchanged_columns: set[str] = existing_columns - new_columns
 
         where_clauses: dict[ColumnDC, ValueType] = {
-            ColumnDC(
-                table_name=self.Meta.tablename,
-                column_name=k
-            ): row[k] for k in unchanged_columns
+            ColumnDC(table_name=self.Meta.tablename, column_name=k): row[k]
+            for k in unchanged_columns
         }
 
         set_dict: dict[ColumnDC, ValueType] = {
-            ColumnDC(
-                table_name=self.Meta.tablename,
-                column_name=k
-            ): kwargs[k] for k in kwargs
+            ColumnDC(table_name=self.Meta.tablename, column_name=k): kwargs[k] for k in kwargs
         }
 
         return _update_row(
@@ -80,17 +70,12 @@ class Table:
             set_dict=set_dict,
         )
 
-    def create(self) -> 'Table':
+    def create(self) -> "Table":
         row = self.__dict__
 
         _insert_row(
             tablename=self.Meta.tablename,
-            row_dict={
-                ColumnDC(
-                    table_name=self.Meta.tablename,
-                    column_name=k
-                ): row[k] for k in row
-            }
+            row_dict={ColumnDC(table_name=self.Meta.tablename, column_name=k): row[k] for k in row},
         )
 
         return self
@@ -103,25 +88,26 @@ class Table:
 
     @classmethod
     def select(
-            cls: Type[Tbl],
-            join_on_fkeys: bool = False,
-            where_clauses: dict[ColumnDC, ValueType] | None = None,
-            order_by_columns: list[ColumnDC] | None = None,
+        cls: Type[Tbl],
+        join_on_fkeys: bool = False,
+        where_clauses: dict[ColumnDC, ValueType] | None = None,
+        order_by_columns: list[ColumnDC] | None = None,
     ) -> List[Tbl]:
-
         def create_dataclass_instance(
-                class_to_create: Tbl,
-                columns_list: list[ColumnDC],
-                values_list: list[ValueType]
+            class_to_create: Tbl,
+            columns_list: list[ColumnDC],
+            values_list: list[ValueType],
         ) -> Tbl:
-            return class_to_create(**{
-                columns_list[i].column_name: values_list[i]
-                for i in range(len(columns_list))
-            })
+            return class_to_create(
+                **{columns_list[i].column_name: values_list[i] for i in range(len(columns_list))}
+            )
 
         primary_tablename: TableName = cls.Meta.tablename
         primary_table_columns: list[ColumnDC] = list(
-            map(lambda x: ColumnDC(table_name=primary_tablename, column_name=x), cls.__annotations__.keys())
+            map(
+                lambda x: ColumnDC(table_name=primary_tablename, column_name=x),
+                cls.__annotations__.keys(),
+            )
         )
 
         all_columns: list[ColumnDC] = []
@@ -133,7 +119,9 @@ class Table:
         auxiliary_table_fk_mapping: dict[TableName, ForeignKeyRelation] = {}
 
         # Stores mapping <table_name> : (<column names list>)
-        auxiliary_table_columns_mapping: dict[TableName, list[ColumnDC]] = {primary_tablename: primary_table_columns}
+        auxiliary_table_columns_mapping: dict[TableName, list[ColumnDC]] = {
+            primary_tablename: primary_table_columns
+        }
 
         if join_on_fkeys and hasattr(cls.Meta, "foreign_keys"):
             join_clauses: list[JoinByClauseDC] | None = []
@@ -186,14 +174,16 @@ class Table:
                 table_selected_columns: list[ColumnDC] = auxiliary_table_columns_mapping[table]
                 columns_count = len(table_selected_columns)
 
-                values_for_table = row[offset: offset + columns_count]
+                values_for_table = row[offset : offset + columns_count]
 
                 # len(colnames) == len(values)
                 assert len(table_selected_columns) == len(values_for_table)
 
                 if table == primary_tablename:
                     # creating Primary table instance
-                    primary_table_obj = create_dataclass_instance(cls, table_selected_columns, values_for_table)
+                    primary_table_obj = create_dataclass_instance(
+                        cls, table_selected_columns, values_for_table
+                    )
                 else:
                     # creating Dataclasses that are JOINED via fk
                     assert primary_table_obj is not None
@@ -203,8 +193,9 @@ class Table:
                     if primary_table_obj.__getattribute__(fk_obj.from_column) is None:
                         new_dataclass_obj = None
                     else:
-                        new_dataclass_obj = create_dataclass_instance(fk_obj.class_, table_selected_columns,
-                                                                      values_for_table)
+                        new_dataclass_obj = create_dataclass_instance(
+                            fk_obj.class_, table_selected_columns, values_for_table
+                        )
                     primary_table_obj.set_fk_value(fk_obj.from_column, new_dataclass_obj)
 
                 offset += columns_count
@@ -217,9 +208,7 @@ class Table:
         return cls.select(
             join_on_fkeys=True,
             where_clauses=None,
-            order_by_columns=[
-                ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")
-            ]
+            order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
     class Meta:

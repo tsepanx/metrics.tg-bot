@@ -23,15 +23,13 @@ from src.utils import MyException
 
 
 def match_question_choice_callback_data(query: str) -> bool:
-    return bool(
-        re.compile("^[0-9]+ (add|remove)$").match(query)
-    )
+    return bool(re.compile("^[0-9]+ (add|remove)$").match(query))
 
 
 def get_questions_select_keyboard(
-        questions: list[QuestionDB],
-        include_indices_set: set[int] = None,
-        emoji_str: str = "☑️",
+    questions: list[QuestionDB],
+    include_indices_set: set[int] = None,
+    emoji_str: str = "☑️",
 ) -> InlineKeyboardMarkup:
     keyboard = [
         [
@@ -120,7 +118,11 @@ def handler_decorator(func):
             result = await func(update, context, *args, **kwargs)
             return result
         except MyException as e:
-            await wrapped_send_text(update.effective_chat.send_message, text=str(e), parse_mode=ParseMode.MARKDOWN)
+            await wrapped_send_text(
+                update.effective_chat.send_message,
+                text=str(e),
+                parse_mode=ParseMode.MARKDOWN,
+            )
         except Exception:
             await wrapped_send_text(update.effective_chat.send_message, text=traceback.format_exc())
 

@@ -95,9 +95,9 @@ def get_psql_conn():
 
 
 def dict_cols_to_str(
-        d: dict[ColumnDC, ValueType],
-        prefix: str | None = None,
-        column_apply_function: Callable[[ColumnDC], str] = ColumnDC.underscore_notation
+    d: dict[ColumnDC, ValueType],
+    prefix: str | None = None,
+    column_apply_function: Callable[[ColumnDC], str] = ColumnDC.underscore_notation,
 ) -> dict[str, Any]:
     """
     Builds new dict from old, rebuilding keys by some rule (ColumnDC -> str):
@@ -117,11 +117,10 @@ def dict_cols_to_str(
 
 
 def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Sequence:
-
     query_for_print = query
-    query_for_print = query_for_print.replace('"question"', 'q')
-    query_for_print = query_for_print.replace('"answer"', 'a')
-    query_for_print = query_for_print.replace('"event"', 'e')
+    query_for_print = query_for_print.replace('"question"', "q")
+    query_for_print = query_for_print.replace('"answer"', "a")
+    query_for_print = query_for_print.replace('"event"', "e")
 
     # print(sqlparse.format(query_for_print, reindent=True))
     # print("Params:", params)
@@ -221,9 +220,7 @@ def _select(
             if join_clause.join_type:
                 if isinstance(join_clause.join_type, JoinTypes):
                     template_subquery = " {}" + template_subquery
-                    format_list.append(
-                        SQL(join_clause.join_type.name)
-                    )
+                    format_list.append(SQL(join_clause.join_type.name))
 
             template_query += template_subquery
             format_list.extend(
@@ -250,7 +247,9 @@ def _select(
         }
 
         columns_identifiers: Iterable[Identifier] = map(ColumnDC.compose_by_dot, where_columns)
-        values_placeholders: Iterable[Placeholder] = map(Placeholder, where_placeholders_params.keys())
+        values_placeholders: Iterable[Placeholder] = map(
+            Placeholder, where_placeholders_params.keys()
+        )
 
         format_list.extend(
             [
@@ -272,16 +271,13 @@ def _select(
 
 
 def _exists(
-        tablename: TableName,
-        where_clauses: dict[ColumnDC, ValueType],
+    tablename: TableName,
+    where_clauses: dict[ColumnDC, ValueType],
 ):
     return len(_select(tablename=tablename, where_clauses=where_clauses)) > 0
 
 
-def _insert_row(
-        tablename: TableName,
-        row_dict: dict[ColumnDC, Any]
-):
+def _insert_row(tablename: TableName, row_dict: dict[ColumnDC, Any]):
     names = tuple(row_dict.keys())
 
     # ColumnDC -> str placeholder
@@ -289,7 +285,8 @@ def _insert_row(
     placeholder_apply_func = lambda x: x.column_name
 
     query = (
-        SQL("INSERT INTO {} ({}) VALUES ({})").format(
+        SQL("INSERT INTO {} ({}) VALUES ({})")
+        .format(
             # tablename
             Identifier(tablename),
             # (col1, col2)
@@ -302,9 +299,7 @@ def _insert_row(
 
     try:
         prefixed_row_dict = dict_cols_to_str(
-            row_dict,
-            prefix=None,
-            column_apply_function=placeholder_apply_func
+            row_dict, prefix=None, column_apply_function=placeholder_apply_func
         )
         _query_set(query, prefixed_row_dict)
     except psycopg.errors.UniqueViolation as e:
@@ -312,9 +307,9 @@ def _insert_row(
 
 
 def _update_row(
-        tablename: TableName,
-        where_clauses: dict[ColumnDC, ValueType],
-        set_dict: dict[ColumnDC, ValueType],
+    tablename: TableName,
+    where_clauses: dict[ColumnDC, ValueType],
+    set_dict: dict[ColumnDC, ValueType],
 ):
     where_names = tuple(where_clauses.keys())
     set_names = tuple(set_dict.keys())
@@ -359,9 +354,9 @@ def _update_row(
 
 
 def update_or_insert_row(
-        tablename: TableName,
-        where_clauses: dict[ColumnDC, ValueType],
-        set_dict: dict[ColumnDC, ValueType],
+    tablename: TableName,
+    where_clauses: dict[ColumnDC, ValueType],
+    set_dict: dict[ColumnDC, ValueType],
 ):
     # Ensure that full row values as passed neither in filter_dict nor set_dict
     # columns_set = ...
@@ -372,29 +367,3 @@ def update_or_insert_row(
     else:
         row_dict = {**where_clauses, **set_dict}
         _insert_row(tablename, row_dict)
-
-
-if __name__ == "__main__":
-    pass
-    # questions_list = get_questions_names()
-    # print(questions_list)
-
-    # "UPDATE {tablename} SET answer_text = '66664' WHERE (day_fk, question_fk) = ('2023-02-23', 'weight')"
-    # _update_row(
-    #     {"day_fk": "2023-02-23", "question_fk": "weight"},
-    #     # {'answer_text': '2345'},
-    #     {"answer_text": "new_2345"},
-    #     "question_answer",
-    # )
-    #
-    # _insert_row(
-    #     {
-    #         "day_fk": "2023-02-24",
-    #         "question_fk": "x_small"
-    #     },
-    #     "question_answer"
-    # )
-    #
-    # update_or_insert_row(
-    #     {"day_fk": "2023-02-25", "answer_text": "walkn1"}, {"question_fk": "vegetables_eat"}, "question_answer"
-    # )

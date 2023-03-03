@@ -35,7 +35,10 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
 
 
 def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
-    columns_order = sorted(df.columns, key=lambda x: f"_{x}" if not isinstance(x, datetime.date) else x.isoformat())
+    columns_order = sorted(
+        df.columns,
+        key=lambda x: f"_{x}" if not isinstance(x, datetime.date) else x.isoformat(),
+    )
     df = df.reindex(columns_order, axis=1)
     return df
 
@@ -87,4 +90,3 @@ def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Serie
         res_col[i_str] = res_val
 
     return res_col
-

@@ -18,8 +18,7 @@ from src.other_commands import (
 
 if __name__ == "__main__":
     logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        level=logging.INFO
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
     )
     logger = logging.getLogger(__name__)
 
@@ -29,11 +28,7 @@ if __name__ == "__main__":
 
     persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
 
-    app = ApplicationBuilder() \
-        .token(TOKEN) \
-        .persistence(persistence) \
-        .post_init(post_init) \
-        .build()
+    app = ApplicationBuilder().token(TOKEN).persistence(persistence).post_init(post_init).build()
 
     app.add_handler(ask_conv_handler)
     app.add_handler(CommandHandler("stats", stats_command))

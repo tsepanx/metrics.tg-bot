@@ -131,7 +131,9 @@ class UserDBCache:
             <time>  | tuple(<event.name>, <answer_text>)
         """
 
-        event_answers = sorted(filter(lambda x: x.event is not None, self.answers), key=lambda x: x.time)
+        event_answers = sorted(
+            filter(lambda x: x.event is not None, self.answers), key=lambda x: x.time
+        )
 
         row_list = list(map(lambda x: [x.time, (x.event.name, x.text)], event_answers))
         df = pd.DataFrame(row_list).set_index(0)

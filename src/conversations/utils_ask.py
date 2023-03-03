@@ -46,15 +46,10 @@ SKIP_QUEST = "Skip question"
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
-    buttons = [
-        list(map(str, q.suggested_answers_list)),
-        [SKIP_QUEST, STOP_ASKING]
-    ]
+    buttons = [list(map(str, q.suggested_answers_list)), [SKIP_QUEST, STOP_ASKING]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
-        buttons,
-        one_time_keyboard=True,
-        resize_keyboard=True
+        buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
     text = f"{q.html_notation()}"
@@ -62,10 +57,10 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
         text += f"\n\nAnswer in DB: <code>{existing_answer}</code>"
 
     await wrapped_send_text(
-        send_text_func,
+        send_message_func=send_text_func,
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -81,10 +76,10 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
     text = f"Event: {e.name}\nwrite time (f.e. 05:04)"
 
     await wrapped_send_text(
-        send_text_func,
+        send_message_func=send_text_func,
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -92,18 +87,16 @@ async def send_ask_event_text(e: EventDB, send_text_func: Callable):
     buttons = [["Sample text"], ["None"]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
-        buttons,
-        one_time_keyboard=True,
-        resize_keyboard=True
+        keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
     text = f"Event: {e.name}\nwrite text (optionally)"
 
     await wrapped_send_text(
-        send_text_func,
+        send_message_func=send_text_func,
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -111,7 +104,9 @@ def build_transpose_callback_data(answer_type: AnswerType) -> str:
     return f"transpose {answer_type.name}"
 
 
-async def send_entity_answers_df(update: Update, ud: UserData, answers_entity: AnswerType, **kwargs):
+async def send_entity_answers_df(
+    update: Update, ud: UserData, answers_entity: AnswerType, **kwargs
+):
     file_name = f"{answers_entity.name.lower()}s.csv"
 
     if answers_entity is AnswerType.QUESTION:
@@ -128,20 +123,20 @@ async def send_entity_answers_df(update: Update, ud: UserData, answers_entity: A
         df=answers_df,
         transpose_button_callback_data=transpose_callback_data,
         file_name=file_name,
-        **kwargs
+        **kwargs,
     )
 
 
 async def send_dataframe(
-        update: Update,
-        df: pd.DataFrame,
-        send_csv=False,
-        send_img=True,
-        send_text=False,
-        transpose_table=False,
-        transpose_button_callback_data: str = None,
-        with_question_indices=True,
-        file_name: str = "dataframe.csv"
+    update: Update,
+    df: pd.DataFrame,
+    send_csv=False,
+    send_img=True,
+    send_text=False,
+    transpose_table=False,
+    transpose_button_callback_data: str = None,
+    with_question_indices=True,
+    file_name: str = "dataframe.csv",
 ):
     # Fix dirty function applying changes directly to passed DataFrame
     df = df.copy()
@@ -185,10 +180,14 @@ async def send_dataframe(
         bio2 = copy.copy(bio)
 
         if not transpose_table and transpose_button_callback_data:
-            keyboard = [[telegram.InlineKeyboardButton(
-                "transposed table IMG",
-                callback_data=transpose_button_callback_data
-            )]]
+            keyboard = [
+                [
+                    telegram.InlineKeyboardButton(
+                        "transposed table IMG",
+                        callback_data=transpose_button_callback_data,
+                    )
+                ]
+            ]
             reply_markup = telegram.InlineKeyboardMarkup(keyboard)
         else:
             reply_markup = None
@@ -210,8 +209,8 @@ async def send_dataframe(
 
 
 async def on_end_asking_questions(
-        ud: UserData,
-        update: Update,
+    ud: UserData,
+    update: Update,
 ):
     def update_db_with_answers():
         assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
@@ -233,11 +232,9 @@ async def on_end_asking_questions(
                 tablename="answer",
                 where_clauses={
                     ColumnDC(column_name="date"): day,
-                    ColumnDC(column_name="question_fk"): question.pk
+                    ColumnDC(column_name="question_fk"): question.pk,
                 },
-                set_dict={
-                    ColumnDC(column_name="text"): text
-                },
+                set_dict={ColumnDC(column_name="text"): text},
             )
 
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
@@ -246,17 +243,11 @@ async def on_end_asking_questions(
         ud.db_cache.reload_all()
 
     await send_entity_answers_df(
-        update=update,
-        ud=ud,
-        answers_entity=AnswerType.QUESTION,
-        send_csv=True
+        update=update, ud=ud, answers_entity=AnswerType.QUESTION, send_csv=True
     )
 
 
-async def on_end_asking_event(
-        ud: UserData,
-        update: Update
-):
+async def on_end_asking_event(ud: UserData, update: Update):
     def update_db_with_events():
         assert isinstance(ud.conv_storage, ASKEventConvStorage)
         day = ud.conv_storage.day
@@ -267,7 +258,7 @@ async def on_end_asking_event(
 
         row_dict: dict[ColumnDC, ValueType] = {
             ColumnDC(column_name="date"): day,
-            ColumnDC(column_name="event_fk"): event.pk
+            ColumnDC(column_name="event_fk"): event.pk,
         }
 
         if new_time:
@@ -276,10 +267,7 @@ async def on_end_asking_event(
         if new_text:
             row_dict[ColumnDC(column_name="text")] = new_text
 
-        _insert_row(
-            tablename="answer",
-            row_dict=row_dict
-        )
+        _insert_row(tablename="answer", row_dict=row_dict)
 
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
 
@@ -287,8 +275,5 @@ async def on_end_asking_event(
     ud.db_cache.reload_all()
 
     await send_entity_answers_df(
-        update=update,
-        ud=ud,
-        answers_entity=AnswerType.EVENT,
-        send_csv=True
+        update=update, ud=ud, answers_entity=AnswerType.EVENT, send_csv=True
     )

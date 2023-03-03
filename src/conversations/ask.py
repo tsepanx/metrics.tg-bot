@@ -60,16 +60,17 @@ from src.utils_tg import (
 
 logger = logging.getLogger(__name__)
 
-ASK_CHOOSE_DAY, \
-    ASK_CHOOSE_ENTITY_TYPE, \
-    ASK_CHOOSE_QUESTION_OPTION, \
-    ASK_CHOOSE_EVENT_NAME, \
-    ASK_QUESTION_ANSWER, \
-    ASK_EVENT_TIME, \
-    ASK_EVENT_TEXT, \
-    END_ASKING_QUESTIONS, \
-    END_ASKING_EVENT, \
-    = range(9)
+(
+    ASK_CHOOSE_DAY,
+    ASK_CHOOSE_ENTITY_TYPE,
+    ASK_CHOOSE_QUESTION_OPTION,
+    ASK_CHOOSE_EVENT_NAME,
+    ASK_QUESTION_ANSWER,
+    ASK_EVENT_TIME,
+    ASK_EVENT_TEXT,
+    END_ASKING_QUESTIONS,
+    END_ASKING_EVENT,
+) = range(9)
 
 
 # pylint: disable=too-many-statements
@@ -94,6 +95,7 @@ async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 # ==== DAY ====
+
 
 @handler_decorator
 async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -131,14 +133,13 @@ async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 # ==== ENTITY TYPE ====
 
+
 @handler_decorator
 async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
-    ud.conv_storage = ASKQuestionsConvStorage(
-        **ud.conv_storage.__dict__
-    )
+    ud.conv_storage = ASKQuestionsConvStorage(**ud.conv_storage.__dict__)
 
     text = update.message.text
     assert text == "Question"
@@ -158,9 +159,7 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
-    ud.conv_storage = ASKEventConvStorage(
-        **ud.conv_storage.__dict__
-    )
+    ud.conv_storage = ASKEventConvStorage(**ud.conv_storage.__dict__)
 
     assert update.message.text == "Event"
 
@@ -168,9 +167,7 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
 
     buttons_column = []
     for i, name in enumerate(events_names):
-        buttons_column.append(
-            InlineKeyboardButton(name, callback_data=i)
-        )
+        buttons_column.append(InlineKeyboardButton(name, callback_data=i))
 
     reply_markup = InlineKeyboardMarkup.from_column(buttons_column)
 
@@ -184,9 +181,9 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # ==== ENTITY NAME(S) ====
 
+
 @handler_decorator
 async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-
     ud: UserData = context.chat_data[USER_DATA_KEY]
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
@@ -216,8 +213,7 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
         is_changed = old_len != len(include_indices_set)
         if is_changed:
             new_ikm = get_questions_select_keyboard(
-                questions=ud.db_cache.questions,
-                include_indices_set=include_indices_set
+                questions=ud.db_cache.questions, include_indices_set=include_indices_set
             )
             try:
                 await update.callback_query.message.edit_reply_markup(new_ikm)
@@ -235,7 +231,10 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
         else:
             # Filter to get indices of only null values
             include_indices = list(
-                answers_df[ud.conv_storage.day].isnull().reset_index().drop("index", axis=1)
+                answers_df[ud.conv_storage.day]
+                .isnull()
+                .reset_index()
+                .drop("index", axis=1)
                 .apply(lambda x: None if bool(x[0]) is False else 1, axis=1)
                 .dropna()
                 .index
@@ -257,17 +256,19 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
 
     await wrapped_send_text(
         send_text_func,
-        text="Questions list:\n`{}`\n"
-        .format('\n'.join(include_names)),
+        text="Questions list:\n`{}`\n".format("\n".join(include_names)),
         parse_mode=ParseMode.MARKDOWN,
     )
 
     first_question = ud.conv_storage.current_question(ud.db_cache.questions)
+
+    # fmt: off
     await send_ask_question(
         first_question,
         send_text_func,
         existing_answer=ud.cur_question_existing_answer()
     )
+    # fmt: on
 
     return ASK_QUESTION_ANSWER
 
@@ -341,9 +342,9 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
     q = ud.conv_storage.current_question(ud.db_cache.questions)
 
     await send_ask_question(
-        q,
-        update.message.reply_text,
-        existing_answer=ud.cur_question_existing_answer()
+        q=q,
+        send_text_func=update.message.reply_text,
+        existing_answer=ud.cur_question_existing_answer(),
     )
 
     return ASK_QUESTION_ANSWER
@@ -367,8 +368,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
             time = datetime.time.fromisoformat(text)
         except ValueError:
             await update.message.reply_text(
-                "Wrong time format, try again",
-                reply_markup=update.message.reply_markup
+                text="Wrong time format, try again", reply_markup=update.message.reply_markup
             )
             return ASK_EVENT_TIME
 
@@ -401,6 +401,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
 isoformat_regex = "^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
 day_choice_regex = f"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
 
+# fmt: off
 ask_conv_handler = ConversationHandler(
     name="Name",
     allow_reentry=True,
@@ -421,7 +422,6 @@ ask_conv_handler = ConversationHandler(
         ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
-    fallbacks=[
-        CommandHandler("stats", stats_command)
-    ],
+    fallbacks=[CommandHandler("stats", stats_command)],
 )
+# fmt: on
