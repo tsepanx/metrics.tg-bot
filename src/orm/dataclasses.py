@@ -31,10 +31,11 @@ class ForeignKeyRelation:
     to_column: str
 
     def __post_init__(self):
-        assert self.to_column in self.class_.__annotations__
+        assert self.to_column in self.class_.__slots__
 
 
-@dataclass(frozen=True)
+# slots=False to add availability for __setattr__ of new attribute
+@dataclass(frozen=True, slots=False)
 class Table:
     """
     TODO cache objects with the same parameterers

@@ -2,13 +2,17 @@ from dataclasses import dataclass
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
-    Table,
+    Table, ForeignKeyRelation,
 )
+from src.tables.tg_user import TgUserDB
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class EventDB(Table):
     pk: int
+
+    user_id: int  # ForeignKey: 'TgUserDB'
+
     name: str
     order_by: str
 
@@ -20,7 +24,10 @@ class EventDB(Table):
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
-    class Meta:
+    class Meta(Table.Meta):
+        foreign_keys = [
+            ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+        ]
         tablename = "event"
 
 

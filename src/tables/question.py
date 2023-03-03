@@ -11,9 +11,10 @@ from src.orm.dataclasses import (
     ForeignKeyRelation,
     Table,
 )
+from src.tables.tg_user import TgUserDB
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class QuestionTypeDB(Table):
     # id: int
     pk: int
@@ -30,6 +31,8 @@ class QuestionDB(Table):
 
     pk: int
 
+    user_id: int  # ForeignKey: 'TgUserDB'
+
     name: str
     fulltext: str
     # TODO: Rename to "choices_list"
@@ -40,8 +43,11 @@ class QuestionDB(Table):
 
     type_id: int  # ForeignKey : 'QuestionTypeDB'
 
-    class Meta:
-        foreign_keys = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
+    class Meta(Table.Meta):
+        foreign_keys = [
+            ForeignKeyRelation(QuestionTypeDB, "type_id", "pk"),
+            ForeignKeyRelation(TgUserDB, "user_id", "user_id"),
+        ]
         tablename = "question"
 
     def html_notation(self):

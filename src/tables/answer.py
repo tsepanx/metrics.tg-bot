@@ -12,6 +12,7 @@ from src.orm.dataclasses import (
 from src.tables.event import (
     EventDB,
 )
+from src.tables.lasting_event import LastingEventDB
 from src.tables.question import (
     QuestionDB,
 )
@@ -31,15 +32,19 @@ class AnswerType(MyEnum):
     # NAME = <ForeignKey object> in "answer" table
     QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
     EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
+    LASTING_EVENT = ForeignKeyRelation(LastingEventDB, "lasting_event_fk", "pk")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AnswerDB(Table):
     pk: int
 
     date: datetime.date
-    event_fk: int
-    question_fk: int
+
+    event_fk: int  # ForeignKey : 'EventDB'
+    question_fk: int  # ForeignKey : 'QuestionDB'
+    lasting_event_fk: int  # ForeignKey : 'LastingEventDB'
+
     time: datetime.time
     text: str
 
