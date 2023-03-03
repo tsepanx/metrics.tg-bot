@@ -14,6 +14,7 @@ from src.tables.event import (
 from src.tables.question import (
     QuestionDB,
 )
+from src.utils import get_today
 
 
 @dataclass
@@ -104,7 +105,7 @@ class UserDBCache:
         return df
 
     def events_answers_df(
-        self, for_day: datetime.date = datetime.date.today()
+        self, for_day: datetime.date = get_today()
     ) -> pd.DataFrame | None:
         """
         A table consists of only 1 column
@@ -113,9 +114,10 @@ class UserDBCache:
             <time>  | tuple(<event.name>, <answer_text>)
         """
 
-        event_answers = sorted(
-            filter(lambda x: x.event is not None, self.answers), key=lambda x: x.time
-        )
+        def filter_answers(a: AnswerDB) -> bool:
+            return a.event is not None and a.date == datetime.date.today()
+
+        event_answers = sorted(filter(filter_answers, self.answers), key=lambda x: x.time)
 
         row_list = list(map(lambda x: [x.time, (x.event.name, x.text)], event_answers))
 

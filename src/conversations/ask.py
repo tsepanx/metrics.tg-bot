@@ -48,7 +48,7 @@ from src.user_data import (
 )
 from src.utils import (
     MyException,
-    get_nth_delta_day,
+    get_nth_delta_day, get_today,
 )
 from src.utils_tg import (
     USER_DATA_KEY,
@@ -107,7 +107,7 @@ async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         if re.compile(isoformat_regex).match(text):
             day = datetime.date.fromisoformat(text)
         elif text == "Today":
-            day = datetime.date.today()
+            day = get_today()
         else:  # +1 / -1 / ...
             day = get_nth_delta_day(int(text))
     except Exception:

@@ -10,6 +10,12 @@ from PIL import (
     ImageFont,
 )
 
+DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
+
+
+def get_today() -> datetime.date:
+    return datetime.datetime.now(DEFAULT_TZ).date()
+
 
 class MyException(Exception):
     pass
@@ -25,7 +31,7 @@ def to_list(func):
 
 
 def get_nth_delta_day(n: int = 0) -> datetime.date:
-    date = datetime.date.today() + datetime.timedelta(days=n)
+    date = get_today() + datetime.timedelta(days=n)
     return date
 
 
