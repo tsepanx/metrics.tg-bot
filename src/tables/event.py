@@ -16,6 +16,8 @@ class EventDB(Table):
     name: str
     order_by: str
 
+    type: str
+
     @classmethod
     def select_all(cls):
         return cls.select(

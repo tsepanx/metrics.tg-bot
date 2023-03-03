@@ -63,7 +63,7 @@ ALTER TABLE answer ADD CONSTRAINT answer_is_time_for_event CHECK (
 -- ALTER TABLE event ADD COLUMN text_prefix_choices
 
 -- DROP TABLE food;
-CREATE TABLE event_prefix (
+CREATE TABLE event_text_prefix (
     pk SERIAL PRIMARY KEY,
 
     event_fk INTEGER
@@ -74,3 +74,6 @@ CREATE TABLE event_prefix (
         UNIQUE,
     order_by SERIAL
 );
+
+CREATE TYPE event_type AS ENUM ('Single', 'Durable');
+ALTER TABLE event ADD COLUMN "type" event_type;
