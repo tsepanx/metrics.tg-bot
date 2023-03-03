@@ -12,6 +12,7 @@ from src.tables.answer import (
     AnswerType,
 )
 from src.user_data import UserData
+from src.utils import get_now
 from src.utils_tg import (
     USER_DATA_KEY,
     handler_decorator,
@@ -32,6 +33,10 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update=update,
         ud=ud,
         answers_entity=AnswerType.EVENT,
+    )
+
+    await update.message.reply_text(
+        text=get_now().isoformat()
     )
 
 

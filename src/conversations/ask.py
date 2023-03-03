@@ -48,7 +48,7 @@ from src.user_data import (
 )
 from src.utils import (
     MyException,
-    get_nth_delta_day, get_today,
+    get_nth_delta_day, get_today, get_now,
 )
 from src.utils_tg import (
     USER_DATA_KEY,
@@ -356,7 +356,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
 
     if text == "Now":
-        time = datetime.datetime.now().time().replace(microsecond=0)
+        time = get_now().replace(microsecond=0)
     else:
         try:
             time = datetime.time.fromisoformat(text)

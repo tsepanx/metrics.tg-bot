@@ -54,7 +54,6 @@ class Table:
 
     def __post_init__(self):
         object.__setattr__(self, "_fk_values", {})
-        # object.__setattr__(self, "_back_fk_values", {})
 
     @classmethod
     def dataclass_dict_to_row_dict(cls, d: dict[str, ValueType]) -> dict[ColumnDC, ValueType]:
@@ -93,8 +92,6 @@ class Table:
         return self
 
     def set_fk_value(self, fkey: ForeignKeyRelation, obj: Tbl) -> None:
-        # question_type_type_id_pk
-
         self._fk_values[str(fkey)] = obj
 
     def get_fk_value(self, fkey: ForeignKeyRelation) -> Tbl | None:
@@ -158,7 +155,7 @@ class Table:
         }
 
         join_clauses: list[JoinByClauseDC] | None = []
-        if join_on_fkeys and cls.foreign_keys():  # hasattr(cls.Meta, "foreign_keys"):
+        if join_on_fkeys and cls.foreign_keys():
             for fk_dataclass in cls.foreign_keys():
                 # TODO Case: 2nd level of Foreign keys
                 "JOIN question_type qt ON q.type_id = qt.pk;"
@@ -245,8 +242,6 @@ class Table:
 
                 offset += columns_count
 
-            # objs_dict.append(primary_table_obj)
-
         return list(objs_dict.values())
 
     @classmethod
@@ -262,10 +257,6 @@ class Table:
         return cls.ForeignKeys.values_list()
 
     class Meta:
-        # foreign_keys: ClassVar[list[Union[BackForeignKeyRelation, ForeignKeyRelation]]] = None
-
-        # Foreign keys referencing to this table
-        # back_foreign_keys: ClassVar[list[BackForeignKeyRelation]] = None
         tablename: ClassVar[str] = None
 
     class ForeignKeys(MyEnum):

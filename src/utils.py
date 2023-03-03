@@ -13,8 +13,12 @@ from PIL import (
 DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
 
 
+def get_now() -> datetime.datetime:
+    return datetime.datetime.now(DEFAULT_TZ)
+
+
 def get_today() -> datetime.date:
-    return datetime.datetime.now(DEFAULT_TZ).date()
+    return get_now().date()
 
 
 class MyException(Exception):
