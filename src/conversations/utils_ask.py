@@ -121,7 +121,9 @@ async def send_entity_answers_df(
     else:
         raise Exception
 
-    if answers_df is not None:
+    if answers_df is None:
+        return await update.message.reply_text(f"No {answers_entity.name} records")
+    else:
         return await send_dataframe(
             update=update,
             df=answers_df,

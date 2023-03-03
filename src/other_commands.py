@@ -66,6 +66,10 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ("Time on server", cur_time),
         ("DB_LAST_RELOAD", format_dt(ud.db_cache.LAST_RELOAD_TIME)),
         ("DEBUG_SQL_OUTPUT", ud.DEBUG_SQL_OUTPUT),
+        ("", ""),
+        ("Questions count", len(ud.db_cache.questions)),
+        ("Events count", len(ud.db_cache.events)),
+        ("Answers entries", len(ud.db_cache.answers)),
     ]
 
     text_lines = [

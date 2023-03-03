@@ -81,7 +81,7 @@ class UserDBCache:
     def events_names(self) -> list[str]:
         return list(map(lambda x: x.name, self.events))
 
-    def questions_answers_df(self, include_empty_cols=False) -> pd.DataFrame:
+    def questions_answers_df(self, include_empty_cols=False) -> pd.DataFrame | None:
         index = self.questions_names()
 
         df = pd.DataFrame(index=index)
@@ -98,6 +98,9 @@ class UserDBCache:
 
                 answer_text = answer.text
                 day_answers_mapping[answer.date].append((answer.question.name, answer_text))
+
+        if not day_answers_mapping:
+            return None
 
         for day in day_answers_mapping:
             qnames_and_texts = day_answers_mapping[day]
