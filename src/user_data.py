@@ -127,6 +127,7 @@ class UserDBCache:
             if res:
                 print(a.event.name, a.time, res)
                 return res
+            print("False")
             return False
 
         event_answers = sorted(filter(filter_answers, self.answers), key=lambda x: x.time)
