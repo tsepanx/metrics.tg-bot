@@ -139,34 +139,5 @@ async def exit_command(update: Update, _):
     asyncio.get_event_loop().stop()
 
 
-@handler_decorator
-async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data: UserData = context.chat_data[USER_DATA_KEY]  # type: ignore
-
-    query = update.callback_query
-    assert query is not None
-
-    await query.answer()
-
-    if query.data.startswith("transpose"):
-        # answers_type: AnswerType | None = None
-        if query.data == build_transpose_callback_data(AnswerType.QUESTION):
-            answers_type = AnswerType.QUESTION
-        elif query.data == build_transpose_callback_data(AnswerType.EVENT):
-            answers_type = AnswerType.EVENT
-        else:
-            raise Exception(f"Wrong callback data: {query.data}")
-
-        await send_entity_answers_df(
-            update,
-            user_data=user_data,
-            answers_entity=answers_type,
-            send_csv=False,
-            send_img=True,
-            send_text=False,
-            transpose_table=True,
-            with_question_indices=False,
-        )
-
 
 

@@ -1,9 +1,9 @@
 import logging
 
-from telegram.ext import PicklePersistence, ApplicationBuilder, CommandHandler
+from telegram.ext import PicklePersistence, ApplicationBuilder, CommandHandler, CallbackQueryHandler
 
 from src.conversations.ask import ask_conv_handler
-from src.other_commands import post_init, stats_command
+from src.other_commands import post_init, stats_command, on_callback_query
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -26,4 +26,5 @@ if __name__ == "__main__":
 
     app.add_handler(ask_conv_handler)
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CallbackQueryHandler(on_callback_query))
     app.run_polling()

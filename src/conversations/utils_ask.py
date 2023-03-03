@@ -88,15 +88,15 @@ def build_transpose_callback_data(answer_type: AnswerType) -> str:
     return f"transpose {answer_type.name}"
 
 
-async def send_entity_answers_df(update: Update, user_data: UserData, answers_entity: AnswerType, **kwargs):
+async def send_entity_answers_df(update: Update, ud: UserData, answers_entity: AnswerType, **kwargs):
     file_name = f"{answers_entity.name.lower()}s.csv"
 
     if answers_entity is AnswerType.QUESTION:
         transpose_callback_data = build_transpose_callback_data(answers_entity)
-        answers_df = user_data.db_cache.questions_answers_df()
+        answers_df = ud.db_cache.questions_answers_df()
     elif answers_entity is AnswerType.EVENT:
         transpose_callback_data = None
-        answers_df = user_data.db_cache.events_answers_df()
+        answers_df = ud.db_cache.events_answers_df()
     else:
         raise Exception
 
@@ -224,7 +224,7 @@ async def on_end_asking_questions(
 
     await send_entity_answers_df(
         update=update,
-        user_data=ud,
+        ud=ud,
         answers_entity=AnswerType.QUESTION,
         send_csv=True
     )
@@ -265,7 +265,7 @@ async def on_end_asking_event(
 
     await send_entity_answers_df(
         update=update,
-        user_data=ud,
+        ud=ud,
         answers_entity=AnswerType.EVENT,
         send_csv=True
     )
