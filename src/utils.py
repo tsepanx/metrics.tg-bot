@@ -4,17 +4,19 @@ import functools
 from io import BytesIO
 from typing import Any, Type
 
+import pytz
 from PIL import (
     Image,
     ImageDraw,
     ImageFont,
 )
 
-DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
+# DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
+DEFAULT_TZ = pytz.timezone('Europe/Moscow')
 
 
 def get_now() -> datetime.datetime:
-    return datetime.datetime.now(DEFAULT_TZ)
+    return datetime.datetime.now(DEFAULT_TZ).replace(tzinfo=None)
 
 
 def get_today() -> datetime.date:
