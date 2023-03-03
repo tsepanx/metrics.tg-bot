@@ -36,7 +36,9 @@ def get_questions_select_keyboard(
             InlineKeyboardButton("All", callback_data="all"),
             InlineKeyboardButton("Unanswered", callback_data="unanswered"),
             InlineKeyboardButton("Clear", callback_data="clear"),
-            InlineKeyboardButton("OK", callback_data="end_choosing"),
+            InlineKeyboardButton(
+                f"{'✅ ' if include_indices else ''}OK", callback_data="end_choosing"
+            ),
         ],
     ]
 
@@ -55,10 +57,7 @@ def get_questions_select_keyboard(
 
 
 USER_DATA_KEY = "user_data"
-CHAT_DATA_KEYS_DEFAULTS = {
-    # 'state': State(None),
-    USER_DATA_KEY: UserData
-}
+CHAT_DATA_KEYS_DEFAULTS = {USER_DATA_KEY: UserData}
 RELOAD_DB_CACHE = False
 MAX_MSG_LEN = 4096
 

@@ -11,9 +11,12 @@ from src.orm.dataclasses import (
     ForeignKeyRelation,
     Table,
 )
+from src.tables.tg_user import (
+    TgUserDB,
+)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class QuestionTypeDB(Table):
     # id: int
     pk: int
@@ -24,25 +27,23 @@ class QuestionTypeDB(Table):
         tablename = "question_type"
 
 
-@dataclass(frozen=True, repr=True, slots=True, unsafe_hash=True, match_args=True, kw_only=True)
+@dataclass(frozen=True, slots=True)
 class QuestionDB(Table):
     # pylint: disable=too-many-instance-attributes
 
     pk: int
 
+    user_id: int  # ForeignKey: 'TgUserDB'
+
     name: str
     fulltext: str
     # TODO: Rename to "choices_list"
-    suggested_answers_list: list[str]
+    choices_list: tuple[str]
 
     is_activated: bool
     order_by: int
 
     type_id: int  # ForeignKey : 'QuestionTypeDB'
-
-    class Meta:
-        foreign_keys = [ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")]
-        tablename = "question"
 
     def html_notation(self):
         return f"<code>{self.question_type.notation_str}</code> {self.fulltext if self.fulltext else self.name}"
@@ -51,13 +52,16 @@ class QuestionDB(Table):
     def select_all(cls):
         return cls.select(
             join_on_fkeys=True,
-            where_clauses={ColumnDC(column_name="is_activated"): True},
+            where_clauses={
+                ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True
+            },
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
     @property
     def question_type(self) -> QuestionTypeDB | None:
-        return self.get_fk_value("type_id")
+        # return self.get_fk_value("type_id")
+        return self.get_fk_value(self.ForeignKeys.TYPE_ID.value)
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
@@ -77,7 +81,7 @@ class QuestionDB(Table):
                 return datetime.time(hour=hrs, minute=mins)
 
         def choice(value: str) -> str:
-            if value not in self.suggested_answers_list:
+            if value not in self.choices_list:
                 raise Exception
             return value
 
@@ -92,10 +96,16 @@ class QuestionDB(Table):
 
         return qtype_answer_func_mapping[self.type_id]
 
+    class Meta(Table.Meta):
+        # foreign_keys = QuestionFKs.values_list()
+        tablename = "question"
+
+    class ForeignKeys(Table.ForeignKeys):
+        TYPE_ID = ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
+        USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+
 
 if __name__ == "__main__":
-    # get_questions_with_type_fk(["walking", "x_small", "x_big"])
-
     rows = QuestionDB.select(
         join_on_fkeys=True,
         where_clauses={ColumnDC(column_name="is_activated"): True},
@@ -105,7 +115,7 @@ if __name__ == "__main__":
     for i in rows:
         pprint.pprint(i)
 
-        fk_obj = i.get_fk_value("type_id")
+        fk_obj = i.get_fk_value(QuestionDB.ForeignKeys.TYPE_ID.value)
         print(i.type_id, fk_obj.pk)
 
         assert i.type_id == fk_obj.pk

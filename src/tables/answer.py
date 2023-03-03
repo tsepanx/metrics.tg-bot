@@ -1,8 +1,6 @@
 import datetime
-import enum
 import pprint
 from dataclasses import dataclass
-from typing import Type
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
@@ -17,39 +15,28 @@ from src.tables.question import (
 )
 
 
-class MyEnum(enum.Enum):
-    @classmethod
-    def values_list(cls):
-        return list(map(lambda x: x.value, cls.__members__.values()))
-
-    @classmethod
-    def enum_by_name(cls, name: str) -> Type["MyEnum"] | None:
-        return cls.__members__.get(name)
-
-
-class AnswerType(MyEnum):
-    # NAME = <ForeignKey object> in "answer" table
-    QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
-    EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
-
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AnswerDB(Table):
     pk: int
 
     date: datetime.date
-    event_fk: int
-    question_fk: int
+
+    event_fk: int  # ForeignKey : 'EventDB'
+    question_fk: int  # ForeignKey : 'QuestionDB'
+    # lasting_event_fk: int  # ForeignKey : 'LastingEventDB'
+
     time: datetime.time
     text: str
 
     @property
     def question(self) -> QuestionDB | None:
-        return self.get_fk_value("question_fk")
+        # return self.get_fk_value("question_fk")
+        return self.get_fk_value(AnswerType.QUESTION.value)
 
     @property
     def event(self) -> EventDB | None:
-        return self.get_fk_value("event_fk")
+        # return self.get_fk_value("event_fk")
+        return self.get_fk_value(AnswerType.EVENT.value)
 
     @classmethod
     def select_all(cls):
@@ -62,9 +49,16 @@ class AnswerDB(Table):
             ],
         )
 
-    class Meta:
-        foreign_keys = AnswerType.values_list()
+    class Meta(Table.Meta):
+        # foreign_keys = AnswerType.values_list()
         tablename = "answer"
+
+    class ForeignKeys(Table.ForeignKeys):
+        QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
+        EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
+
+
+AnswerType = AnswerDB.ForeignKeys
 
 
 if __name__ == "__main__":
@@ -75,4 +69,4 @@ if __name__ == "__main__":
 
     pprint.pprint(answers)
     for answer in answers:
-        assert answer.get_fk_value("question_fk").pk == answer.question_fk
+        assert answer.get_fk_value(AnswerType.QUESTION.value).pk == answer.question_fk

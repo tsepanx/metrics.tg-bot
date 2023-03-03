@@ -163,11 +163,13 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
 
     assert update.message.text == "Event"
 
-    events_names: list[str] = ud.db_cache.events_names()
+    # events_names: list[str] = ud.db_cache.events_names()
+    events = ud.db_cache.events
 
     buttons_column = []
-    for i, name in enumerate(events_names):
-        buttons_column.append(InlineKeyboardButton(name, callback_data=i))
+    for i, event in enumerate(events):
+        text = event.name
+        buttons_column.append(InlineKeyboardButton(text, callback_data=i))
 
     reply_markup = InlineKeyboardMarkup.from_column(buttons_column)
 
@@ -306,12 +308,6 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
     assert update.message is not None
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
-    # state = ud.state
-
-    # assert isinstance(state, QuestionsAskingState)
-    # assert state.include_questions is not None
-
-    # q: QuestionDB = state.get_current_question()
     q: QuestionDB = ud.conv_storage.current_question(ud.db_cache.questions)
 
     answer_text = update.message.text
@@ -372,6 +368,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 
     ud.conv_storage.event_time = time
     # TODO reflect changes of Dataclass by class.values -> then .save(), instead of manually updating DB
+
     await send_ask_event_text(event, update.message.reply_text)
     return ASK_EVENT_TEXT
 

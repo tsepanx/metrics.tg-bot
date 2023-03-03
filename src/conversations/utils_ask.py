@@ -46,7 +46,7 @@ SKIP_QUEST = "Skip question"
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
-    buttons = [list(map(str, q.suggested_answers_list)), [SKIP_QUEST, STOP_ASKING]]
+    buttons = [list(map(str, q.choices_list)), [SKIP_QUEST, STOP_ASKING]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         buttons, one_time_keyboard=True, resize_keyboard=True
@@ -68,9 +68,7 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
     buttons = [["Now"]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
-        buttons,
-        one_time_keyboard=True,
-        # resize_keyboard=True
+        buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
     text = f"Event: {e.name}\nwrite time (f.e. 05:04)"
@@ -84,13 +82,18 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
 
 
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
-    buttons = [["Sample text"], ["None"]]
+    text = f"Event: {e.name}\nwrite text value (optionally)"
+
+    buttons = []
+
+    if e.type == "Durable":
+        buttons.append(["start", "end"])
+
+    buttons.append(["None"])
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
     )
-
-    text = f"Event: {e.name}\nwrite text (optionally)"
 
     await wrapped_send_text(
         send_message_func=send_text_func,
@@ -118,13 +121,14 @@ async def send_entity_answers_df(
     else:
         raise Exception
 
-    return await send_dataframe(
-        update=update,
-        df=answers_df,
-        transpose_button_callback_data=transpose_callback_data,
-        file_name=file_name,
-        **kwargs,
-    )
+    if answers_df is not None:
+        return await send_dataframe(
+            update=update,
+            df=answers_df,
+            transpose_button_callback_data=transpose_callback_data,
+            file_name=file_name,
+            **kwargs,
+        )
 
 
 async def send_dataframe(
