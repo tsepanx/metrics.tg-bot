@@ -382,7 +382,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
     assert update.message is not None
     text = update.message.text
 
-    if text != "None":
+    if text == "None":
         ud.conv_storage.event_text = None
     else:
         ud.conv_storage.event_text = text

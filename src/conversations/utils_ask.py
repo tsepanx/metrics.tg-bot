@@ -84,7 +84,13 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
     text = f"Event: {e.name}\nwrite text value (optionally)"
 
-    buttons = [["None"]]
+    buttons = []
+
+    if e.type == "Durable":
+        buttons.append(["start", "end"])
+
+    buttons.append(["None"])
+
     reply_markup = telegram.ReplyKeyboardMarkup(
         keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
     )
