@@ -16,7 +16,9 @@ from src.orm.base import (
     JoinByClauseDC,
     JoinTypes,
     TableName,
-    ValueType, _update_row, _insert_row,
+    ValueType,
+    _insert_row,
+    _update_row,
 )
 
 Tbl = TypeVar("Tbl", "Table", dataclass)

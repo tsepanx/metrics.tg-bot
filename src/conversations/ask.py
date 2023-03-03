@@ -10,27 +10,53 @@ from telegram import (
     ReplyKeyboardMarkup,
     Update,
 )
-from telegram.constants import ParseMode
+from telegram.constants import (
+    ParseMode,
+)
 from telegram.ext import (
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
     MessageHandler,
-    CallbackQueryHandler,
-    filters, )
+    filters,
+)
 
-from src.conversations.utils_ask import on_end_asking_questions, send_ask_question, send_ask_event_time, \
-    send_ask_event_text, \
-    on_end_asking_event, STOP_ASKING, SKIP_QUEST
-from src.other_commands import stats_command
-from src.tables.event import EventDB
-from src.tables.question import QuestionDB
-from src.user_data import UserData, ASKConversationStorage, ASKQuestionsConvStorage, ASKEventConvStorage
+from src.conversations.utils_ask import (
+    SKIP_QUEST,
+    STOP_ASKING,
+    on_end_asking_event,
+    on_end_asking_questions,
+    send_ask_event_text,
+    send_ask_event_time,
+    send_ask_question,
+)
+from src.other_commands import (
+    stats_command,
+)
+from src.tables.event import (
+    EventDB,
+)
+from src.tables.question import (
+    QuestionDB,
+)
+from src.user_data import (
+    ASKConversationStorage,
+    ASKEventConvStorage,
+    ASKQuestionsConvStorage,
+    UserData,
+)
 from src.utils import (
+    MyException,
     get_nth_delta_day,
-    MyException, )
-from src.utils_tg import get_questions_select_keyboard, match_question_choice_callback_data, USER_DATA_KEY, \
-    wrapped_send_text, handler_decorator
+)
+from src.utils_tg import (
+    USER_DATA_KEY,
+    get_questions_select_keyboard,
+    handler_decorator,
+    match_question_choice_callback_data,
+    wrapped_send_text,
+)
 
 logger = logging.getLogger(__name__)
 

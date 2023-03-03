@@ -1,10 +1,21 @@
 from telegram import Update
-from telegram.ext import ContextTypes, Application
+from telegram.ext import (
+    Application,
+    ContextTypes,
+)
 
-from src.tables.answer import AnswerType
+from src.conversations.utils_ask import (
+    build_transpose_callback_data,
+    send_entity_answers_df,
+)
+from src.tables.answer import (
+    AnswerType,
+)
 from src.user_data import UserData
-from src.utils_tg import USER_DATA_KEY, handler_decorator
-from src.conversations.utils_ask import send_entity_answers_df, build_transpose_callback_data
+from src.utils_tg import (
+    USER_DATA_KEY,
+    handler_decorator,
+)
 
 
 @handler_decorator

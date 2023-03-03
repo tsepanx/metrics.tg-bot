@@ -1,9 +1,20 @@
 import logging
 
-from telegram.ext import PicklePersistence, ApplicationBuilder, CommandHandler, CallbackQueryHandler
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    PicklePersistence,
+)
 
-from src.conversations.ask import ask_conv_handler
-from src.other_commands import post_init, stats_command, on_callback_query
+from src.conversations.ask import (
+    ask_conv_handler,
+)
+from src.other_commands import (
+    on_callback_query,
+    post_init,
+    stats_command,
+)
 
 if __name__ == "__main__":
     logging.basicConfig(

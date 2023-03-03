@@ -3,7 +3,9 @@ import datetime
 import numpy as np
 import pandas as pd
 
-from src.tables.question import QuestionDB
+from src.tables.question import (
+    QuestionDB,
+)
 
 
 def df_to_markdown(df: pd.DataFrame, transpose=False):

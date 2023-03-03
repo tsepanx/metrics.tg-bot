@@ -3,11 +3,21 @@ import traceback
 from functools import wraps
 from typing import Tuple
 
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
-from telegram.constants import ParseMode
-from telegram.ext import ContextTypes
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update,
+)
+from telegram.constants import (
+    ParseMode,
+)
+from telegram.ext import (
+    ContextTypes,
+)
 
-from src.tables.question import QuestionDB
+from src.tables.question import (
+    QuestionDB,
+)
 from src.user_data import UserData
 from src.utils import MyException
 

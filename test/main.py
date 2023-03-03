@@ -1,9 +1,7 @@
 import asyncio
 import dataclasses
 import datetime
-from typing import (
-    Sequence,
-)
+from typing import Sequence
 
 from telegram import Update
 from telegram.constants import (
@@ -16,22 +14,28 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
-    filters, PicklePersistence,
+    PicklePersistence,
+    filters,
 )
 
-from src.conversations.utils_ask import build_transpose_callback_data, send_entity_answers_df, send_ask_question
+from src.conversations.utils_ask import (
+    build_transpose_callback_data,
+    send_ask_question,
+    send_entity_answers_df,
+)
 from src.tables.answer import (
     AnswerType,
 )
-from src.user_data import (
-    UserData,
-)
+from src.user_data import UserData
 from src.utils import (
     ASK_WRONG_FORMAT,
     get_nth_delta_day,
 )
-from src.utils_tg import USER_DATA_KEY, wrapped_send_text, handler_decorator
-
+from src.utils_tg import (
+    USER_DATA_KEY,
+    handler_decorator,
+    wrapped_send_text,
+)
 
 # pylint: disable=too-many-arguments, too-many-locals
 

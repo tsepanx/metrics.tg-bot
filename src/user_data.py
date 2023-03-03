@@ -5,7 +5,8 @@ from dataclasses import dataclass
 import pandas as pd
 
 from src.tables.answer import (
-    AnswerDB, AnswerType,
+    AnswerDB,
+    AnswerType,
 )
 from src.tables.event import (
     EventDB,

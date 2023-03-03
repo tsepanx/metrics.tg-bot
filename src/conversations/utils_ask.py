@@ -6,17 +6,40 @@ from typing import Callable
 import pandas as pd
 import telegram
 from telegram import Update
-from telegram.constants import ParseMode
+from telegram.constants import (
+    ParseMode,
+)
 
-from src.orm.base import update_or_insert_row, ColumnDC, ValueType, _insert_row
-from src.tables.answer import AnswerType
-from src.tables.event import EventDB
-from src.tables.question import QuestionDB
-from src.user_data import UserData, ASKQuestionsConvStorage, ASKEventConvStorage
-from src.utils import data_to_bytesio, text_to_png
-from src.utils_pd import df_to_markdown
-from src.utils_tg import wrapped_send_text
-
+from src.orm.base import (
+    ColumnDC,
+    ValueType,
+    _insert_row,
+    update_or_insert_row,
+)
+from src.tables.answer import (
+    AnswerType,
+)
+from src.tables.event import (
+    EventDB,
+)
+from src.tables.question import (
+    QuestionDB,
+)
+from src.user_data import (
+    ASKEventConvStorage,
+    ASKQuestionsConvStorage,
+    UserData,
+)
+from src.utils import (
+    data_to_bytesio,
+    text_to_png,
+)
+from src.utils_pd import (
+    df_to_markdown,
+)
+from src.utils_tg import (
+    wrapped_send_text,
+)
 
 STOP_ASKING = "Stop asking"
 SKIP_QUEST = "Skip question"
