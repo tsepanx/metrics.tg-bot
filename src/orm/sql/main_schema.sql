@@ -36,7 +36,7 @@ CREATE TABLE question(
     order_by SERIAL,
     fulltext TEXT
         DEFAULT '',
-    suggested_answers_list VARCHAR(50)[],
+    choices_list VARCHAR(50)[],
     type_id INTEGER
         DEFAULT 1
         NOT NULL
@@ -59,7 +59,8 @@ CREATE TABLE event(
         REFERENCES tg_user,
 
     name VARCHAR(50) UNIQUE,
-    "type" event_type,
+    "type" event_type
+        DEFAULT 'Single',
     is_activated BOOLEAN
         NOT NULL DEFAULT True,
 
@@ -67,18 +68,19 @@ CREATE TABLE event(
 );
 
 
-CREATE TABLE event_text_prefix (
-    pk SERIAL PRIMARY KEY,
-
-    event_fk INTEGER
-        REFERENCES event(pk),
-
-    name VARCHAR(50)
-        NOT NULL
-        UNIQUE,
-    order_by SERIAL,
-    is_activated BOOLEAN DEFAULT True
-);
+-- DROP TABLE event_text_prefix;
+-- CREATE TABLE event_text_prefix (
+--     pk SERIAL PRIMARY KEY,
+--
+--     event_fk INTEGER
+--         REFERENCES event(pk),
+--
+--     name VARCHAR(50)
+--         NOT NULL
+--         UNIQUE,
+--     order_by SERIAL,
+--     is_activated BOOLEAN DEFAULT True
+-- );
 
 -- DROP TABLE IF EXISTS answer;
 CREATE TABLE answer (
@@ -111,7 +113,3 @@ CREATE TABLE answer (
         = 1
     )
 );
-
-
-SELECT * FROM event
-    LEFT JOIN event_text_prefix etp on event.pk = etp.event_fk;

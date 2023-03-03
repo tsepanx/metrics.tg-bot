@@ -127,7 +127,7 @@ class Table:
             columns_list: list[ColumnDC],
             values_list: list[ValueType],
         ) -> Tbl:
-            value_apply = lambda x: tuple(x) if isinstance(x, list) else x
+            value_apply = lambda x: tuple(x) if isinstance(x, list) else x  # noqa: E731
 
             return class_to_create(
                 **{

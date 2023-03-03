@@ -22,9 +22,6 @@ from src.tables.answer import (
 from src.tables.event import (
     EventDB,
 )
-from src.tables.event_text_prefix import (
-    EventPrefixDB,
-)
 from src.tables.question import (
     QuestionDB,
 )
@@ -49,7 +46,7 @@ SKIP_QUEST = "Skip question"
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
-    buttons = [list(map(str, q.suggested_answers_list)), [SKIP_QUEST, STOP_ASKING]]
+    buttons = [list(map(str, q.choices_list)), [SKIP_QUEST, STOP_ASKING]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         buttons, one_time_keyboard=True, resize_keyboard=True
@@ -79,27 +76,6 @@ async def send_ask_event_time(e: EventDB, send_text_func: Callable):
     await wrapped_send_text(
         send_message_func=send_text_func,
         text=text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-async def send_ask_event_prefix(e: EventDB, send_text_func: Callable):
-    if e.type == "Durable":
-        text_choices = ["start", "end"]
-    else:
-        text_choices = list(map(lambda x: x.name, e.prefixes_list))
-
-    text_choices = [[i] for i in text_choices]
-    buttons = [*text_choices, ["None"]]
-
-    reply_markup = telegram.ReplyKeyboardMarkup(
-        keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
-    )
-
-    await wrapped_send_text(
-        send_message_func=send_text_func,
-        text=f"Select [optional] prefix",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML,
     )

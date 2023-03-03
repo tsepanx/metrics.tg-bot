@@ -77,3 +77,5 @@ CREATE TABLE event_text_prefix (
 
 CREATE TYPE event_type AS ENUM ('Single', 'Durable');
 ALTER TABLE event ADD COLUMN "type" event_type;
+
+ALTER TABLE question RENAME COLUMN suggested_answers_list TO choices_list;

@@ -27,7 +27,6 @@ from src.conversations.utils_ask import (
     STOP_ASKING,
     on_end_asking_event,
     on_end_asking_questions,
-    send_ask_event_prefix,
     send_ask_event_text,
     send_ask_event_time,
     send_ask_question,
@@ -171,9 +170,6 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
     buttons_column = []
     for i, event in enumerate(events):
         text = event.name
-        if event.prefixes_list:
-            text = f"[{len(event.prefixes_list)}] {text}"
-
         buttons_column.append(InlineKeyboardButton(text, callback_data=i))
 
     reply_markup = InlineKeyboardMarkup.from_column(buttons_column)
@@ -380,19 +376,8 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     ud.conv_storage.event_time = time
     # TODO reflect changes of Dataclass by class.values -> then .save(), instead of manually updating DB
 
-    await send_ask_event_prefix(event, update.message.reply_text)
-    return ASK_EVENT_PREFIX
-
-
-@handler_decorator
-async def on_event_prefix_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    ud: UserData = context.chat_data[USER_DATA_KEY]
-    assert isinstance(ud.conv_storage, ASKEventConvStorage)
-
-    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
-
-    ud.conv_storage.event_text = update.message.text
-
+    # await send_ask_event_prefix(event, update.message.reply_text)
+    # return ASK_EVENT_PREFIX
     await send_ask_event_text(event, update.message.reply_text)
     return ASK_EVENT_TEXT
 
@@ -407,7 +392,9 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
     text = update.message.text
 
     if text != "None":
-        ud.conv_storage.event_text += " " + text
+        ud.conv_storage.event_text = None
+    else:
+        ud.conv_storage.event_text = text
 
     await on_end_asking_event(ud, update)
     return ConversationHandler.END
@@ -437,7 +424,7 @@ ask_conv_handler = ConversationHandler(
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
         ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT, on_question_answered)],
         ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
-        ASK_EVENT_PREFIX: [MessageHandler(filters.TEXT, on_event_prefix_answered)],
+        # ASK_EVENT_PREFIX: [MessageHandler(filters.TEXT, on_event_prefix_answered)],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
     fallbacks=[CommandHandler("stats", stats_command)],

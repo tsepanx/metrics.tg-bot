@@ -1,4 +1,3 @@
-import dataclasses
 import datetime
 import pprint
 from dataclasses import dataclass
@@ -45,7 +44,7 @@ class QuestionDB(Table):
     name: str
     fulltext: str
     # TODO: Rename to "choices_list"
-    suggested_answers_list: tuple[str]
+    choices_list: tuple[str]
 
     is_activated: bool
     order_by: int
@@ -92,7 +91,7 @@ class QuestionDB(Table):
                 return datetime.time(hour=hrs, minute=mins)
 
         def choice(value: str) -> str:
-            if value not in self.suggested_answers_list:
+            if value not in self.choices_list:
                 raise Exception
             return value
 
