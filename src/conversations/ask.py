@@ -359,7 +359,6 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 
     if text == "Now":
         time = get_now().replace(microsecond=0)
-        print(time)
     else:
         try:
             time = datetime.time.fromisoformat(text)
