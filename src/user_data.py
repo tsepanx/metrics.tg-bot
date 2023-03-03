@@ -16,13 +16,18 @@ from src.tables.question import (
 
 
 @dataclass
-class ConversationStorage:
+class ConversationsStorage:
+    pass
+
+
+@dataclass
+class ASKConversationStorage(ConversationsStorage):
     day: datetime.date | None = None
     entity_type: AnswerType | None = None
 
 
 @dataclass
-class QuestionsConversationStorage(ConversationStorage):
+class ASKQuestionsConvStorage(ASKConversationStorage):
     entity_type = AnswerType.QUESTION
     include_indices: list[int] = dataclasses.field(default_factory=list)
 
@@ -38,7 +43,7 @@ class QuestionsConversationStorage(ConversationStorage):
 
 
 @dataclass
-class EventConversationStorage(ConversationStorage):
+class ASKEventConvStorage(ASKConversationStorage):
     entity_type = AnswerType.QUESTION
 
     chosen_event_index: int | None = None
@@ -134,15 +139,15 @@ class UserDBCache:
 
 
 class UserData:
-    conv_storage: ConversationStorage
+    conv_storage: ASKConversationStorage
     db_cache: UserDBCache
 
     def __init__(self):
-        self.conv_storage = ConversationStorage()
+        self.conv_storage = ASKConversationStorage()
         self.db_cache = UserDBCache()
 
     def cur_question_existing_answer(self) -> str | None:
-        assert isinstance(self.conv_storage, QuestionsConversationStorage)
+        assert isinstance(self.conv_storage, ASKQuestionsConvStorage)
 
         day = self.conv_storage.day
         question_name = self.conv_storage.current_question(self.db_cache.questions).name

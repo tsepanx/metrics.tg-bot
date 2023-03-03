@@ -1,51 +1,17 @@
 import datetime
 import functools
-import traceback
-from functools import wraps
 from io import BytesIO
-from typing import Any, Tuple
+from typing import Any
 
-import numpy as np
-import pandas as pd
 from PIL import (
     Image,
     ImageDraw,
     ImageFont,
 )
-from telegram import Update
-from telegram.constants import (
-    ParseMode,
-)
-from telegram.ext import (
-    ContextTypes,
-)
-
-from src.tables.question import (
-    QuestionDB,
-)
-from src.user_data import UserData
-
-USER_DATA_KEY = "user_data"
-CHAT_DATA_KEYS_DEFAULTS = {
-    # 'state': State(None),
-    USER_DATA_KEY: UserData
-}
-
-# Flag indicates whether to reload pythonic data in UserDBCache from db
-RELOAD_DB_CACHE = False
 
 
 class MyException(Exception):
     pass
-
-
-def answers_df_backup_fname(chat_id: int) -> str:
-    return f"answers_df_backups/{chat_id}.csv"
-
-
-STOP_ASKING = "Stop asking"
-SKIP_QUEST = "Skip question"
-MAX_MSG_LEN = 4096
 
 
 def to_list(func):
@@ -57,153 +23,9 @@ def to_list(func):
     return wrapper
 
 
-def sort_answers_df_cols(df: pd.DataFrame) -> pd.DataFrame:
-    columns_order = sorted(df.columns, key=lambda x: f"_{x}" if not isinstance(x, datetime.date) else x.isoformat())
-    df = df.reindex(columns_order, axis=1)
-    return df
-
-
-def add_questions_sequence_num_as_col(df: pd.DataFrame, questions: list[QuestionDB]):
-    """
-    Generate
-    Prettify table look by adding questions ids to index
-
-    Assumes given @df has "questions names" as index
-    """
-    sequential_numbers = []
-
-    for index_i in df.index:
-        for i, question in enumerate(questions):
-            if question.name == index_i:
-                # s = str(i)
-                sequential_numbers.append(i)
-                break
-
-    # Setting new index column
-    # df = df.reset_index()
-    # df = df.drop('index', axis=1)
-
-    # new_index_name = 'i  | name'
-
-    # df.insert(0, new_index_name, indices)
-    # df = df.set_index(new_index_name)
-
-    df = df.copy()
-    # noinspection PyTypeChecker
-    df.insert(0, "i", sequential_numbers)
-
-    return df
-
-
-def merge_to_existing_column(old_col: pd.Series, new_col: pd.Series) -> pd.Series:
-    """
-    Merge two pd.Series objects (with same length), replacing value with new, when possible
-    """
-    index = old_col.index.union(new_col.index)
-    res_col = pd.Series(index=index).astype(object)
-
-    for i_str in index:
-        old_val = old_col.get(i_str, None)
-        new_val = new_col.get(i_str, None)
-
-        res_val = old_val if pd.isnull(new_val) else new_val
-        res_col[i_str] = res_val
-
-    return res_col
-
-
-def get_divided_long_message(text, max_size) -> Tuple[str, str]:
-    """
-    Cuts long message text with \n separator
-
-    @param text: str - given text
-    @param max_size: int - single text message max size
-
-    return: text part from start, and the rest of text
-    """
-    subtext = text[:max_size]
-    border = subtext.rfind("\n")
-
-    subtext = subtext[:border]
-    text = text[border:]
-
-    return subtext, text
-
-
-async def wrapped_send_text(send_message_func, text: str, *args, **kwargs):
-    if len(text) > MAX_MSG_LEN:
-        lpart, rpart = get_divided_long_message(text, MAX_MSG_LEN)
-
-        await send_message_func(*args, text=lpart, **kwargs)
-        await wrapped_send_text(send_message_func, rpart, *args, **kwargs)
-    else:
-        await send_message_func(*args, text=text, **kwargs)
-
-
-def handler_decorator(func):
-    """
-    Wrapper over each handler
-    @param func: handler func
-    """
-
-    @wraps(func)
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
-        global RELOAD_DB_CACHE
-
-        assert context.chat_data is not None
-
-        # pylint: disable=consider-using-dict-items
-        for KEY in CHAT_DATA_KEYS_DEFAULTS:
-            if KEY not in context.chat_data or context.chat_data[KEY] is None:
-                context.chat_data[KEY] = CHAT_DATA_KEYS_DEFAULTS[KEY]()
-
-        ud: UserData = context.chat_data[USER_DATA_KEY]
-
-        if RELOAD_DB_CACHE:
-            print("DB Cache: RELOADING FROM DB")
-            ud.db_cache.reload_all()
-            RELOAD_DB_CACHE = False
-
-        try:
-            result = await func(update, context, *args, **kwargs)
-            return result
-        except MyException as e:
-            await wrapped_send_text(update.effective_chat.send_message, text=str(e), parse_mode=ParseMode.MARKDOWN)
-        except Exception:
-            await wrapped_send_text(update.effective_chat.send_message, text=traceback.format_exc())
-
-    return wrapper
-
-
 def get_nth_delta_day(n: int = 0) -> datetime.date:
     date = datetime.date.today() + datetime.timedelta(days=n)
     return date
-
-
-def df_to_markdown(df: pd.DataFrame, transpose=False):
-    if transpose:
-        df = df.T
-
-    # Replace None with np.nan for consistency
-    df = df.fillna(value=np.nan)
-
-    text = df.to_markdown(
-        tablefmt="rounded_grid",
-        numalign="left",
-        stralign="left",
-    )
-    text = text.replace(" nan ", " --- ")
-
-    text = text.replace("00:00:00", "0       ")
-    text = text.replace(":00:00", ":0c0   ")
-    text = text.replace(":00", "   ")
-    text = text.replace(":0c0", ":00")
-
-    # 00:00:00 -> 0
-    # 06:00:00 -> 06:00
-    # 12:34:00 -> 12:34
-
-    return text
 
 
 def text_to_png(text: str, bold=True):

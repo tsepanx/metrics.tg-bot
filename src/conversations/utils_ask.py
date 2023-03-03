@@ -12,8 +12,14 @@ from src.orm.base import update_or_insert_row, ColumnDC, ValueType, _insert_row
 from src.tables.answer import AnswerType
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
-from src.user_data import UserData, QuestionsConversationStorage, EventConversationStorage
-from src.utils import df_to_markdown, data_to_bytesio, text_to_png, wrapped_send_text, SKIP_QUEST, STOP_ASKING
+from src.user_data import UserData, ASKQuestionsConvStorage, ASKEventConvStorage
+from src.utils import data_to_bytesio, text_to_png
+from src.utils_pd import df_to_markdown
+from src.utils_tg import wrapped_send_text
+
+
+STOP_ASKING = "Stop asking"
+SKIP_QUEST = "Skip question"
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
@@ -185,7 +191,7 @@ async def on_end_asking_questions(
         update: Update,
 ):
     def update_db_with_answers():
-        assert isinstance(ud.conv_storage, QuestionsConversationStorage)
+        assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
         answers = ud.conv_storage.cur_answers
 
@@ -211,7 +217,7 @@ async def on_end_asking_questions(
                 },
             )
 
-    assert isinstance(ud.conv_storage, QuestionsConversationStorage)
+    assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
     if any(ud.conv_storage.cur_answers):
         update_db_with_answers()
         ud.db_cache.reload_all()
@@ -229,7 +235,7 @@ async def on_end_asking_event(
         update: Update
 ):
     def update_db_with_events():
-        assert isinstance(ud.conv_storage, EventConversationStorage)
+        assert isinstance(ud.conv_storage, ASKEventConvStorage)
         day = ud.conv_storage.day
 
         event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
@@ -252,7 +258,7 @@ async def on_end_asking_event(
             row_dict=row_dict
         )
 
-    assert isinstance(ud.conv_storage, EventConversationStorage)
+    assert isinstance(ud.conv_storage, ASKEventConvStorage)
 
     update_db_with_events()
     ud.db_cache.reload_all()

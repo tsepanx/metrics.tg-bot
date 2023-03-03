@@ -17,26 +17,28 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     CallbackQueryHandler,
-    filters, ApplicationBuilder, PicklePersistence,
-)
+    filters, )
 
-from src.other_commands import stats_command, post_init
+from src.conversations.utils_ask import on_end_asking_questions, send_ask_question, send_ask_event_time, \
+    send_ask_event_text, \
+    on_end_asking_event, STOP_ASKING, SKIP_QUEST
+from src.other_commands import stats_command
 from src.tables.event import EventDB
 from src.tables.question import QuestionDB
-from src.user_data import UserData, ConversationStorage, QuestionsConversationStorage, EventConversationStorage
+from src.user_data import UserData, ASKConversationStorage, ASKQuestionsConvStorage, ASKEventConvStorage
 from src.utils import (
-    USER_DATA_KEY,
     get_nth_delta_day,
-    handler_decorator, wrapped_send_text, SKIP_QUEST, STOP_ASKING, MyException, )
-from src.utils_tg import get_questions_select_keyboard, match_question_choice_callback_data
-from src.utils_send import on_end_asking_questions, send_ask_question, send_ask_event_time, send_ask_event_text, \
-    on_end_asking_event
+    MyException, )
+from src.utils_tg import get_questions_select_keyboard, match_question_choice_callback_data, USER_DATA_KEY, \
+    wrapped_send_text, handler_decorator
 
-CHOOSE_DAY, \
-    CHOOSE_ENTITY_TYPE, \
-    CHOOSE_QUESTION_OPTION, \
-    CHOOSE_EVENT_NAME, \
-    ASK_QUESTION, \
+logger = logging.getLogger(__name__)
+
+ASK_CHOOSE_DAY, \
+    ASK_CHOOSE_ENTITY_TYPE, \
+    ASK_CHOOSE_QUESTION_OPTION, \
+    ASK_CHOOSE_EVENT_NAME, \
+    ASK_QUESTION_ANSWER, \
     ASK_EVENT_TIME, \
     ASK_EVENT_TEXT, \
     END_ASKING_QUESTIONS, \
@@ -48,7 +50,7 @@ CHOOSE_DAY, \
 @handler_decorator
 async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
-    ud.conv_storage = ConversationStorage()
+    ud.conv_storage = ASKConversationStorage()
 
     reply_keyboard = [["-5", "-4", "-3", "-2", "-1", "+1"], ["Today"]]
     text = "Select day"
@@ -62,7 +64,7 @@ async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         ),
     )
 
-    return CHOOSE_DAY
+    return ASK_CHOOSE_DAY
 
 
 # ==== DAY ====
@@ -82,7 +84,7 @@ async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             day = get_nth_delta_day(int(text))
     except Exception:
         await update.message.reply_text("Wrong message, try again")
-        return CHOOSE_DAY
+        return ASK_CHOOSE_DAY
 
     ud.conv_storage.day = day
 
@@ -98,7 +100,7 @@ async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         ),
     )
 
-    return CHOOSE_ENTITY_TYPE
+    return ASK_CHOOSE_ENTITY_TYPE
 
 
 # ==== ENTITY TYPE ====
@@ -108,7 +110,7 @@ async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
-    ud.conv_storage = QuestionsConversationStorage(
+    ud.conv_storage = ASKQuestionsConvStorage(
         **ud.conv_storage.__dict__
     )
 
@@ -122,7 +124,7 @@ async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=reply_markup,
     )
 
-    return CHOOSE_QUESTION_OPTION
+    return ASK_CHOOSE_QUESTION_OPTION
 
 
 @handler_decorator
@@ -130,7 +132,7 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
-    ud.conv_storage = EventConversationStorage(
+    ud.conv_storage = ASKEventConvStorage(
         **ud.conv_storage.__dict__
     )
 
@@ -151,7 +153,7 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=reply_markup,
     )
 
-    return CHOOSE_EVENT_NAME
+    return ASK_CHOOSE_EVENT_NAME
 
 
 # ==== ENTITY NAME(S) ====
@@ -160,7 +162,7 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
 async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     ud: UserData = context.chat_data[USER_DATA_KEY]
-    assert isinstance(ud.conv_storage, QuestionsConversationStorage)
+    assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
     send_text_func = update.effective_chat.send_message
 
@@ -198,7 +200,7 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
 
         ud.conv_storage.include_indices = sorted(include_indices_set)
 
-        return CHOOSE_QUESTION_OPTION
+        return ASK_CHOOSE_QUESTION_OPTION
     elif query == "all":
         ud.conv_storage.include_indices = all_indices
     elif query == "unanswered":
@@ -241,14 +243,14 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
         existing_answer=ud.cur_question_existing_answer()
     )
 
-    return ASK_QUESTION
+    return ASK_QUESTION_ANSWER
 
 
 @handler_decorator
 async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    assert isinstance(ud.conv_storage, EventConversationStorage)
+    assert isinstance(ud.conv_storage, ASKEventConvStorage)
 
     await update.callback_query.answer()
     query: str = update.callback_query.data
@@ -277,7 +279,7 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     assert update.message is not None
-    assert isinstance(ud.conv_storage, QuestionsConversationStorage)
+    assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
     # state = ud.state
 
@@ -318,14 +320,14 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
         existing_answer=ud.cur_question_existing_answer()
     )
 
-    return ASK_QUESTION
+    return ASK_QUESTION_ANSWER
 
 
 @handler_decorator
 async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    assert isinstance(ud.conv_storage, EventConversationStorage)
+    assert isinstance(ud.conv_storage, ASKEventConvStorage)
 
     assert update.message is not None
     text = update.message.text
@@ -354,7 +356,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    assert isinstance(ud.conv_storage, EventConversationStorage)
+    assert isinstance(ud.conv_storage, ASKEventConvStorage)
 
     assert update.message is not None
     text = update.message.text
@@ -373,7 +375,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
 isoformat_regex = "^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
 day_choice_regex = f"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
 
-conv_handler = ConversationHandler(
+ask_conv_handler = ConversationHandler(
     name="Name",
     allow_reentry=True,
     persistent=True,
@@ -382,14 +384,14 @@ conv_handler = ConversationHandler(
         CommandHandler("ask", on_ask)
     ],
     states={
-        CHOOSE_DAY: [MessageHandler(filters.Regex(day_choice_regex), on_chosen_day)],
-        CHOOSE_ENTITY_TYPE: [
+        ASK_CHOOSE_DAY: [MessageHandler(filters.Regex(day_choice_regex), on_chosen_day)],
+        ASK_CHOOSE_ENTITY_TYPE: [
             MessageHandler(filters.Regex("Question"), on_chosen_type_question),
             MessageHandler(filters.Regex("Event"), on_chosen_type_event),
         ],
-        CHOOSE_QUESTION_OPTION: [CallbackQueryHandler(on_chosen_question_option)],
-        CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
-        ASK_QUESTION: [MessageHandler(filters.TEXT, on_question_answered)],
+        ASK_CHOOSE_QUESTION_OPTION: [CallbackQueryHandler(on_chosen_question_option)],
+        ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
+        ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT, on_question_answered)],
         ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
@@ -397,26 +399,3 @@ conv_handler = ConversationHandler(
         CommandHandler("stats", stats_command)
     ],
 )
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        level=logging.INFO
-    )
-    logger = logging.getLogger(__name__)
-
-    with open(".token", encoding="utf-8") as f:
-        TOKEN = f.read()
-        print(TOKEN)
-
-    persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
-
-    app = ApplicationBuilder() \
-        .token(TOKEN) \
-        .persistence(persistence) \
-        .post_init(post_init) \
-        .build()
-
-    app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("stats", stats_command))
-    app.run_polling()

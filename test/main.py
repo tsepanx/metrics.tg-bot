@@ -19,26 +19,18 @@ from telegram.ext import (
     filters, PicklePersistence,
 )
 
-from src.conversations import (
-    conv_handler, on_question_answered, )
-from src.other_commands import stats_command
-from src.utils_send import build_transpose_callback_data, send_entity_answers_df, send_ask_question
+from src.conversations.utils_ask import build_transpose_callback_data, send_entity_answers_df, send_ask_question
 from src.tables.answer import (
     AnswerType,
-)
-from src.tables.question import (
-    QuestionDB,
 )
 from src.user_data import (
     UserData,
 )
 from src.utils import (
     ASK_WRONG_FORMAT,
-    USER_DATA_KEY,
     get_nth_delta_day,
-    handler_decorator,
-    wrapped_send_text,
 )
+from src.utils_tg import USER_DATA_KEY, wrapped_send_text, handler_decorator
 
 
 # pylint: disable=too-many-arguments, too-many-locals
