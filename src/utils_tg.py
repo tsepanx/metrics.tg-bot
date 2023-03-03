@@ -28,19 +28,20 @@ def match_question_choice_callback_data(query: str) -> bool:
 
 def get_questions_select_keyboard(
     questions: list[QuestionDB],
-    include_indices_set: set[int] = None,
+    include_indices: list[int] = None,
     emoji_str: str = "☑️",
 ) -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton("All", callback_data="all"),
             InlineKeyboardButton("Unanswered", callback_data="unanswered"),
+            InlineKeyboardButton("Clear", callback_data="clear"),
             InlineKeyboardButton("OK", callback_data="end_choosing"),
         ],
     ]
 
     for i, q in enumerate(questions):
-        if include_indices_set is not None and i in include_indices_set:
+        if include_indices is not None and i in include_indices:
             butt_text = f"{emoji_str} {q.name}"
             butt_data = f"{i} remove"
         else:

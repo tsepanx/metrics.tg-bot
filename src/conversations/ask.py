@@ -195,14 +195,40 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
     await update.callback_query.answer()
     query: str = update.callback_query.data
 
-    all_indices = list(range(len(ud.db_cache.questions)))
+    if query == "end_choosing":
+        if len(ud.conv_storage.include_indices) == 0:
+            raise MyException("You haven't selected any name")
 
-    if match_question_choice_callback_data(query):
+        ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
+        include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
+
+        await wrapped_send_text(
+            send_text_func,
+            text="Questions list:\n`{}`\n".format("\n".join(include_names)),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+        first_question = ud.conv_storage.current_question(ud.db_cache.questions)
+
+        # fmt: off
+        await send_ask_question(
+            first_question,
+            send_text_func,
+            existing_answer=ud.cur_question_existing_answer()
+        )
+        # fmt: on
+
+        return ASK_QUESTION_ANSWER
+
+    all_indices = list(range(len(ud.db_cache.questions)))
+    old_len = len(ud.conv_storage.include_indices)
+
+    if match_question_choice_callback_data(query):  # f.e. "10 add"
+        include_indices_set: set = set(ud.conv_storage.include_indices)
+
         query_index, query_action = query.split()
         query_index = int(query_index)
 
-        include_indices_set: set = set(ud.conv_storage.include_indices)
-        old_len = len(include_indices_set)
         if query_action == "add":
             include_indices_set.add(query_index)
         elif query_action == "remove":
@@ -210,21 +236,9 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
         else:
             raise Exception
 
-        is_changed = old_len != len(include_indices_set)
-        if is_changed:
-            new_ikm = get_questions_select_keyboard(
-                questions=ud.db_cache.questions, include_indices_set=include_indices_set
-            )
-            try:
-                await update.callback_query.message.edit_reply_markup(new_ikm)
-            except telegram.error.BadRequest as exc:
-                logger.error(exc)
-
-        ud.conv_storage.include_indices = sorted(include_indices_set)
-
-        return ASK_CHOOSE_QUESTION_OPTION
+        include_indices = sorted(include_indices_set)
     elif query == "all":
-        ud.conv_storage.include_indices = all_indices
+        include_indices = all_indices
     elif query == "unanswered":
         if ud.conv_storage.day not in answers_df.columns:
             include_indices = all_indices
@@ -242,35 +256,23 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
 
             if len(include_indices) == 0:
                 include_indices = all_indices
-
-        ud.conv_storage.include_indices = include_indices
-    elif query == "end_choosing":
-        if len(ud.conv_storage.include_indices) == 0:
-            raise MyException("You haven't selected any name")
+    elif query == "clear":
+        include_indices = []
     else:
         raise Exception
 
-    ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
+    is_changed = old_len != len(include_indices)
+    if is_changed:
+        new_ikm = get_questions_select_keyboard(
+            questions=ud.db_cache.questions, include_indices=include_indices
+        )
+        try:
+            await update.callback_query.message.edit_reply_markup(new_ikm)
+        except telegram.error.BadRequest as exc:
+            logger.error(f"TG SEND ERROR: {exc}")
 
-    include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
-
-    await wrapped_send_text(
-        send_text_func,
-        text="Questions list:\n`{}`\n".format("\n".join(include_names)),
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-    first_question = ud.conv_storage.current_question(ud.db_cache.questions)
-
-    # fmt: off
-    await send_ask_question(
-        first_question,
-        send_text_func,
-        existing_answer=ud.cur_question_existing_answer()
-    )
-    # fmt: on
-
-    return ASK_QUESTION_ANSWER
+    ud.conv_storage.include_indices = include_indices
+    return ASK_CHOOSE_QUESTION_OPTION
 
 
 @handler_decorator
