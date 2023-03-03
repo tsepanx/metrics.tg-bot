@@ -11,9 +11,9 @@ from src.conversations.ask import (
     ask_conv_handler,
 )
 from src.other_commands import (
+    commands_list,
     on_callback_query,
     post_init,
-    stats_command,
 )
 
 if __name__ == "__main__":
@@ -31,6 +31,10 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).persistence(persistence).post_init(post_init).build()
 
     app.add_handler(ask_conv_handler)
-    app.add_handler(CommandHandler("stats", stats_command))
+
+    for command in commands_list:
+        if command.handler_func:
+            app.add_handler(CommandHandler(command.name, command.handler_func))
+
     app.add_handler(CallbackQueryHandler(on_callback_query))
     app.run_polling()

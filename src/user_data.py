@@ -14,7 +14,10 @@ from src.tables.event import (
 from src.tables.question import (
     QuestionDB,
 )
-from src.utils import get_today
+from src.utils import (
+    get_now,
+    get_today,
+)
 
 
 @dataclass
@@ -59,11 +62,15 @@ class UserDBCache:
     events: list[EventDB] | None = None
     answers: list[AnswerDB] | None = None
 
+    LAST_RELOAD_TIME: datetime.datetime | None = None
+
     def __init__(self):
         if not self.questions or not self.answers:
             self.reload_all()
 
     def reload_all(self):
+        self.LAST_RELOAD_TIME = get_now()
+
         self.questions = QuestionDB.select_all()
         self.events = EventDB.select_all()
         self.answers = AnswerDB.select_all()
@@ -104,9 +111,7 @@ class UserDBCache:
 
         return df
 
-    def events_answers_df(
-        self, for_day: datetime.date = get_today()
-    ) -> pd.DataFrame | None:
+    def events_answers_df(self, for_day: datetime.date = get_today()) -> pd.DataFrame | None:
         """
         A table consists of only 1 column
         Each row format is described as:
@@ -132,6 +137,8 @@ class UserDBCache:
 class UserData:
     conv_storage: ASKConversationStorage
     db_cache: UserDBCache
+
+    DEBUG_SQL_OUTPUT = False
 
     def __init__(self):
         self.conv_storage = ASKConversationStorage()

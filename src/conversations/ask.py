@@ -48,7 +48,9 @@ from src.user_data import (
 )
 from src.utils import (
     MyException,
-    get_nth_delta_day, get_today, get_now,
+    get_now,
+    get_nth_delta_day,
+    get_today,
 )
 from src.utils_tg import (
     USER_DATA_KEY,

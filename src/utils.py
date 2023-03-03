@@ -21,6 +21,10 @@ def get_today() -> datetime.date:
     return get_now().date()
 
 
+def format_dt(ts: datetime.datetime) -> str:
+    return ts.isoformat(sep=" ", timespec="seconds")
+
+
 class MyException(Exception):
     pass
 
