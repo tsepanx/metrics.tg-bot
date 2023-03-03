@@ -94,22 +94,18 @@ class QuestionDB(Table):
 
 
 if __name__ == "__main__":
+    # get_questions_with_type_fk(["walking", "x_small", "x_big"])
 
-    def test_get_questions():
-        # get_questions_with_type_fk(["walking", "x_small", "x_big"])
+    rows = QuestionDB.select(
+        join_on_fkeys=True,
+        where_clauses={ColumnDC(column_name="is_activated"): True},
+        order_by_columns=[ColumnDC(column_name="order_by")],
+    )
 
-        l = QuestionDB.select(
-            join_on_fkeys=True,
-            where_clauses={ColumnDC(column_name="is_activated"): True},
-            order_by_columns=[ColumnDC(column_name="order_by")],
-        )
+    for i in rows:
+        pprint.pprint(i)
 
-        for i in l:
-            pprint.pprint(i)
+        fk_obj = i.get_fk_value("type_id")
+        print(i.type_id, fk_obj.pk)
 
-            fk_obj = i.get_fk_value("type_id")
-            print(i.type_id, fk_obj.pk)
-
-            assert i.type_id == fk_obj.pk
-
-    test_get_questions()
+        assert i.type_id == fk_obj.pk

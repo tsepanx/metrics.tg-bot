@@ -284,10 +284,6 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
 
     send_text_func = update.effective_chat.send_message
 
-    events_names = ud.db_cache.events_names()
-    # answers_df: pd.DataFrame = ud.db_cache.events_answers_df()
-    all_indices = list(range(len(events_names)))
-
     if not query.isdigit():
         raise Exception(f"query {query} is not digit-like")
 
@@ -398,8 +394,8 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
 
 # === CONVERSATIONS LIST ====
 
-isoformat_regex = "^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
-day_choice_regex = f"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
+isoformat_regex = r"^\d{4}-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
+day_choice_regex = rf"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
 
 # fmt: off
 ask_conv_handler = ConversationHandler(

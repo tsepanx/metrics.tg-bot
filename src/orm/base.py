@@ -11,7 +11,6 @@ from typing import (
 )
 
 import psycopg
-import sqlparse
 from psycopg.sql import (
     SQL,
     Composable,
@@ -282,7 +281,7 @@ def _insert_row(tablename: TableName, row_dict: dict[ColumnDC, Any]):
 
     # ColumnDC -> str placeholder
     # placeholder_apply_func = ColumnDC.underscore_notation
-    placeholder_apply_func = lambda x: x.column_name
+    placeholder_apply_func = lambda x: x.column_name  # noqa: E731
 
     query = (
         SQL("INSERT INTO {} ({}) VALUES ({})")
