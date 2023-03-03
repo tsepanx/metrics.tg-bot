@@ -1,7 +1,8 @@
 import datetime
+import enum
 import functools
 from io import BytesIO
-from typing import Any
+from typing import Any, Type
 
 from PIL import (
     Image,
@@ -66,3 +67,13 @@ def data_to_bytesio(data: Any, fname: str) -> BytesIO:
 
     bio.seek(0)
     return bio
+
+
+class MyEnum(enum.Enum):
+    @classmethod
+    def values_list(cls):
+        return list(map(lambda x: x.value, cls.__members__.values()))
+
+    @classmethod
+    def enum_by_name(cls, name: str) -> Type["MyEnum"] | None:
+        return cls.__members__.get(name)

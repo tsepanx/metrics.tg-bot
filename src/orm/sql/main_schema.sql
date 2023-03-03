@@ -43,7 +43,7 @@ CREATE TABLE question(
         REFERENCES question_type
             ON DELETE SET DEFAULT,
     is_activated BOOLEAN
-        DEFAULT False
+        DEFAULT True
         NOT NULL
 );
 
@@ -76,7 +76,8 @@ CREATE TABLE event_text_prefix (
     name VARCHAR(50)
         NOT NULL
         UNIQUE,
-    order_by SERIAL
+    order_by SERIAL,
+    is_activated BOOLEAN DEFAULT True
 );
 
 -- DROP TABLE IF EXISTS answer;
@@ -112,35 +113,5 @@ CREATE TABLE answer (
 );
 
 
--- New version OF 'question_answer' VIEW, by JOIN
--- SELECT date, q.name, text FROM answer AS a
--- --     LEFT JOIN event e ON e.pk = a.event_fk
---     JOIN question q on q.pk = a.question_fk
--- WHERE
--- --     (a.date, q.name) = ('2023-02-25', 'walking')
--- --     a.date = '2023-02-25'
---     a.date = now()::date
--- ORDER BY
---     q.order_by;
---
---
--- SELECT "answer"."question_fk", "answer"."text" FROM "answer"
---     JOIN "question" ON "answer"."question_fk" = "question"."pk"
--- WHERE (question_fk) IN (1, 2, 3) AND (is_activated) IN (True)
--- ORDER BY "question".order_by;
---
---
---
--- -- Print all questions list
--- SELECT * FROM question q
---     JOIN question_type qt
---         ON "q"."type_id" = qt.pk;
---
--- SELECT date from answer
--- GROUP BY date
--- ORDER BY date;
---
--- SELECT * FROM "answer" a
---     LEFT JOIN "question" q ON a."question_fk" = q."pk"
---     LEFT JOIN "event" e ON a."event_fk" = e."pk"
--- ORDER BY a."date";
+SELECT * FROM event
+    LEFT JOIN event_text_prefix etp on event.pk = etp.event_fk;

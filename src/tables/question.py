@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import pprint
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from src.orm.dataclasses import (
     Table,
 )
 from src.tables.tg_user import TgUserDB
+from src.utils import MyEnum
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,7 +27,12 @@ class QuestionTypeDB(Table):
         tablename = "question_type"
 
 
-@dataclass(frozen=True, repr=True, slots=True, unsafe_hash=True, match_args=True, kw_only=True)
+class QuestionFKs(MyEnum):
+    TYPE_ID = ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
+    USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+
+
+@dataclass(frozen=True, slots=True)
 class QuestionDB(Table):
     # pylint: disable=too-many-instance-attributes
 
@@ -36,7 +43,7 @@ class QuestionDB(Table):
     name: str
     fulltext: str
     # TODO: Rename to "choices_list"
-    suggested_answers_list: list[str]
+    suggested_answers_list: tuple[str]
 
     is_activated: bool
     order_by: int
@@ -44,10 +51,7 @@ class QuestionDB(Table):
     type_id: int  # ForeignKey : 'QuestionTypeDB'
 
     class Meta(Table.Meta):
-        foreign_keys = [
-            ForeignKeyRelation(QuestionTypeDB, "type_id", "pk"),
-            ForeignKeyRelation(TgUserDB, "user_id", "user_id"),
-        ]
+        foreign_keys = QuestionFKs.values_list()
         tablename = "question"
 
     def html_notation(self):
@@ -57,13 +61,14 @@ class QuestionDB(Table):
     def select_all(cls):
         return cls.select(
             join_on_fkeys=True,
-            where_clauses={ColumnDC(column_name="is_activated"): True},
+            where_clauses={ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True},
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
     @property
     def question_type(self) -> QuestionTypeDB | None:
-        return self.get_fk_value("type_id")
+        # return self.get_fk_value("type_id")
+        return self.get_fk_value(QuestionFKs.TYPE_ID.value)
 
     @property
     def answer_apply_func(self) -> Optional[Callable]:
@@ -111,7 +116,7 @@ if __name__ == "__main__":
     for i in rows:
         pprint.pprint(i)
 
-        fk_obj = i.get_fk_value("type_id")
+        fk_obj = i.get_fk_value(QuestionFKs.TYPE_ID.value)
         print(i.type_id, fk_obj.pk)
 
         assert i.type_id == fk_obj.pk

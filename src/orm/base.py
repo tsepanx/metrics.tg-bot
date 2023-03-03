@@ -11,6 +11,7 @@ from typing import (
 )
 
 import psycopg
+import sqlparse
 from psycopg.sql import (
     SQL,
     Composable,
@@ -121,7 +122,7 @@ def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Seque
     query_for_print = query_for_print.replace('"answer"', "a")
     query_for_print = query_for_print.replace('"event"', "e")
 
-    # print(sqlparse.format(query_for_print, reindent=True))
+    print(sqlparse.format(query_for_print, reindent=True))
     # print("Params:", params)
     logger = logging.getLogger(__name__)
     logger.info(f"{query_for_print}, {params}")

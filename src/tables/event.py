@@ -2,9 +2,16 @@ from dataclasses import dataclass
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
-    Table, ForeignKeyRelation,
+    Table, ForeignKeyRelation, BackForeignKeyRelation,
 )
+from src.tables.event_text_prefix import EventPrefixDB
 from src.tables.tg_user import TgUserDB
+from src.utils import MyEnum
+
+
+class EventFKs(MyEnum):
+    USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+    BACK_EVENT_PREFIX = BackForeignKeyRelation(EventPrefixDB, other_column="event_fk", my_column="pk")
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,18 +25,21 @@ class EventDB(Table):
 
     type: str
 
+    # List of prefixes back-referencing this entry
+    @property
+    def prefixes_list(self) -> list[EventPrefixDB] | None:
+        return self.get_back_fk_value(EventFKs.BACK_EVENT_PREFIX.value)
+
     @classmethod
     def select_all(cls):
         return cls.select(
             join_on_fkeys=True,
-            where_clauses={ColumnDC(column_name="is_activated"): True},
+            where_clauses={ColumnDC(table_name=cls.Meta.tablename, column_name="is_activated"): True},
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
     class Meta(Table.Meta):
-        foreign_keys = [
-            ForeignKeyRelation(TgUserDB, "user_id", "user_id")
-        ]
+        foreign_keys = EventFKs.values_list()
         tablename = "event"
 
 
@@ -39,5 +49,3 @@ if __name__ == "__main__":
         order_by_columns=[ColumnDC(column_name="order_by")],
     )
     print(objs)
-
-    # print(get_ordered_events_names())

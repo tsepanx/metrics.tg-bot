@@ -1,8 +1,6 @@
 import datetime
-import enum
 import pprint
 from dataclasses import dataclass
-from typing import Type
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
@@ -15,16 +13,7 @@ from src.tables.event import (
 from src.tables.question import (
     QuestionDB,
 )
-
-
-class MyEnum(enum.Enum):
-    @classmethod
-    def values_list(cls):
-        return list(map(lambda x: x.value, cls.__members__.values()))
-
-    @classmethod
-    def enum_by_name(cls, name: str) -> Type["MyEnum"] | None:
-        return cls.__members__.get(name)
+from src.utils import MyEnum
 
 
 class AnswerType(MyEnum):
@@ -49,11 +38,13 @@ class AnswerDB(Table):
 
     @property
     def question(self) -> QuestionDB | None:
-        return self.get_fk_value("question_fk")
+        # return self.get_fk_value("question_fk")
+        return self.get_fk_value(AnswerType.QUESTION.value)
 
     @property
     def event(self) -> EventDB | None:
-        return self.get_fk_value("event_fk")
+        # return self.get_fk_value("event_fk")
+        return self.get_fk_value(AnswerType.EVENT.value)
 
     @classmethod
     def select_all(cls):
@@ -79,4 +70,4 @@ if __name__ == "__main__":
 
     pprint.pprint(answers)
     for answer in answers:
-        assert answer.get_fk_value("question_fk").pk == answer.question_fk
+        assert answer.get_fk_value(AnswerType.QUESTION.value).pk == answer.question_fk
