@@ -107,7 +107,7 @@ class Table:
         primary_table_columns: list[ColumnDC] = list(
             map(
                 lambda x: ColumnDC(table_name=primary_tablename, column_name=x),
-                cls.__annotations__.keys(),
+                cls.__slots__,
             )
         )
 
@@ -145,7 +145,7 @@ class Table:
                 join_table_columns: list[ColumnDC] = list(
                     map(
                         lambda x: ColumnDC(table_name=join_table_name, column_name=x),
-                        fk_dataclass.class_.__annotations__.keys(),
+                        fk_dataclass.class_.__slots__,
                     )
                 )
 
