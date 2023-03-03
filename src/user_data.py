@@ -124,8 +124,10 @@ class UserDBCache:
 
         def filter_answers(a: AnswerDB) -> bool:
             res = a.event is not None and a.date == datetime.date.today()
-            print(a.event.name, a.time, res)
-            return res
+            if res:
+                print(a.event.name, a.time, res)
+                return res
+            return False
 
         event_answers = sorted(filter(filter_answers, self.answers), key=lambda x: x.time)
 
