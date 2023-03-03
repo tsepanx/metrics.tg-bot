@@ -56,7 +56,6 @@ def get_questions_select_keyboard(
 
 USER_DATA_KEY = "user_data"
 CHAT_DATA_KEYS_DEFAULTS = {
-    # 'state': State(None),
     USER_DATA_KEY: UserData
 }
 RELOAD_DB_CACHE = False

@@ -74,15 +74,7 @@ class UserDBCache:
         return list(map(lambda x: x.name, self.events))
 
     def questions_answers_df(self, include_empty_cols=False) -> pd.DataFrame:
-        # answers_type.value: ForeignKeyRelation
-        # answers_type.name: str
-
-        # if answers_type is AnswerType.EVENT:
-        #     index = self.events_names()
-        # elif answers_type is AnswerType.QUESTION:
         index = self.questions_names()
-        # else:
-        #     raise Exception
 
         df = pd.DataFrame(index=index)
 
@@ -92,22 +84,11 @@ class UserDBCache:
         for answer in self.answers:
             # One of QuestionDB / EventDB
 
-            # fk_column: str = AnswerType.QUESTION.value.from_column
-            # answer_fk_object = answer.get_fk_value(fk_column)
-
-            # if answer_fk_object:
             if answer.question:
                 if not day_answers_mapping.get(answer.date, None):
                     day_answers_mapping[answer.date] = []
 
-                # if answers_type is AnswerType.EVENT:
-                #     # answer_text = f"({answer.time} {answer.text})"
-                #     answer_text = (answer.time.isoformat(), answer.text)
-                # elif answers_type is AnswerType.QUESTION:
                 answer_text = answer.text
-                # else:
-                #     raise Exception
-
                 day_answers_mapping[answer.date].append((answer.question.name, answer_text))
 
         for day in day_answers_mapping:
@@ -118,7 +99,6 @@ class UserDBCache:
                 if day_col.isnull().all().bool():
                     continue
 
-            # df = df.assign(**{day: day_col})
             df[day] = day_col
 
         return df
