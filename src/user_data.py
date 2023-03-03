@@ -155,7 +155,7 @@ class UserData:
         question_name = self.conv_storage.current_question(self.db_cache.questions).name
         answers_df = self.db_cache.questions_answers_df()
 
-        if day not in answers_df.columns:
+        if not answers_df or day not in answers_df.columns:
             return None
 
         existing_answer = answers_df[day][question_name]
