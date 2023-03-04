@@ -197,7 +197,7 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 @handler_decorator
-async def on_chosen_question_name_option(
+async def on_chosen_question_name_option(  # noqa: C901
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:  # noqa: C901
     ud: UserData = context.chat_data[USER_DATA_KEY]
@@ -468,13 +468,13 @@ ask_conv_handler = ConversationHandler(
             MessageHandler(filters.Regex("Event"), choose_event_name),
         ],
         ASK_CHOOSE_QUESTION_NAMES: [
-            MessageHandler(filters.Regex(DAY_CHOICE_REGEX), choose_question_names),
+            MessageHandler(filters.Regex(DAY_CHOICE_REGEX) & (~filters.COMMAND), choose_question_names),
             CallbackQueryHandler(on_chosen_question_name_option),
         ],
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
-        ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT, on_question_answered)],
-        ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
-        ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
+        ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_question_answered)],
+        ASK_EVENT_TIME: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_event_time_answered)],
+        ASK_EVENT_TEXT: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_event_text_answered)],
     },
     fallbacks=[
         TgCommands.CANCEL.value.handler,
