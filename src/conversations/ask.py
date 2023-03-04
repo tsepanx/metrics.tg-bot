@@ -29,10 +29,10 @@ from src.conversations.utils_ask import (
     on_end_asking_questions,
     send_ask_event_text,
     send_ask_event_time,
-    send_ask_question,
+    send_ask_question, get_questions_select_keyboard, get_entity_type_reply_keyboard,
 )
 from src.other_commands import (
-    stats_command,
+    cancel_command,
 )
 from src.tables.event import (
     EventDB,
@@ -54,7 +54,6 @@ from src.utils import (
 )
 from src.utils_tg import (
     USER_DATA_KEY,
-    get_questions_select_keyboard,
     handler_decorator,
     match_question_choice_callback_data,
     wrapped_send_text,
@@ -63,23 +62,64 @@ from src.utils_tg import (
 logger = logging.getLogger(__name__)
 
 (
-    ASK_CHOOSE_DAY,
+    # ASK_CHOOSE_DAY,
     ASK_CHOOSE_ENTITY_TYPE,
-    ASK_CHOOSE_QUESTION_OPTION,
+    ASK_CHOOSE_QUESTION_NAMES,
     ASK_CHOOSE_EVENT_NAME,
     ASK_QUESTION_ANSWER,
     ASK_EVENT_TIME,
     ASK_EVENT_TEXT,
     END_ASKING_QUESTIONS,
     END_ASKING_EVENT,
-) = range(9)
+) = range(8)
 
+
+# === ENTITY TYPE ===
+
+
+@handler_decorator
+async def choose_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+    # Reset convStorage
+    ud.conv_storage = ASKConversationStorage()
+
+    text = "Select entity type"
+
+    await update.message.reply_text(
+        text=text,
+        reply_markup=get_entity_type_reply_keyboard(),
+    )
+
+    return ASK_CHOOSE_ENTITY_TYPE
+
+
+@handler_decorator
+async def wrong_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+    # Reset convStorage
+    ud.conv_storage = ASKConversationStorage()
+
+    await update.message.reply_text(
+        text="Wrong entity type format, try again",
+        reply_markup=get_entity_type_reply_keyboard(),
+    )
+
+    return ASK_CHOOSE_ENTITY_TYPE
+
+
+# === DAY ===
+# === DAY ===
 
 # pylint: disable=too-many-statements
 @handler_decorator
-async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
-    ud.conv_storage = ASKConversationStorage()
+
+    # Down-casting
+    ud.conv_storage = ASKQuestionsConvStorage(**ud.conv_storage.__dict__)
+
+    text = update.message.text
+    assert text == "Question"
 
     reply_keyboard = [["-5", "-4", "-3", "-2", "-1", "+1"], ["Today"]]
     text = "Select day"
@@ -93,58 +133,36 @@ async def on_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         ),
     )
 
-    return ASK_CHOOSE_DAY
-
-
-# ==== DAY ====
+    return ASK_CHOOSE_QUESTION_NAMES
 
 
 @handler_decorator
-async def on_chosen_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    ud: UserData = context.chat_data[USER_DATA_KEY]
-
-    text = update.message.text  # 2023-01-01 / Today / +1
-
-    try:
-        if re.compile(isoformat_regex).match(text):
-            day = datetime.date.fromisoformat(text)
-        elif text == "Today":
-            day = get_today()
-        else:  # +1 / -1 / ...
-            day = get_nth_delta_day(int(text))
-    except Exception:
-        await update.message.reply_text("Wrong message, try again")
-        return ASK_CHOOSE_DAY
-
-    ud.conv_storage.day = day
-
-    reply_keyboard = [["Question", "Event"]]
-    text = "Select entity type"
-
+async def wrong_day_format(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
-        text=text,
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True,
-            resize_keyboard=True,
-        ),
+        "Wrong day format, try again"
     )
 
-    return ASK_CHOOSE_ENTITY_TYPE
+    return ASK_CHOOSE_QUESTION_NAMES
 
 
-# ==== ENTITY TYPE ====
-
+# === ENTITY NAME(s)
 
 @handler_decorator
-async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    # Down-casting
-    ud.conv_storage = ASKQuestionsConvStorage(**ud.conv_storage.__dict__)
-
     text = update.message.text
-    assert text == "Question"
+
+    assert re.compile(day_choice_regex).match(text)  # 2023-01-01 / Today / +1
+
+    if re.compile(isoformat_regex).match(text):
+        day = datetime.date.fromisoformat(text)
+    elif text == "Today":
+        day = get_today()
+    else:  # +1 / -1 / ...
+        day = get_nth_delta_day(int(text))
+
+    ud.conv_storage.day = day
 
     reply_markup = get_questions_select_keyboard(ud.db_cache.questions)
 
@@ -153,15 +171,18 @@ async def on_chosen_type_question(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=reply_markup,
     )
 
-    return ASK_CHOOSE_QUESTION_OPTION
+    # return ASK_CHOOSE_QUESTION_OPTION
+    # return ASK_CHOOSE_DAY
+    return ASK_CHOOSE_QUESTION_NAMES
 
 
 @handler_decorator
-async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     # Down-casting
     ud.conv_storage = ASKEventConvStorage(**ud.conv_storage.__dict__)
+    # ud.conv_storage = ASKEventConvStorage
 
     assert update.message.text == "Event"
 
@@ -183,11 +204,8 @@ async def on_chosen_type_event(update: Update, context: ContextTypes.DEFAULT_TYP
     return ASK_CHOOSE_EVENT_NAME
 
 
-# ==== ENTITY NAME(S) ====
-
-
 @handler_decorator
-async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def on_chosen_question_name_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
@@ -279,7 +297,8 @@ async def on_chosen_question_option(update: Update, context: ContextTypes.DEFAUL
             logger.error(f"TG SEND ERROR: {exc}")
 
     ud.conv_storage.include_indices = include_indices
-    return ASK_CHOOSE_QUESTION_OPTION
+    return ASK_CHOOSE_QUESTION_NAMES
+    # return ASK_CHOOSE_QUESTION_NAMES_REPEAT
 
 
 @handler_decorator
@@ -408,20 +427,26 @@ ask_conv_handler = ConversationHandler(
     persistent=True,
     # per_message=True,
     entry_points=[
-        CommandHandler("ask", on_ask)
+        CommandHandler("ask", choose_entity_type)
     ],
     states={
-        ASK_CHOOSE_DAY: [MessageHandler(filters.Regex(day_choice_regex), on_chosen_day)],
         ASK_CHOOSE_ENTITY_TYPE: [
-            MessageHandler(filters.Regex("Question"), on_chosen_type_question),
-            MessageHandler(filters.Regex("Event"), on_chosen_type_event),
+            MessageHandler(filters.Regex("Question"), choose_day),
+            MessageHandler(filters.Regex("Event"), choose_event_name),
+            MessageHandler(filters.TEXT, wrong_entity_type),
         ],
-        ASK_CHOOSE_QUESTION_OPTION: [CallbackQueryHandler(on_chosen_question_option)],
+        ASK_CHOOSE_QUESTION_NAMES: [
+            MessageHandler(filters.Regex(day_choice_regex), choose_question_names),
+            MessageHandler(filters.TEXT, wrong_day_format),
+            CallbackQueryHandler(on_chosen_question_name_option),
+        ],
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
         ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT, on_question_answered)],
         ASK_EVENT_TIME: [MessageHandler(filters.TEXT, on_event_time_answered)],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
-    fallbacks=[CommandHandler("stats", stats_command)],
+    fallbacks=[
+        CommandHandler("cancel", cancel_command)
+    ],
 )
 # fmt: on

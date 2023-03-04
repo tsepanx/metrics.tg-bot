@@ -33,8 +33,9 @@ if __name__ == "__main__":
     app.add_handler(ask_conv_handler)
 
     for command in commands_list:
-        if command.handler_func:
-            app.add_handler(CommandHandler(command.name, command.handler_func))
+        handler: CommandHandler | None = command.handler()
+        if handler:
+            app.add_handler(handler)
 
     app.add_handler(CallbackQueryHandler(on_callback_query))
     app.run_polling()

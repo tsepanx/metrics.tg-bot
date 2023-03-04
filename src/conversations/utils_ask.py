@@ -5,7 +5,7 @@ from typing import Callable
 
 import pandas as pd
 import telegram
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import (
     ParseMode,
 )
@@ -32,6 +32,7 @@ from src.user_data import (
 )
 from src.utils import (
     data_to_bytesio,
+    get_today,
     text_to_png,
 )
 from src.utils_pd import (
@@ -43,6 +44,46 @@ from src.utils_tg import (
 
 STOP_ASKING = "Stop asking"
 SKIP_QUEST = "Skip question"
+
+
+def get_entity_type_reply_keyboard():
+    reply_keyboard = [["Question", "Event"]]
+    reply_markup = ReplyKeyboardMarkup(
+        reply_keyboard,
+        one_time_keyboard=True,
+        resize_keyboard=True,
+    )
+    return reply_markup
+
+
+def get_questions_select_keyboard(
+    questions: list[QuestionDB],
+    include_indices: list[int] = None,
+    emoji_str: str = "☑️",
+) -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton("All", callback_data="all"),
+            InlineKeyboardButton("Unanswered", callback_data="unanswered"),
+            InlineKeyboardButton("Clear", callback_data="clear"),
+            InlineKeyboardButton(
+                f"{'✅ ' if include_indices else ''}OK", callback_data="end_choosing"
+            ),
+        ],
+    ]
+
+    for i, q in enumerate(questions):
+        if include_indices is not None and i in include_indices:
+            butt_text = f"{emoji_str} {q.name}"
+            butt_data = f"{i} remove"
+        else:
+            butt_text = f"{q.name}"
+            butt_data = f"{i} add"
+
+        new_button = InlineKeyboardButton(text=butt_text, callback_data=butt_data)
+        keyboard.append([new_button])
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
@@ -108,7 +149,7 @@ def build_transpose_callback_data(answer_type: AnswerType) -> str:
 
 
 async def send_entity_answers_df(
-    update: Update, ud: UserData, answers_entity: AnswerType, **kwargs
+        update: Update, ud: UserData, answers_entity: AnswerType, **kwargs
 ):
     file_name = f"{answers_entity.name.lower()}s.csv"
 
@@ -134,15 +175,15 @@ async def send_entity_answers_df(
 
 
 async def send_dataframe(
-    update: Update,
-    df: pd.DataFrame,
-    send_csv=False,
-    send_img=True,
-    send_text=False,
-    transpose_table=False,
-    transpose_button_callback_data: str = None,
-    with_question_indices=True,
-    file_name: str = "dataframe.csv",
+        update: Update,
+        df: pd.DataFrame,
+        send_csv=False,
+        send_img=True,
+        send_text=False,
+        transpose_table=False,
+        transpose_button_callback_data: str = None,
+        with_question_indices=True,
+        file_name: str = "dataframe.csv",
 ):
     # Fix dirty function applying changes directly to passed DataFrame
     df = df.copy()
@@ -215,8 +256,8 @@ async def send_dataframe(
 
 
 async def on_end_asking_questions(
-    ud: UserData,
-    update: Update,
+        ud: UserData,
+        update: Update,
 ):
     def update_db_with_answers():
         assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
@@ -256,7 +297,8 @@ async def on_end_asking_questions(
 async def on_end_asking_event(ud: UserData, update: Update):
     def update_db_with_events():
         assert isinstance(ud.conv_storage, ASKEventConvStorage)
-        day = ud.conv_storage.day
+        # day = ud.conv_storage.day
+        day = get_today()
 
         event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
         new_time: datetime.time = ud.conv_storage.event_time

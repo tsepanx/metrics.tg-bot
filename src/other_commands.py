@@ -10,6 +10,7 @@ from telegram.constants import (
 )
 from telegram.ext import (
     Application,
+    CommandHandler,
     ContextTypes,
 )
 
@@ -20,7 +21,10 @@ from src.conversations.utils_ask import (
 from src.tables.answer import (
     AnswerType,
 )
-from src.user_data import UserData, UserDBCache
+from src.user_data import (
+    UserData,
+    UserDBCache,
+)
 from src.utils import (
     format_dt,
     get_now,
@@ -36,6 +40,11 @@ class TgCommand:
     name: str
     handler_func: Optional[Callable]
     description: str
+
+    def handler(self) -> CommandHandler | None:
+        if self.handler_func:
+            return CommandHandler(self.name, self.handler_func)
+        return None
 
 
 @handler_decorator
@@ -95,6 +104,16 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @handler_decorator
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+
+    ud.conv_storage = None
+    await update.message.reply_text(
+        text="Cancelled..."
+    )
+
+
+@handler_decorator
 async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
@@ -128,6 +147,7 @@ commands_list: list[TgCommand] = [
     TgCommand("stats", stats_command, "Get questions/events stats"),
     TgCommand("info", info_command, "Get bot debug info"),
     TgCommand("ask", None, "Ask for Question[s] or Event"),
+    TgCommand("cancel", None, "Cancel current /ask conversation"),
 ]
 
 
