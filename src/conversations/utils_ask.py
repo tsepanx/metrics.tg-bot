@@ -75,7 +75,7 @@ def get_event_select_keyboard(events: list[EventDB], cur_path: list[str]):
     def path_is_subpath(subpath: list[str], fullpath: list[str]) -> bool:
         return all(subpath[i] == fullpath[i] for i in range(len(subpath)))
 
-    subpath_events: collections.OrderedDict[str, int] = collections.OrderedDict()
+    subpath_events: collections.OrderedDict[str, list[int, EventDB]] = collections.OrderedDict()
 
     for i, event in enumerate(events):
         e_path: list[str] = event.name_path()
@@ -86,8 +86,8 @@ def get_event_select_keyboard(events: list[EventDB], cur_path: list[str]):
         if path_is_subpath(cur_path, e_path):
             subdir = e_path[len(cur_path)]
 
-            subpath_events.setdefault(subdir, 0)
-            subpath_events[subdir] += 1
+            subpath_events.setdefault(subdir, [0, event])
+            subpath_events[subdir][0] += 1
 
     buttons_column = []
 
@@ -96,16 +96,22 @@ def get_event_select_keyboard(events: list[EventDB], cur_path: list[str]):
             InlineKeyboardButton("⬆️ Up ../", callback_data="go_up"),
         )
 
-    for subdir, cnt in subpath_events.items():
+    event: EventDB
+    for subdir, (cnt, event) in subpath_events.items():
         if subdir == "":
             text = "/"
             callback_data = "END"
         else:
             callback_data = subdir
+            text = f"{subdir}"
             if cnt > 1:
-                text = f"[{cnt}] {subdir}"
-            else:
-                text = f"{subdir}"
+                text = f"🗂 [{cnt}] {text}"
+
+        if cnt == 1:
+            if event.type == "Durable":
+                text = f"🕓 {text}"
+            elif event.type == "Single":
+                text = f"📍 {text}"
 
         button = InlineKeyboardButton(text, callback_data=callback_data)
         buttons_column.append(button)

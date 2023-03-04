@@ -3,7 +3,6 @@ import logging
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
-    CommandHandler,
     PicklePersistence,
 )
 
