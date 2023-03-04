@@ -403,7 +403,7 @@ day_choice_regex = rf"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
 
 # fmt: off
 ask_conv_handler = ConversationHandler(
-    name="Name",
+    name="Ask ConvHandler",
     allow_reentry=True,
     persistent=True,
     # per_message=True,

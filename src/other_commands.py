@@ -20,7 +20,7 @@ from src.conversations.utils_ask import (
 from src.tables.answer import (
     AnswerType,
 )
-from src.user_data import UserData
+from src.user_data import UserData, UserDBCache
 from src.utils import (
     format_dt,
     get_now,
@@ -134,8 +134,8 @@ commands_list: list[TgCommand] = [
 async def post_init(application: Application) -> None:
     for _, chat_data in application.chat_data.items():
         ud: UserData = chat_data[USER_DATA_KEY]
-        ud.db_cache.reload_all()
-        # user_data.db_cache = UserDBCache()
+        # ud.db_cache.reload_all()
+        ud.db_cache = UserDBCache()
 
     commands_names_desc = [(x.name, x.description) for x in commands_list]
     await application.bot.set_my_commands(commands_names_desc)

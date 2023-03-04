@@ -132,6 +132,8 @@ def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Seque
 
     try:
         cur.execute(query, params)
+    except psycopg.errors.OperationalError:
+        cur.execute(query, params)
     except psycopg.errors.InFailedSqlTransaction:
         conn.close()
         conn = get_psql_conn()
