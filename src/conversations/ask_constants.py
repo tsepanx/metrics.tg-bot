@@ -1,5 +1,9 @@
-from telegram import InlineKeyboardButton
-from telegram.constants import ParseMode
+from telegram import (
+    InlineKeyboardButton,
+)
+from telegram.constants import (
+    ParseMode,
+)
 
 DEFAULT_PARSE_MODE = ParseMode.HTML
 
@@ -34,7 +38,7 @@ class SelectQuestionButtons:
     UNANSWERED = InlineKeyboardButton("Unanswered", callback_data=SelectQuestionCallback.UNANSWERED)
     CLEAR = InlineKeyboardButton("Clear", callback_data=SelectQuestionCallback.CLEAR)
 
-    OK_PARAMETRIZED = lambda ids: InlineKeyboardButton(
+    OK_PARAMETRIZED = lambda ids: InlineKeyboardButton(  # noqa: E731
         f"{'✅ ' if ids else ''}OK", callback_data=SelectQuestionCallback.END_CHOOSING
     )
 

@@ -17,18 +17,18 @@ from telegram.constants import (
 )
 
 from src.conversations.ask_constants import (
-    QUESTION_TEXT_CHOICE_STOP_ASKING,
-    QUESTION_TEXT_CHOICE_SKIP_QUEST,
+    CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
     DEFAULT_PARSE_MODE,
-    SelectEventCallback,
     DIR_EVENT_REPR,
-    EventType,
     DURABLE_EVENT_REPR,
+    QUESTION_TEXT_CHOICE_SKIP_QUEST,
+    QUESTION_TEXT_CHOICE_STOP_ASKING,
     SINGLE_EVENT_REPR,
+    EventType,
+    SelectEventButtons,
+    SelectEventCallback,
     SelectQuestionButtons,
     SelectQuestionCallback,
-    CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
-    SelectEventButtons,
 )
 from src.orm.base import (
     ColumnDC,
@@ -191,7 +191,7 @@ def get_event_info_text(
     event: EventDB, answered_time: datetime.time | None = None, answered_text: str | None = None
 ):
     lines = [
-        f"=== Event ===",
+        "=== Event ===",
         f"Name: {event.name}",
         "",
         f"Time: {answered_time}" if answered_time else "",
@@ -235,7 +235,7 @@ async def send_ask_event_time(send_text_func: Callable):
 
 
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
-    text = f"Also send `text` (optionally)"
+    text = "Also send `text` (optionally)"
 
     buttons = []
 

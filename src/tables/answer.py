@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
-    ForeignKeyRelation,
+    ForeignKey,
     Table,
 )
 from src.tables.event import (
@@ -54,8 +54,8 @@ class AnswerDB(Table):
         tablename = "answer"
 
     class ForeignKeys(Table.ForeignKeys):
-        QUESTION = ForeignKeyRelation(QuestionDB, "question_fk", "pk")
-        EVENT = ForeignKeyRelation(EventDB, "event_fk", "pk")
+        QUESTION = ForeignKey(QuestionDB, "question_fk", "pk")
+        EVENT = ForeignKey(EventDB, "event_fk", "pk")
 
 
 AnswerType = AnswerDB.ForeignKeys

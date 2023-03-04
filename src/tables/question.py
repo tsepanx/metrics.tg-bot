@@ -8,7 +8,7 @@ from typing import (
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
-    ForeignKeyRelation,
+    ForeignKey,
     Table,
 )
 from src.tables.tg_user import (
@@ -37,7 +37,6 @@ class QuestionDB(Table):
 
     name: str
     fulltext: str
-    # TODO: Rename to "choices_list"
     choices_list: tuple[str]
 
     is_activated: bool
@@ -49,7 +48,6 @@ class QuestionDB(Table):
         return f"<code>{self.question_type.notation_str}</code> {self.fulltext if self.fulltext else self.name}"
 
     def html_full(self, existing_answer: str | None) -> str:
-        # s = f"<code>{self.question_type.notation_str}</code> {self.fulltext if self.fulltext else self.name}"
         key_len = 11
         lines = [
             f"{'Type':<{key_len}}: {self.question_type.notation_str}",
@@ -79,12 +77,9 @@ class QuestionDB(Table):
     def answer_apply_func(self) -> Optional[Callable]:
         def time_or_hours(s: str) -> datetime.time:
             try:
-                # str_to_time
                 t = datetime.time.fromisoformat(s)
                 return t
-                # return (t.hour * 60 + t.minute) / 60
             except Exception:
-                # float_hrs_to_time
                 f = float(s)
 
                 hrs = int(f) % 24
@@ -109,12 +104,11 @@ class QuestionDB(Table):
         return qtype_answer_func_mapping[self.type_id]
 
     class Meta(Table.Meta):
-        # foreign_keys = QuestionFKs.values_list()
         tablename = "question"
 
     class ForeignKeys(Table.ForeignKeys):
-        TYPE_ID = ForeignKeyRelation(QuestionTypeDB, "type_id", "pk")
-        USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+        TYPE_ID = ForeignKey(QuestionTypeDB, "type_id", "pk")
+        USER_ID = ForeignKey(TgUserDB, "user_id", "user_id")
 
 
 if __name__ == "__main__":

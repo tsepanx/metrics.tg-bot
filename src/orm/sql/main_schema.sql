@@ -68,20 +68,6 @@ CREATE TABLE event(
 );
 
 
--- DROP TABLE event_text_prefix;
--- CREATE TABLE event_text_prefix (
---     pk SERIAL PRIMARY KEY,
---
---     event_fk INTEGER
---         REFERENCES event(pk),
---
---     name VARCHAR(50)
---         NOT NULL
---         UNIQUE,
---     order_by SERIAL,
---     is_activated BOOLEAN DEFAULT True
--- );
-
 -- DROP TABLE IF EXISTS answer;
 CREATE TABLE answer (
     pk SERIAL PRIMARY KEY ,

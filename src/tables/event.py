@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
-    ForeignKeyRelation,
+    ForeignKey,
     Table,
 )
 from src.tables.tg_user import (
@@ -41,7 +41,7 @@ class EventDB(Table):
         tablename = "event"
 
     class ForeignKeys(Table.ForeignKeys):
-        USER_ID = ForeignKeyRelation(TgUserDB, "user_id", "user_id")
+        USER_ID = ForeignKey(TgUserDB, "user_id", "user_id")
 
 
 if __name__ == "__main__":

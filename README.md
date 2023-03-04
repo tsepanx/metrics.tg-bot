@@ -1,29 +1,27 @@
 ## `Metrics.tg-bot`
 
-### Refactoring TODO's
+### Key concept
 
-- Move `conversations` strings to **constants** 
+My `telegram-bot` to manage **daily metrics**, such as `weight`, `steps count`, and more.
+Aside daily metrics (I call them `Quesitons`), I have `Events` entity:
+It is to be marked when something occurs (f.e. `sleep time`, `wakeup time`, and more).
 
-### TODO for `Tomorrow`
+In addition, a more flexible abstraction that can be built on top of this is **_ongoing events_**
+- For example, you periodically go to sport gym. When it is the case, you mark a new event called `sport_training` with text `start`. 
+- Then, at the end of you exercising, you mark new event with same name (`sport_training`) and text `end`. 
 
-- [ ] Visualise Inline button select with emoji 
-- [ ] Add ability to create `event` answer
-- [x] Find ability to select in entities names
+Such events are somewhat I call `Durable` (a mistranslation, I know).
 
----
-- [x] Display events as {index - time, value - tuple (event_name, text)}
-- Involve `groups`
-- [x] -> Optimize number of `SQL` requests
-  - Check whether any `table` changed to reload "db attrs"
-  - Check output requests, fix duplicate requests
-- [x] `DB` support (`PosgreSQL`)
-- [x] `/ask missing`
-- ~~Store `questions_objects` as file~~
-- [X] Save `answers_df` in `State`
+### Purpose
 
-#### Commands
-- `/add new_name; [0, 1, 2]; lambda x: x * 50`
-- `/rename 0 new_name`
-  - `/rename old_name new_name`
-- `/drop 0`; `/drop name`
-- `/deactivate 0`; `/deactivate name`
+- In such a way I'm trying to somewhat systemize my life
+- Also, after some period of time, a data collected may be analyzed, manually or programmatically (f.e. using **Machine learning**) to identify patterns and correlations between different metrics
+
+### Documentation
+
+docs are in progress
+
+- [`orm/`_module_docs](src/orm/README.md)
+
+### Screenshots
+

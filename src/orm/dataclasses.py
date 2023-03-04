@@ -20,7 +20,7 @@ Tbl = TypeVar("Tbl", "Table", dataclass)
 
 
 @dataclass(frozen=True)
-class ForeignKeyRelation:
+class ForeignKey:
     class_: Type[Tbl]
     my_column: str
     other_column: str
@@ -33,7 +33,7 @@ class ForeignKeyRelation:
 
 
 @dataclass(frozen=True)
-class BackForeignKeyRelation(ForeignKeyRelation):
+class BackForeignKey(ForeignKey):
     def __str__(self):
         return f"back_{super().__str__()}"
 
@@ -53,20 +53,20 @@ class Table:
     def dataclass_dict_to_row_dict(cls, d: dict[str, ValueType]) -> dict[ColumnDC, ValueType]:
         return {ColumnDC(table_name=cls.Meta.tablename, column_name=k): d[k] for k in d}
 
-    def set_fk_value(self, fkey: ForeignKeyRelation, obj: Tbl) -> None:
+    def set_fk_value(self, fkey: ForeignKey, obj: Tbl) -> None:
         self._fk_values[str(fkey)] = obj
 
-    def get_fk_value(self, fkey: ForeignKeyRelation) -> Tbl | None:
+    def get_fk_value(self, fkey: ForeignKey) -> Tbl | None:
         return self._fk_values.get(str(fkey), None)
 
-    def set_back_fk_value(self, back_fkey: BackForeignKeyRelation, obj: Tbl) -> None:
+    def set_back_fk_value(self, back_fkey: BackForeignKey, obj: Tbl) -> None:
         key: str = str(back_fkey)
         existing_obj_list: list[Tbl] = self._fk_values.setdefault(key, [])
         existing_obj_list.append(obj)
 
         self._fk_values[key] = existing_obj_list
 
-    def get_back_fk_value(self, back_fkey: BackForeignKeyRelation) -> list[Tbl] | None:
+    def get_back_fk_value(self, back_fkey: BackForeignKey) -> list[Tbl] | None:
         key: str = str(back_fkey)
 
         if key in self._fk_values:
@@ -109,7 +109,7 @@ class Table:
         # Stores mapping <join_tablename> : <ForeignKey obj>
         # Auxiliary dict for faster finding ForeignKey instance
         # Used on creating Dataclasses object on setting primary_class._fk_values (at the end of func)
-        auxiliary_table_fk_mapping: dict[TableName, ForeignKeyRelation] = {}
+        auxiliary_table_fk_mapping: dict[TableName, ForeignKey] = {}
 
         # Stores mapping <table_name> : (<column names list>)
         auxiliary_table_columns_mapping: dict[TableName, list[ColumnDC]] = {
@@ -195,9 +195,9 @@ class Table:
                         )
 
                     # TODO possibly merge set_fk_value & set_back_fk_value methods
-                    if isinstance(fk_obj, BackForeignKeyRelation):
+                    if isinstance(fk_obj, BackForeignKey):
                         primary_table_obj.set_back_fk_value(fk_obj, new_dataclass_obj)
-                    elif isinstance(fk_obj, ForeignKeyRelation):
+                    elif isinstance(fk_obj, ForeignKey):
                         primary_table_obj.set_fk_value(fk_obj, new_dataclass_obj)
                     else:
                         raise Exception
@@ -215,7 +215,7 @@ class Table:
         )
 
     @classmethod
-    def foreign_keys(cls) -> list[ForeignKeyRelation]:
+    def foreign_keys(cls) -> list[ForeignKey]:
         return cls.ForeignKeys.values_list()
 
     class Meta:

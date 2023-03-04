@@ -197,7 +197,7 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 @handler_decorator
-async def on_chosen_question_name_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def on_chosen_question_name_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:  # noqa: C901
     ud: UserData = context.chat_data[USER_DATA_KEY]
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
@@ -297,7 +297,6 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
 
     ud.conv_storage.include_indices = include_indices
     return ASK_CHOOSE_QUESTION_NAMES
-    # return ASK_CHOOSE_QUESTION_NAMES_REPEAT
 
 
 @handler_decorator
@@ -376,7 +375,6 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
     if answer_text == QUESTION_TEXT_CHOICE_SKIP_QUEST:
         answer_text = None
     elif answer_text == QUESTION_TEXT_CHOICE_STOP_ASKING:
-        # return END_ASKING_QUESTIONS
         await on_end_asking_questions(ud, update)
         return ConversationHandler.END
     else:
@@ -459,7 +457,6 @@ ask_conv_handler = ConversationHandler(
     name="Ask ConvHandler",
     allow_reentry=True,
     persistent=True,
-    # per_message=True,
     entry_points=[
         CommandHandler("ask", choose_entity_type)
     ],
