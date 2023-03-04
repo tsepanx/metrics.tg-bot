@@ -197,7 +197,9 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 @handler_decorator
-async def on_chosen_question_name_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:  # noqa: C901
+async def on_chosen_question_name_option(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:  # noqa: C901
     ud: UserData = context.chat_data[USER_DATA_KEY]
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
 
