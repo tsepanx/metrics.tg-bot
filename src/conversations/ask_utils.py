@@ -10,7 +10,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
-    Update,
+    Update, ReplyKeyboardRemove,
 )
 from telegram.constants import (
     ParseMode,
@@ -363,6 +363,7 @@ async def send_dataframe(
             message_object.reply_text,
             text=html_table_text,
             parse_mode=DEFAULT_PARSE_MODE,
+            reply_markup=ReplyKeyboardRemove()
         )
         # fmt: on
 
