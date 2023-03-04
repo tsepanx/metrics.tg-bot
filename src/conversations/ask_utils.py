@@ -16,6 +16,20 @@ from telegram.constants import (
     ParseMode,
 )
 
+from src.conversations.ask_constants import (
+    QUESTION_TEXT_CHOICE_STOP_ASKING,
+    QUESTION_TEXT_CHOICE_SKIP_QUEST,
+    DEFAULT_PARSE_MODE,
+    SelectEventCallback,
+    DIR_EVENT_REPR,
+    EventType,
+    DURABLE_EVENT_REPR,
+    SINGLE_EVENT_REPR,
+    SelectQuestionButtons,
+    SelectQuestionCallback,
+    CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
+    SelectEventButtons,
+)
 from src.orm.base import (
     ColumnDC,
     ValueType,
@@ -48,20 +62,22 @@ from src.utils_tg import (
     wrapped_send_text,
 )
 
-STOP_ASKING = "Stop asking"
-SKIP_QUEST = "Skip question"
-
-DEFAULT_PARSE_MODE = ParseMode.HTML
-
 
 def get_entity_type_reply_keyboard():
-    reply_keyboard = [["Question", "Event"]]
     reply_markup = ReplyKeyboardMarkup(
-        reply_keyboard,
+        CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
         one_time_keyboard=True,
         resize_keyboard=True,
     )
     return reply_markup
+
+
+def get_questions_list_html(include_names: list[str]):
+    new_text = "Questions list:\n\n" + "`"
+    for name in include_names:
+        new_text += f"- {name}\n"
+
+    new_text += "`"
 
 
 class ExactPathMatched(Exception):
@@ -95,25 +111,25 @@ def get_event_select_keyboard(events: list[EventDB], cur_path: list[str]):
 
     if cur_path:
         buttons_column.append(
-            InlineKeyboardButton("⬆️ Up ../", callback_data="go_up"),
+            SelectEventButtons.GO_UP,
         )
 
     event: EventDB
     for subdir, (cnt, event) in subpath_events.items():
         if subdir == "":
             text = "/"
-            callback_data = "END"
+            callback_data = SelectEventCallback.END
         else:
             callback_data = subdir
             text = f"{subdir}"
             if cnt > 1:
-                text = f"🗂 [{cnt}] {text}"
+                text = DIR_EVENT_REPR(cnt, text)
 
         if cnt == 1:
-            if event.type == "Durable":
-                text = f"🕓 {text}"
-            elif event.type == "Single":
-                text = f"📍 {text}"
+            if event.type == EventType.DURABLE:
+                text = DURABLE_EVENT_REPR(text)
+            elif event.type == EventType.SINGLE:
+                text = SINGLE_EVENT_REPR(text)
 
         button = InlineKeyboardButton(text, callback_data=callback_data)
         buttons_column.append(button)
@@ -124,28 +140,24 @@ def get_event_select_keyboard(events: list[EventDB], cur_path: list[str]):
 
 def get_questions_select_keyboard(
     questions: list[QuestionDB],
-    include_indices: list[int] = None,
+    selected_indices: list[int] = None,
     emoji_str: str = "☑️",
 ) -> InlineKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton("All", callback_data="all"),
-            InlineKeyboardButton("Unanswered", callback_data="unanswered"),
-        ], [
-            InlineKeyboardButton("Clear", callback_data="clear"),
-            InlineKeyboardButton(
-                f"{'✅ ' if include_indices else ''}OK", callback_data="end_choosing"
-            ),
+            SelectQuestionButtons.ALL,
+            SelectQuestionButtons.UNANSWERED,
         ],
+        [SelectQuestionButtons.CLEAR, SelectQuestionButtons.OK_PARAMETRIZED(selected_indices)],
     ]
 
     for i, q in enumerate(questions):
-        if include_indices is not None and i in include_indices:
+        if selected_indices is not None and i in selected_indices:
             butt_text = f"{emoji_str} {q.name}"
-            butt_data = f"{i} remove"
+            butt_data = f"{i} {SelectQuestionCallback.ACTION_REMOVE}"
         else:
             butt_text = f"{q.name}"
-            butt_data = f"{i} add"
+            butt_data = f"{i} {SelectQuestionCallback.ACTION_ADD}"
 
         butt_text = f"{butt_text} ❓"
 
@@ -156,7 +168,10 @@ def get_questions_select_keyboard(
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
-    buttons = [list(map(str, q.choices_list)), [SKIP_QUEST, STOP_ASKING]]
+    buttons = [
+        list(map(str, q.choices_list)),
+        [QUESTION_TEXT_CHOICE_SKIP_QUEST, QUESTION_TEXT_CHOICE_STOP_ASKING],
+    ]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         buttons, one_time_keyboard=True, resize_keyboard=True
@@ -172,7 +187,9 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
     )
 
 
-def get_event_info_text(event: EventDB, answered_time: datetime.time | None = None, answered_text: str | None = None):
+def get_event_info_text(
+    event: EventDB, answered_time: datetime.time | None = None, answered_text: str | None = None
+):
     lines = [
         f"=== Event ===",
         f"Name: {event.name}",
@@ -195,7 +212,7 @@ async def edit_info_msg(ud: UserData, e: EventDB):
                 answered_time=ud.conv_storage.event_time,
                 answered_text=ud.conv_storage.event_text,
             ),
-            parse_mode=DEFAULT_PARSE_MODE
+            parse_mode=DEFAULT_PARSE_MODE,
         )
     except telegram.error.BadRequest:
         pass

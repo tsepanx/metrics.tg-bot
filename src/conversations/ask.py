@@ -21,18 +21,36 @@ from telegram.ext import (
     filters,
 )
 
-from src.conversations.utils_ask import (
-    SKIP_QUEST,
-    STOP_ASKING,
+from src.conversations.ask_constants import (
+    CHOOSE_DAY_REPLY_KEYBOARD,
+    DAY_CHOICE_REGEX,
+    DEFAULT_PARSE_MODE,
+    ERROR_PARSING_ANSWER,
+    EVENT_TEXT_CHOICE_NONE,
+    EVENT_TIME_CHOICE_NOW,
+    EVENT_TIME_WRONG_FORMAT,
+    ISOFORMAT_REGEX,
+    QUESTION_TEXT_CHOICE_SKIP_QUEST,
+    QUESTION_TEXT_CHOICE_STOP_ASKING,
+    SELECT_EVENT_NAME_MSG,
+    SELECT_QUESTION_ERROR_MSG,
+    SELECT_QUESTION_NAMES_MSG_TEXT,
+    SelectEventCallback,
+    SelectQuestionCallback,
+)
+from src.conversations.ask_utils import (
     ExactPathMatched,
+    edit_info_msg,
     get_entity_type_reply_keyboard,
+    get_event_info_text,
     get_event_select_keyboard,
+    get_questions_list_html,
     get_questions_select_keyboard,
     on_end_asking_event,
     on_end_asking_questions,
     send_ask_event_text,
     send_ask_event_time,
-    send_ask_question, get_event_info_text, DEFAULT_PARSE_MODE, edit_info_msg,
+    send_ask_question,
 )
 from src.other_commands import (
     TgCommands,
@@ -59,7 +77,6 @@ from src.utils_tg import (
     USER_DATA_KEY,
     handler_decorator,
     match_question_choice_callback_data,
-    wrapped_send_text,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,11 +97,14 @@ logger = logging.getLogger(__name__)
 
 @handler_decorator
 async def choose_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    assert context.chat_data is not None
     ud: UserData = context.chat_data[USER_DATA_KEY]
     # Reset convStorage
     ud.conv_storage = ASKConversationStorage()
 
     text = "Select entity type"
+
+    assert update.message is not None
 
     await update.message.reply_text(
         text=text,
@@ -108,13 +128,12 @@ async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     assert text == "Question"
 
-    reply_keyboard = [["-5", "-4", "-3", "-2", "-1", "+1"], ["Today"]]
     text = "Select day"
 
     await update.message.reply_text(
         text=text,
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
+            CHOOSE_DAY_REPLY_KEYBOARD,
             one_time_keyboard=True,
             resize_keyboard=True,
         ),
@@ -132,9 +151,9 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
 
     text = update.message.text
 
-    assert re.compile(day_choice_regex).match(text)  # 2023-01-01 / Today / +1
+    assert re.compile(DAY_CHOICE_REGEX).match(text)  # 2023-01-01 / Today / +1
 
-    if re.compile(isoformat_regex).match(text):
+    if re.compile(ISOFORMAT_REGEX).match(text):
         day = datetime.date.fromisoformat(text)
     elif text == "Today":
         day = get_today()
@@ -146,7 +165,7 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
     reply_markup = get_questions_select_keyboard(ud.db_cache.questions)
 
     await update.message.reply_text(
-        text="Choose question names OR other option",
+        text=SELECT_QUESTION_NAMES_MSG_TEXT,
         reply_markup=reply_markup,
     )
 
@@ -170,7 +189,7 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     reply_markup = get_event_select_keyboard(events, ud.conv_storage.event_name_prefix_path)
 
     await update.message.reply_text(
-        text="Choose event name",
+        text=SELECT_EVENT_NAME_MSG,
         reply_markup=reply_markup,
     )
 
@@ -190,9 +209,9 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
     await update.callback_query.answer()
     query: str = update.callback_query.data
 
-    if query == "end_choosing":
+    if query == SelectQuestionCallback.END_CHOOSING:
         if len(ud.conv_storage.include_indices) == 0:
-            raise MyException("You haven't selected any name")
+            raise MyException(SELECT_QUESTION_ERROR_MSG)
 
         ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
         include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
@@ -200,17 +219,10 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
         msg_with_keyboard = update.callback_query.message
         # await msg_with_keyboard.edit_reply_markup(None)
 
-        new_text = "Questions list:\n\n" + "`"
-        for name in include_names:
-            new_text += f"- {name}\n"
-
-        new_text += "`"
-
+        new_text = get_questions_list_html(include_names)
         try:
             await msg_with_keyboard.edit_text(
-                text=new_text,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=None
+                text=new_text, parse_mode=ParseMode.MARKDOWN, reply_markup=None
             )
         except telegram.error.BadRequest:
             pass
@@ -238,17 +250,17 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
         query_index, query_action = query.split()
         query_index = int(query_index)
 
-        if query_action == "add":
+        if query_action == SelectQuestionCallback.ACTION_ADD:
             include_indices_set.add(query_index)
-        elif query_action == "remove":
+        elif query_action == SelectQuestionCallback.ACTION_REMOVE:
             include_indices_set.discard(query_index)
         else:
             raise Exception
 
         include_indices = sorted(include_indices_set)
-    elif query == "all":
+    elif query == SelectQuestionCallback.ALL:
         include_indices = all_indices
-    elif query == "unanswered":
+    elif query == SelectQuestionCallback.UNANSWERED:
         if answers_df is not None:
             if ud.conv_storage.day not in answers_df.columns:
                 include_indices = all_indices
@@ -268,7 +280,7 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
                     include_indices = all_indices
         else:
             include_indices = all_indices
-    elif query == "clear":
+    elif query == SelectQuestionCallback.CLEAR:
         include_indices = []
     else:
         raise Exception
@@ -276,7 +288,7 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
     is_changed = old_len != len(include_indices)
     if is_changed:
         new_ikm = get_questions_select_keyboard(
-            questions=ud.db_cache.questions, include_indices=include_indices
+            questions=ud.db_cache.questions, selected_indices=include_indices
         )
         try:
             await update.callback_query.message.edit_reply_markup(new_ikm)
@@ -298,13 +310,13 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg_with_keyboard.edit_reply_markup(None)
 
         ud.conv_storage.info_msg = await update.effective_user.send_message(
-            text=get_event_info_text(event, None, None),
-            parse_mode=DEFAULT_PARSE_MODE
+            text=get_event_info_text(event, None, None), parse_mode=DEFAULT_PARSE_MODE
         )
 
         await send_ask_event_time(update.effective_user.send_message)
 
         return ASK_EVENT_TIME
+
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
@@ -314,10 +326,10 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
 
     cur_path = ud.conv_storage.event_name_prefix_path
 
-    if query == "go_up":
+    if query == SelectEventCallback.GO_UP:
         if cur_path:
             cur_path.pop(-1)
-    elif query == "END":
+    elif query == SelectEventCallback.END:
         cur_path: list[str]
         event_name = "/".join(cur_path) + "/"
 
@@ -339,9 +351,6 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
         new_text = f"Cur path: {cur_path}"
 
         await update.callback_query.message.edit_text(text=new_text, reply_markup=reply_keyboard)
-        # await update.callback_query.message.edit_reply_markup(
-        #     reply_markup=reply_keyboard
-        # )
         return ASK_CHOOSE_EVENT_NAME
     except ExactPathMatched as exc:
         found_event = exc.e
@@ -364,9 +373,9 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
 
     answer_text = update.message.text
 
-    if answer_text == SKIP_QUEST:
+    if answer_text == QUESTION_TEXT_CHOICE_SKIP_QUEST:
         answer_text = None
-    elif answer_text == STOP_ASKING:
+    elif answer_text == QUESTION_TEXT_CHOICE_STOP_ASKING:
         # return END_ASKING_QUESTIONS
         await on_end_asking_questions(ud, update)
         return ConversationHandler.END
@@ -375,13 +384,12 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
             if q.answer_apply_func:
                 answer_text = q.answer_apply_func(answer_text)
         except Exception as exc:
-            raise MyException("Error parsing answer, try again") from exc
+            raise MyException(ERROR_PARSING_ANSWER) from exc
 
     ud.conv_storage.set_current_answer(answer_text)
     ud.conv_storage.cur_i += 1
 
     if ud.conv_storage.cur_i >= len(ud.conv_storage.include_indices):
-        # return END_ASKING_QUESTIONS
         await on_end_asking_questions(ud, update)
         return ConversationHandler.END
 
@@ -405,19 +413,18 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     assert update.message is not None
     text = update.message.text
 
-    if text == "Now":
-        time = get_now().replace(microsecond=0)
+    if text == EVENT_TIME_CHOICE_NOW:
+        time_answer = get_now().time().replace(microsecond=0)
     else:
         try:
-            time = datetime.time.fromisoformat(text)
+            time_answer = datetime.time.fromisoformat(text)
         except ValueError:
             await update.message.reply_text(
-                text="Wrong time format, try again", reply_markup=update.message.reply_markup
+                text=EVENT_TIME_WRONG_FORMAT, reply_markup=update.message.reply_markup
             )
             return ASK_EVENT_TIME
 
-    ud.conv_storage.event_time = time
-    # TODO reflect changes of Dataclass by class.values -> then .save(), instead of manually updating DB
+    ud.conv_storage.event_time = time_answer
 
     await edit_info_msg(ud, event)
 
@@ -434,7 +441,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
     assert update.message is not None
     text = update.message.text
 
-    if text == "None":
+    if text == EVENT_TEXT_CHOICE_NONE:
         ud.conv_storage.event_text = ""
     else:
         ud.conv_storage.event_text = text
@@ -446,9 +453,6 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
 
 
 # === CONVERSATIONS LIST ====
-
-isoformat_regex = r"^\d{4}-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
-day_choice_regex = rf"(^\+|\-)[0-9]+$|(Today)|({isoformat_regex})"
 
 # fmt: off
 ask_conv_handler = ConversationHandler(
@@ -465,7 +469,7 @@ ask_conv_handler = ConversationHandler(
             MessageHandler(filters.Regex("Event"), choose_event_name),
         ],
         ASK_CHOOSE_QUESTION_NAMES: [
-            MessageHandler(filters.Regex(day_choice_regex), choose_question_names),
+            MessageHandler(filters.Regex(DAY_CHOICE_REGEX), choose_question_names),
             CallbackQueryHandler(on_chosen_question_name_option),
         ],
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],

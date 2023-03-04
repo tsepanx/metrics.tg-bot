@@ -1,7 +1,3 @@
-"""
-This file defines two main classes "Table" and "ForeignKeyRelation" that are most common in my orm.
-"""
-
 from dataclasses import dataclass
 from typing import (
     ClassVar,
