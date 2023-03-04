@@ -59,38 +59,6 @@ class Table:
     def dataclass_dict_to_row_dict(cls, d: dict[str, ValueType]) -> dict[ColumnDC, ValueType]:
         return {ColumnDC(table_name=cls.Meta.tablename, column_name=k): d[k] for k in d}
 
-    def update(self, **kwargs) -> None:
-        row: dict[str, ValueType] = self.__dict__
-        existing_columns: set[str] = set(row.keys())
-        new_columns: set[str] = set(kwargs.keys())
-
-        unchanged_columns: set[str] = existing_columns - new_columns
-
-        where_clauses: dict[ColumnDC, ValueType] = {
-            ColumnDC(table_name=self.Meta.tablename, column_name=k): row[k]
-            for k in unchanged_columns
-        }
-
-        set_dict: dict[ColumnDC, ValueType] = {
-            ColumnDC(table_name=self.Meta.tablename, column_name=k): kwargs[k] for k in kwargs
-        }
-
-        return _update_row(
-            tablename=self.Meta.tablename,
-            where_clauses=where_clauses,
-            set_dict=set_dict,
-        )
-
-    def create(self) -> "Table":
-        row = self.__dict__
-
-        _insert_row(
-            tablename=self.Meta.tablename,
-            row_dict={ColumnDC(table_name=self.Meta.tablename, column_name=k): row[k] for k in row},
-        )
-
-        return self
-
     def set_fk_value(self, fkey: ForeignKeyRelation, obj: Tbl) -> None:
         self._fk_values[str(fkey)] = obj
 
