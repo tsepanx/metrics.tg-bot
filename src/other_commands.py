@@ -108,9 +108,7 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     ud.conv_storage = None
-    await update.message.reply_text(
-        text="Cancelled..."
-    )
+    await update.message.reply_text(text="Cancelled...")
 
 
 @handler_decorator

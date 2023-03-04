@@ -3,9 +3,7 @@ import traceback
 from functools import wraps
 from typing import Tuple
 
-from telegram import (
-    Update,
-)
+from telegram import Update
 from telegram.constants import (
     ParseMode,
 )

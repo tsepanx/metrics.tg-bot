@@ -5,8 +5,6 @@ import re
 import pandas as pd
 import telegram
 from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     Update,
 )
@@ -25,11 +23,15 @@ from telegram.ext import (
 from src.conversations.utils_ask import (
     SKIP_QUEST,
     STOP_ASKING,
+    ExactPathMatched,
+    get_entity_type_reply_keyboard,
+    get_event_select_keyboard,
+    get_questions_select_keyboard,
     on_end_asking_event,
     on_end_asking_questions,
     send_ask_event_text,
     send_ask_event_time,
-    send_ask_question, get_questions_select_keyboard, get_entity_type_reply_keyboard,
+    send_ask_question,
 )
 from src.other_commands import (
     cancel_command,
@@ -62,7 +64,6 @@ from src.utils_tg import (
 logger = logging.getLogger(__name__)
 
 (
-    # ASK_CHOOSE_DAY,
     ASK_CHOOSE_ENTITY_TYPE,
     ASK_CHOOSE_QUESTION_NAMES,
     ASK_CHOOSE_EVENT_NAME,
@@ -110,6 +111,7 @@ async def wrong_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 # === DAY ===
 # === DAY ===
 
+
 # pylint: disable=too-many-statements
 @handler_decorator
 async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -138,14 +140,13 @@ async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 @handler_decorator
 async def wrong_day_format(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text(
-        "Wrong day format, try again"
-    )
+    await update.message.reply_text("Wrong day format, try again")
 
     return ASK_CHOOSE_QUESTION_NAMES
 
 
 # === ENTITY NAME(s)
+
 
 @handler_decorator
 async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -182,19 +183,13 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     # Down-casting
     ud.conv_storage = ASKEventConvStorage(**ud.conv_storage.__dict__)
-    # ud.conv_storage = ASKEventConvStorage
+    ud.conv_storage.event_name_prefix_path = []
 
     assert update.message.text == "Event"
 
-    # events_names: list[str] = ud.db_cache.events_names()
     events = ud.db_cache.events
 
-    buttons_column = []
-    for i, event in enumerate(events):
-        text = event.name
-        buttons_column.append(InlineKeyboardButton(text, callback_data=i))
-
-    reply_markup = InlineKeyboardMarkup.from_column(buttons_column)
+    reply_markup = get_event_select_keyboard(events, ud.conv_storage.event_name_prefix_path)
 
     await update.message.reply_text(
         text="Choose event name",
@@ -310,16 +305,46 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.callback_query.answer()
     query: str = update.callback_query.data
 
-    send_text_func = update.effective_chat.send_message
+    cur_path = ud.conv_storage.event_name_prefix_path
 
-    if not query.isdigit():
-        raise Exception(f"query {query} is not digit-like")
+    if query == "go_up":
+        if cur_path:
+            cur_path.pop(-1)
+    elif query == "END":
+        cur_path: list[str]
+        event_name = "/".join(cur_path) + "/"
 
-    ud.conv_storage.chosen_event_index = int(query)
-    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
+        event_index = None
+        event: EventDB | None = None
+        for i, e in enumerate(ud.db_cache.events):
+            if e.name == event_name:
+                event_index = i
+                event = e
+                break
+        assert event_index is not None
 
-    await send_ask_event_time(event, send_text_func)
-    return ASK_EVENT_TIME
+        ud.conv_storage.chosen_event_index = event_index
+        await send_ask_event_time(event, update.effective_user.send_message)
+        return ASK_EVENT_TIME
+    else:
+        cur_path.append(query)
+
+    try:
+        reply_keyboard = get_event_select_keyboard(ud.db_cache.events, cur_path)
+        new_text = f"Cur path: {cur_path}"
+
+        await update.callback_query.message.edit_text(text=new_text, reply_markup=reply_keyboard)
+        # await update.callback_query.message.edit_reply_markup(
+        #     reply_markup=reply_keyboard
+        # )
+        return ASK_CHOOSE_EVENT_NAME
+    except ExactPathMatched as exc:
+        event = exc.e
+        event_index = exc.i
+
+        ud.conv_storage.chosen_event_index = event_index
+        await send_ask_event_time(event, update.effective_user.send_message)
+        return ASK_EVENT_TIME
 
 
 # === ANSWER VALUE(S) ====

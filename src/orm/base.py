@@ -11,7 +11,6 @@ from typing import (
 )
 
 import psycopg
-import sqlparse
 from psycopg.sql import (
     SQL,
     Composable,

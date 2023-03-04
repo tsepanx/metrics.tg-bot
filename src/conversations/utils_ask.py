@@ -1,3 +1,4 @@
+import collections
 import copy
 import datetime
 from io import BytesIO
@@ -5,7 +6,12 @@ from typing import Callable
 
 import pandas as pd
 import telegram
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    Update,
+)
 from telegram.constants import (
     ParseMode,
 )
@@ -53,6 +59,58 @@ def get_entity_type_reply_keyboard():
         one_time_keyboard=True,
         resize_keyboard=True,
     )
+    return reply_markup
+
+
+class ExactPathMatched(Exception):
+    i: int
+    e: EventDB
+
+    def __init__(self, i: int, e: EventDB):
+        self.i = i
+        self.e = e
+
+
+def get_event_select_keyboard(events: list[EventDB], cur_path: list[str]):
+    def path_is_subpath(subpath: list[str], fullpath: list[str]) -> bool:
+        return all(subpath[i] == fullpath[i] for i in range(len(subpath)))
+
+    subpath_events: collections.OrderedDict[str, int] = collections.OrderedDict()
+
+    for i, event in enumerate(events):
+        e_path: list[str] = event.name_path()
+
+        if e_path == cur_path:
+            raise ExactPathMatched(i, event)
+
+        if path_is_subpath(cur_path, e_path):
+            subdir = e_path[len(cur_path)]
+
+            subpath_events.setdefault(subdir, 0)
+            subpath_events[subdir] += 1
+
+    buttons_column = []
+
+    if cur_path:
+        buttons_column.append(
+            InlineKeyboardButton("⬆️ Up ../", callback_data="go_up"),
+        )
+
+    for subdir, cnt in subpath_events.items():
+        if subdir == "":
+            text = "/"
+            callback_data = "END"
+        else:
+            callback_data = subdir
+            if cnt > 1:
+                text = f"[{cnt}] {subdir}"
+            else:
+                text = f"{subdir}"
+
+        button = InlineKeyboardButton(text, callback_data=callback_data)
+        buttons_column.append(button)
+
+    reply_markup = InlineKeyboardMarkup.from_column(buttons_column)
     return reply_markup
 
 
@@ -105,20 +163,20 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
     )
 
 
-async def send_ask_event_time(e: EventDB, send_text_func: Callable):
+async def send_ask_event_time(event: EventDB, send_text_func: Callable):
     buttons = [["Now"]]
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
-    text = f"Event: {e.name}\nwrite time (f.e. 05:04)"
+    text = f"Event: `{event.name}`\nwrite time (f.e. 05:04)"
 
     await wrapped_send_text(
         send_message_func=send_text_func,
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 
@@ -149,7 +207,7 @@ def build_transpose_callback_data(answer_type: AnswerType) -> str:
 
 
 async def send_entity_answers_df(
-        update: Update, ud: UserData, answers_entity: AnswerType, **kwargs
+    update: Update, ud: UserData, answers_entity: AnswerType, **kwargs
 ):
     file_name = f"{answers_entity.name.lower()}s.csv"
 
@@ -175,15 +233,15 @@ async def send_entity_answers_df(
 
 
 async def send_dataframe(
-        update: Update,
-        df: pd.DataFrame,
-        send_csv=False,
-        send_img=True,
-        send_text=False,
-        transpose_table=False,
-        transpose_button_callback_data: str = None,
-        with_question_indices=True,
-        file_name: str = "dataframe.csv",
+    update: Update,
+    df: pd.DataFrame,
+    send_csv=False,
+    send_img=True,
+    send_text=False,
+    transpose_table=False,
+    transpose_button_callback_data: str = None,
+    with_question_indices=True,
+    file_name: str = "dataframe.csv",
 ):
     # Fix dirty function applying changes directly to passed DataFrame
     df = df.copy()
@@ -256,8 +314,8 @@ async def send_dataframe(
 
 
 async def on_end_asking_questions(
-        ud: UserData,
-        update: Update,
+    ud: UserData,
+    update: Update,
 ):
     def update_db_with_answers():
         assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)

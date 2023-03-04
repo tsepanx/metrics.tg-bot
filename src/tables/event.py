@@ -31,6 +31,12 @@ class EventDB(Table):
             order_by_columns=[ColumnDC(table_name=cls.Meta.tablename, column_name="order_by")],
         )
 
+    def name_path(self) -> list[str]:
+        return self.name.split("/")
+
+    def is_dir(self) -> bool:
+        return self.name.endswith("/")
+
     class Meta(Table.Meta):
         tablename = "event"
 

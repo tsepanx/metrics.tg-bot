@@ -17,8 +17,6 @@ from src.orm.base import (
     JoinTypes,
     TableName,
     ValueType,
-    _insert_row,
-    _update_row,
 )
 from src.utils import MyEnum
 

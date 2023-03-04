@@ -54,6 +54,7 @@ class ASKEventConvStorage(ASKConversationStorage):
 
     chosen_event_index: int | None = None
 
+    event_name_prefix_path: list[str] | None = None
     event_time: datetime.time | None = None
     event_text: str | None = None
 
