@@ -26,6 +26,7 @@ from src.user_data import (
     UserDBCache,
 )
 from src.utils import (
+    MyEnum,
     format_dt,
     get_now,
 )
@@ -41,10 +42,11 @@ class TgCommand:
     handler_func: Optional[Callable]
     description: str
 
-    def handler(self) -> CommandHandler | None:
+    handler: CommandHandler | None = None
+
+    def __post_init__(self):
         if self.handler_func:
-            return CommandHandler(self.name, self.handler_func)
-        return None
+            self.handler = CommandHandler(self.name, self.handler_func)
 
 
 @handler_decorator
@@ -112,6 +114,15 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @handler_decorator
+async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ud: UserData = context.chat_data[USER_DATA_KEY]
+
+    await update.message.reply_text(text="Reloading from DB...")
+    ud.db_cache.reload_all()
+    await update.message.reply_text(text="Done")
+
+
+@handler_decorator
 async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
@@ -141,12 +152,12 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-commands_list: list[TgCommand] = [
-    TgCommand("stats", stats_command, "Get questions/events stats"),
-    TgCommand("info", info_command, "Get bot debug info"),
-    TgCommand("ask", None, "Ask for Question[s] or Event"),
-    TgCommand("cancel", None, "Cancel current /ask conversation"),
-]
+class TgCommands(MyEnum):
+    STATS = TgCommand("stats", stats_command, "Get questions/events stats")
+    INFO = TgCommand("info", info_command, "Get bot debug info")
+    ASK = TgCommand("ask", None, "Ask for Question[s] or Event")
+    CANCEL = TgCommand("cancel", cancel_command, "Cancel current /ask conversation")
+    RELOAD = TgCommand("reload", reload_command, "Reset cache and reload entries data from DB")
 
 
 async def post_init(application: Application) -> None:
@@ -155,5 +166,5 @@ async def post_init(application: Application) -> None:
         # ud.db_cache.reload_all()
         ud.db_cache = UserDBCache()
 
-    commands_names_desc = [(x.name, x.description) for x in commands_list]
+    commands_names_desc = [(x.name, x.description) for x in TgCommands.values_list()]
     await application.bot.set_my_commands(commands_names_desc)

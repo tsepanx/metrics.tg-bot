@@ -34,7 +34,7 @@ from src.conversations.utils_ask import (
     send_ask_question,
 )
 from src.other_commands import (
-    cancel_command,
+    TgCommands,
 )
 from src.tables.event import (
     EventDB,
@@ -94,21 +94,6 @@ async def choose_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ASK_CHOOSE_ENTITY_TYPE
 
 
-@handler_decorator
-async def wrong_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    ud: UserData = context.chat_data[USER_DATA_KEY]
-    # Reset convStorage
-    ud.conv_storage = ASKConversationStorage()
-
-    await update.message.reply_text(
-        text="Wrong entity type format, try again",
-        reply_markup=get_entity_type_reply_keyboard(),
-    )
-
-    return ASK_CHOOSE_ENTITY_TYPE
-
-
-# === DAY ===
 # === DAY ===
 
 
@@ -134,13 +119,6 @@ async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             resize_keyboard=True,
         ),
     )
-
-    return ASK_CHOOSE_QUESTION_NAMES
-
-
-@handler_decorator
-async def wrong_day_format(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Wrong day format, try again")
 
     return ASK_CHOOSE_QUESTION_NAMES
 
@@ -458,11 +436,9 @@ ask_conv_handler = ConversationHandler(
         ASK_CHOOSE_ENTITY_TYPE: [
             MessageHandler(filters.Regex("Question"), choose_day),
             MessageHandler(filters.Regex("Event"), choose_event_name),
-            MessageHandler(filters.TEXT, wrong_entity_type),
         ],
         ASK_CHOOSE_QUESTION_NAMES: [
             MessageHandler(filters.Regex(day_choice_regex), choose_question_names),
-            MessageHandler(filters.TEXT, wrong_day_format),
             CallbackQueryHandler(on_chosen_question_name_option),
         ],
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
@@ -471,7 +447,8 @@ ask_conv_handler = ConversationHandler(
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT, on_event_text_answered)],
     },
     fallbacks=[
-        CommandHandler("cancel", cancel_command)
+        TgCommands.CANCEL.value.handler,
+        TgCommands.RELOAD.value.handler,
     ],
 )
 # fmt: on

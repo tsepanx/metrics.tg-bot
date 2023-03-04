@@ -11,7 +11,7 @@ from src.conversations.ask import (
     ask_conv_handler,
 )
 from src.other_commands import (
-    commands_list,
+    TgCommands,
     on_callback_query,
     post_init,
 )
@@ -32,10 +32,9 @@ if __name__ == "__main__":
 
     app.add_handler(ask_conv_handler)
 
-    for command in commands_list:
-        handler: CommandHandler | None = command.handler()
-        if handler:
-            app.add_handler(handler)
+    for command in TgCommands.values_list():
+        if command.handler:
+            app.add_handler(command.handler)
 
     app.add_handler(CallbackQueryHandler(on_callback_query))
     app.run_polling()
