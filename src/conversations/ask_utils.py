@@ -331,7 +331,7 @@ async def send_dataframe(
         img = text_to_png(md_text)
 
         bio = BytesIO()
-        bio.name = "img.png"
+        bio.name = "screenshot1.png"
 
         img.save(bio, "png")
         bio.seek(0)

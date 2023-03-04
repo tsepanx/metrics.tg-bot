@@ -6,6 +6,8 @@ __pycache__/
 *.png
 *.jpg
 
+!assets/*
+
 dump.sql
 data*.sql
 .token

@@ -19,9 +19,18 @@ Such events are somewhat I call `Durable` (a mistranslation, I know).
 
 ### Documentation
 
-docs are in progress
+docs are in progress...
 
 - [`orm/`_module_docs](src/orm/README.md)
+- `setup.MD` (not ready)
+- `tables.py` module docs (not ready)
 
 ### Screenshots
 
+![img.png](assets/screenshot1.png)
+
+[//]: # (![img.png]&#40;assets/screenshot2.png&#41;)
+
+![img.png](assets/screenshot3.png)
+
+![img.png](assets/screenshot4.png)
