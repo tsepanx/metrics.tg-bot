@@ -129,6 +129,7 @@ def get_questions_select_keyboard(
         [
             InlineKeyboardButton("All", callback_data="all"),
             InlineKeyboardButton("Unanswered", callback_data="unanswered"),
+        ], [
             InlineKeyboardButton("Clear", callback_data="clear"),
             InlineKeyboardButton(
                 f"{'✅ ' if include_indices else ''}OK", callback_data="end_choosing"
