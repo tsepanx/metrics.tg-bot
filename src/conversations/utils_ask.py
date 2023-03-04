@@ -349,7 +349,7 @@ async def on_end_asking_questions(
             )
 
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
-    if any(ud.conv_storage.cur_answers):
+    if any(map(lambda x: x is not None, ud.conv_storage.cur_answers)):
         update_db_with_answers()
         ud.db_cache.reload_all()
 
