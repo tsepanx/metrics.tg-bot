@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+import time
 
 import pandas as pd
 import telegram
@@ -31,7 +32,7 @@ from src.conversations.utils_ask import (
     on_end_asking_questions,
     send_ask_event_text,
     send_ask_event_time,
-    send_ask_question,
+    send_ask_question, get_event_info_text, DEFAULT_PARSE_MODE, edit_info_msg,
 )
 from src.other_commands import (
     TgCommands,
@@ -73,7 +74,6 @@ logger = logging.getLogger(__name__)
     END_ASKING_QUESTIONS,
     END_ASKING_EVENT,
 ) = range(8)
-
 
 # === ENTITY TYPE ===
 
@@ -197,11 +197,25 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
         ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
         include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
 
-        await wrapped_send_text(
-            send_text_func,
-            text="Questions list:\n`{}`\n".format("\n".join(include_names)),
-            parse_mode=ParseMode.MARKDOWN,
-        )
+        msg_with_keyboard = update.callback_query.message
+        # await msg_with_keyboard.edit_reply_markup(None)
+
+        new_text = "Questions list:\n\n" + "`"
+        for name in include_names:
+            new_text += f"- {name}\n"
+
+        new_text += "`"
+
+        try:
+            await msg_with_keyboard.edit_text(
+                text=new_text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=None
+            )
+        except telegram.error.BadRequest:
+            pass
+
+        time.sleep(0.8)
 
         first_question = ud.conv_storage.current_question(ud.db_cache.questions)
 
@@ -276,6 +290,21 @@ async def on_chosen_question_name_option(update: Update, context: ContextTypes.D
 
 @handler_decorator
 async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    async def end_state(event_index: int, event: EventDB) -> int:
+        ud.conv_storage.chosen_event_index = event_index
+        assert isinstance(ud.conv_storage, ASKEventConvStorage)
+
+        msg_with_keyboard = update.callback_query.message
+        await msg_with_keyboard.edit_reply_markup(None)
+
+        ud.conv_storage.info_msg = await update.effective_user.send_message(
+            text=get_event_info_text(event, None, None),
+            parse_mode=DEFAULT_PARSE_MODE
+        )
+
+        await send_ask_event_time(update.effective_user.send_message)
+
+        return ASK_EVENT_TIME
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
@@ -292,18 +321,16 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
         cur_path: list[str]
         event_name = "/".join(cur_path) + "/"
 
-        event_index = None
-        event: EventDB | None = None
+        found_e_index = None
+        found_event: EventDB | None = None
         for i, e in enumerate(ud.db_cache.events):
             if e.name == event_name:
-                event_index = i
-                event = e
+                found_e_index = i
+                found_event = e
                 break
-        assert event_index is not None
+        assert found_e_index is not None
 
-        ud.conv_storage.chosen_event_index = event_index
-        await send_ask_event_time(event, update.effective_user.send_message)
-        return ASK_EVENT_TIME
+        return await end_state(found_e_index, found_event)
     else:
         cur_path.append(query)
 
@@ -317,12 +344,10 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
         # )
         return ASK_CHOOSE_EVENT_NAME
     except ExactPathMatched as exc:
-        event = exc.e
-        event_index = exc.i
+        found_event = exc.e
+        found_e_index = exc.i
 
-        ud.conv_storage.chosen_event_index = event_index
-        await send_ask_event_time(event, update.effective_user.send_message)
-        return ASK_EVENT_TIME
+        return await end_state(found_e_index, found_event)
 
 
 # === ANSWER VALUE(S) ====
@@ -374,13 +399,11 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
 @handler_decorator
 async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
-
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
+    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
 
     assert update.message is not None
     text = update.message.text
-
-    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
 
     if text == "Now":
         time = get_now().replace(microsecond=0)
@@ -396,6 +419,8 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     ud.conv_storage.event_time = time
     # TODO reflect changes of Dataclass by class.values -> then .save(), instead of manually updating DB
 
+    await edit_info_msg(ud, event)
+
     await send_ask_event_text(event, update.message.reply_text)
     return ASK_EVENT_TEXT
 
@@ -403,16 +428,18 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 @handler_decorator
 async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
-
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
+    event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
 
     assert update.message is not None
     text = update.message.text
 
     if text == "None":
-        ud.conv_storage.event_text = None
+        ud.conv_storage.event_text = ""
     else:
         ud.conv_storage.event_text = text
+
+    await edit_info_msg(ud, event)
 
     await on_end_asking_event(ud, update)
     return ConversationHandler.END

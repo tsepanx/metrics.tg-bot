@@ -45,8 +45,21 @@ class QuestionDB(Table):
 
     type_id: int  # ForeignKey : 'QuestionTypeDB'
 
-    def html_notation(self):
+    def html_short(self):
         return f"<code>{self.question_type.notation_str}</code> {self.fulltext if self.fulltext else self.name}"
+
+    def html_full(self, existing_answer: str | None) -> str:
+        # s = f"<code>{self.question_type.notation_str}</code> {self.fulltext if self.fulltext else self.name}"
+        key_len = 11
+        lines = [
+            f"{'Type':<{key_len}}: {self.question_type.notation_str}",
+            f"{'Name':<{key_len}}: {self.name}",
+            f"{'Fulltext':<{key_len}}: {self.fulltext}",
+            "",
+            f"{'Value in DB':<{key_len}}: {existing_answer}",
+        ]
+
+        return "<code>" + "\n".join(lines) + "</code>"
 
     @classmethod
     def select_all(cls):
@@ -60,7 +73,6 @@ class QuestionDB(Table):
 
     @property
     def question_type(self) -> QuestionTypeDB | None:
-        # return self.get_fk_value("type_id")
         return self.get_fk_value(self.ForeignKeys.TYPE_ID.value)
 
     @property

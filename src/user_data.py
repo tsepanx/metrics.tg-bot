@@ -3,6 +3,7 @@ import datetime
 from dataclasses import dataclass
 
 import pandas as pd
+import telegram
 
 from src.tables.answer import (
     AnswerDB,
@@ -53,6 +54,8 @@ class ASKEventConvStorage(ASKConversationStorage):
     entity_type = AnswerType.QUESTION
 
     chosen_event_index: int | None = None
+
+    info_msg: telegram.Message | None = None
 
     event_name_prefix_path: list[str] | None = None
     event_time: datetime.time | None = None

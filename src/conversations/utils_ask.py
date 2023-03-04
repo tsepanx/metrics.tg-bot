@@ -51,6 +51,8 @@ from src.utils_tg import (
 STOP_ASKING = "Stop asking"
 SKIP_QUEST = "Skip question"
 
+DEFAULT_PARSE_MODE = ParseMode.HTML
+
 
 def get_entity_type_reply_keyboard():
     reply_keyboard = [["Question", "Event"]]
@@ -160,26 +162,52 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
         buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
-    text = f"{q.html_notation()}"
-    if existing_answer:
-        text += f"\n\nAnswer in DB: <code>{existing_answer}</code>"
+    text = q.html_full(existing_answer)
 
     await wrapped_send_text(
         send_message_func=send_text_func,
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
+        parse_mode=DEFAULT_PARSE_MODE,
     )
 
 
-async def send_ask_event_time(event: EventDB, send_text_func: Callable):
-    buttons = [["Now"]]
+def get_event_info_text(event: EventDB, answered_time: datetime.time | None = None, answered_text: str | None = None):
+    lines = [
+        f"=== Event ===",
+        f"Name: {event.name}",
+        "",
+        f"Time: {answered_time}" if answered_time else "",
+        f"Text: {answered_text}" if answered_text is not None else "",
+    ]
 
+    text = "<code>" + "\n".join(lines) + "</code>"
+    return text
+
+
+async def edit_info_msg(ud: UserData, e: EventDB):
+    assert isinstance(ud.conv_storage, ASKEventConvStorage)
+
+    try:
+        await ud.conv_storage.info_msg.edit_text(
+            text=get_event_info_text(
+                event=e,
+                answered_time=ud.conv_storage.event_time,
+                answered_text=ud.conv_storage.event_text,
+            ),
+            parse_mode=DEFAULT_PARSE_MODE
+        )
+    except telegram.error.BadRequest:
+        pass
+
+
+async def send_ask_event_time(send_text_func: Callable):
+    buttons = [["Now"]]
     reply_markup = telegram.ReplyKeyboardMarkup(
         buttons, one_time_keyboard=True, resize_keyboard=True
     )
 
-    text = f"Event: `{event.name}`\nwrite time (f.e. 05:04)"
+    text = "Now send event time in `isoformat` (01:02:03)"
 
     await wrapped_send_text(
         send_message_func=send_text_func,
@@ -190,7 +218,7 @@ async def send_ask_event_time(event: EventDB, send_text_func: Callable):
 
 
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
-    text = f"Event: {e.name}\nwrite text value (optionally)"
+    text = f"Also send `text` (optionally)"
 
     buttons = []
 
@@ -207,7 +235,7 @@ async def send_ask_event_text(e: EventDB, send_text_func: Callable):
         send_message_func=send_text_func,
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 
@@ -317,7 +345,7 @@ async def send_dataframe(
         await wrapped_send_text(
             message_object.reply_text,
             text=html_table_text,
-            parse_mode=ParseMode.HTML
+            parse_mode=DEFAULT_PARSE_MODE,
         )
         # fmt: on
 

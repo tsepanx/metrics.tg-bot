@@ -22,7 +22,7 @@ CREATE TABLE tg_user (
 CREATE TABLE question_type (
     pk SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
-    notation_str VARCHAR(10) UNIQUE
+    notation_str VARCHAR(50) UNIQUE
 );
 
 -- DROP TABLE question;
