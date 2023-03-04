@@ -145,6 +145,8 @@ def get_questions_select_keyboard(
             butt_text = f"{q.name}"
             butt_data = f"{i} add"
 
+        butt_text = f"{butt_text} ❓"
+
         new_button = InlineKeyboardButton(text=butt_text, callback_data=butt_data)
         keyboard.append([new_button])
 
