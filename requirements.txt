@@ -9,6 +9,7 @@ black~=23.1.0
 flake8
 pylint
 mypy
+bandit
 
 sqlparse~=0.4.3
 numpy~=1.24.2

@@ -30,6 +30,8 @@ jobs:
         run: black . --check
       - name: FLAKE8
         run: flake8 .
+      - name: BANDIT
+        run: bandit ./
       # - name: PYLINT
       #   run: pylint src
       # - name: MYPY
