@@ -327,7 +327,7 @@ def _update_row(
         # "UPDATE {tablename} SET answer_text = '66664' WHERE (day_fk, question_fk) = ('2023-02-23', 'weight')"
         template_query = "UPDATE {} SET {} = {} WHERE ({}) = ({})"
     elif len(set_names) > 1:
-        template_query = "UPDATE {} SET ({}) = ({}) col3, col4WHERE ({}) = ({})"
+        template_query = "UPDATE {} SET ({}) = ({}) WHERE ({}) = ({})"
     else:
         raise Exception
 
