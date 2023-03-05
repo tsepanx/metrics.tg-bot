@@ -99,3 +99,9 @@ CREATE TABLE answer (
         = 1
     )
 );
+
+
+SELECT date, time, e.name, text FROM answer
+    LEFT OUTER JOIN event e on answer.event_fk = e.pk
+WHERE event_fk IS NOT NULL
+ORDER BY date, time;

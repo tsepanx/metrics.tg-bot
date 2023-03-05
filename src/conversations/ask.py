@@ -5,10 +5,7 @@ import time
 
 import pandas as pd
 import telegram
-from telegram import (
-    ReplyKeyboardMarkup,
-    Update,
-)
+from telegram import Update
 from telegram.constants import (
     ParseMode,
 )
@@ -22,9 +19,15 @@ from telegram.ext import (
 )
 
 from src.conversations.ask_constants import (
+    CHOOSE_DAY_MSG,
+    CHOOSE_DAY_OPTION_TODAY,
     CHOOSE_DAY_REPLY_KEYBOARD,
+    CHOOSE_ENTITY_TYPE_MSG,
     DAY_CHOICE_REGEX,
     DEFAULT_PARSE_MODE,
+    DEFAULT_REPLY_KEYBOARD,
+    ENTITY_TYPE_EVENT_STR,
+    ENTITY_TYPE_QUESTION_STR,
     ERROR_PARSING_ANSWER,
     EVENT_TEXT_CHOICE_NONE,
     EVENT_TIME_CHOICE_NOW,
@@ -102,12 +105,10 @@ async def choose_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Reset convStorage
     ud.conv_storage = ASKConversationStorage()
 
-    text = "Select entity type"
-
     assert update.message is not None
 
     await update.message.reply_text(
-        text=text,
+        text=CHOOSE_ENTITY_TYPE_MSG,
         reply_markup=get_entity_type_reply_keyboard(),
     )
 
@@ -126,17 +127,11 @@ async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud.conv_storage = ASKQuestionsConvStorage(**ud.conv_storage.__dict__)
 
     text = update.message.text
-    assert text == "Question"
-
-    text = "Select day"
+    assert text == ENTITY_TYPE_QUESTION_STR
 
     await update.message.reply_text(
-        text=text,
-        reply_markup=ReplyKeyboardMarkup(
-            CHOOSE_DAY_REPLY_KEYBOARD,
-            one_time_keyboard=True,
-            resize_keyboard=True,
-        ),
+        text=CHOOSE_DAY_MSG,
+        reply_markup=DEFAULT_REPLY_KEYBOARD(CHOOSE_DAY_REPLY_KEYBOARD),
     )
 
     return ASK_CHOOSE_QUESTION_NAMES
@@ -155,7 +150,7 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
 
     if re.compile(ISOFORMAT_REGEX).match(text):
         day = datetime.date.fromisoformat(text)
-    elif text == "Today":
+    elif text == CHOOSE_DAY_OPTION_TODAY:
         day = get_today()
     else:  # +1 / -1 / ...
         day = get_nth_delta_day(int(text))
@@ -182,7 +177,7 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     ud.conv_storage = ASKEventConvStorage(**ud.conv_storage.__dict__)
     ud.conv_storage.event_name_prefix_path = []
 
-    assert update.message.text == "Event"
+    assert update.message.text == ENTITY_TYPE_EVENT_STR
 
     events = ud.db_cache.events
 
@@ -460,12 +455,12 @@ ask_conv_handler = ConversationHandler(
     allow_reentry=True,
     persistent=True,
     entry_points=[
-        CommandHandler("ask", choose_entity_type)
+        CommandHandler(TgCommands.ASK.value.name, choose_entity_type)
     ],
     states={
         ASK_CHOOSE_ENTITY_TYPE: [
-            MessageHandler(filters.Regex("Question"), choose_day),
-            MessageHandler(filters.Regex("Event"), choose_event_name),
+            MessageHandler(filters.Regex(ENTITY_TYPE_QUESTION_STR), choose_day),
+            MessageHandler(filters.Regex(ENTITY_TYPE_EVENT_STR), choose_event_name),
         ],
         ASK_CHOOSE_QUESTION_NAMES: [
             MessageHandler(filters.Regex(DAY_CHOICE_REGEX) & (~filters.COMMAND), choose_question_names),

@@ -18,11 +18,15 @@ from telegram.constants import (
 )
 
 from src.conversations.ask_constants import (
+    ADD_TIME_TO_QUESTIONS,
     CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
     DEFAULT_PARSE_MODE,
+    DEFAULT_REPLY_KEYBOARD,
     DIR_EVENT_REPR,
     DURABLE_EVENT_REPR,
-    IS_ADD_TIME_TO_QUESTIONS,
+    EVENT_TEXT_ASK_MSG,
+    EVENT_TIME_ASK_MSG,
+    EVENT_TIME_CHOICE_NOW,
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
     SINGLE_EVENT_REPR,
@@ -222,24 +226,17 @@ async def edit_info_msg(ud: UserData, e: EventDB):
 
 
 async def send_ask_event_time(send_text_func: Callable):
-    buttons = [["Now"]]
-    reply_markup = telegram.ReplyKeyboardMarkup(
-        buttons, one_time_keyboard=True, resize_keyboard=True
-    )
-
-    text = "Now send event time in `isoformat` (01:02:03)"
+    buttons = [[EVENT_TIME_CHOICE_NOW]]
 
     await wrapped_send_text(
         send_message_func=send_text_func,
-        text=text,
-        reply_markup=reply_markup,
+        text=EVENT_TIME_ASK_MSG,
+        reply_markup=DEFAULT_REPLY_KEYBOARD(buttons),
         parse_mode=ParseMode.MARKDOWN,
     )
 
 
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
-    text = "Also send `text` (optionally)"
-
     buttons = []
 
     if e.type == "Durable":
@@ -247,14 +244,10 @@ async def send_ask_event_text(e: EventDB, send_text_func: Callable):
 
     buttons.append(["None"])
 
-    reply_markup = telegram.ReplyKeyboardMarkup(
-        keyboard=buttons, one_time_keyboard=True, resize_keyboard=True
-    )
-
     await wrapped_send_text(
         send_message_func=send_text_func,
-        text=text,
-        reply_markup=reply_markup,
+        text=EVENT_TEXT_ASK_MSG,
+        reply_markup=DEFAULT_REPLY_KEYBOARD(buttons),
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -393,7 +386,7 @@ async def on_end_asking_questions(
 
             set_dict: dict[ColumnDC, ValueType] = {ColumnDC(column_name="text"): text}
 
-            if IS_ADD_TIME_TO_QUESTIONS:
+            if ADD_TIME_TO_QUESTIONS:
                 answer_time = get_now_time()
                 set_dict[ColumnDC(column_name="time")] = answer_time
 

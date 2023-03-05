@@ -161,6 +161,8 @@ class TgCommands(MyEnum):
 
 
 async def post_init(application: Application) -> None:
+    print(await application.bot.get_me())
+
     for _, chat_data in application.chat_data.items():
         ud: UserData = chat_data[USER_DATA_KEY]
         # ud.db_cache.reload_all()
