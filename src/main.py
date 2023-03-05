@@ -22,7 +22,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     with open(".token", encoding="utf-8") as f:
-        TOKEN = f.read()
+        TOKEN = f.read().strip()
         print(TOKEN)
 
     persistence = PicklePersistence(filepath="persitencebot", update_interval=1)
