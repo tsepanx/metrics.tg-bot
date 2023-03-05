@@ -280,10 +280,9 @@ def _exists(
 
 
 def _insert_row(tablename: TableName, row_dict: dict[ColumnDC, Any]):
-    names = tuple(row_dict.keys())
+    columns: tuple[ColumnDC] = tuple(row_dict.keys())
 
     # ColumnDC -> str placeholder
-    # placeholder_apply_func = ColumnDC.underscore_notation
     placeholder_apply_func = lambda x: x.column_name  # noqa: E731
 
     query = (
@@ -292,9 +291,9 @@ def _insert_row(tablename: TableName, row_dict: dict[ColumnDC, Any]):
             # tablename
             Identifier(tablename),
             # (col1, col2)
-            SQL(", ").join(map(ColumnDC.compose_by_dot, names)),
+            SQL(", ").join(map(ColumnDC.compose_by_dot, columns)),
             # (%(col1)s, %(col1)s) -> ('val1', 'val2')
-            SQL(", ").join(map(Placeholder, map(placeholder_apply_func, names))),
+            SQL(", ").join(map(Placeholder, map(placeholder_apply_func, columns))),
         )
         .as_string(get_psql_conn())
     )
@@ -344,14 +343,13 @@ def _update_row(
             SQL(", ").join(map(Placeholder, prefixed_set_names)),
             # where columns (col1, col2)
             SQL(", ").join(map(ColumnDC.compose_by_dot, where_names)),
-            # where values  (%s, %s)
+            # where values  (%(col1)s, %(col2)s)
             SQL(", ").join(map(Placeholder, prefixed_where_names)),
         )
         .as_string(get_psql_conn())
     )
 
     placeholder_values = {**prefixed_set_dict, **prefixed_where_dict}
-
     _query_set(query, placeholder_values)
 
 

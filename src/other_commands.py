@@ -27,7 +27,7 @@ from src.user_data import (
 )
 from src.utils import (
     MyEnum,
-    format_dt,
+    format_datetime,
     get_now,
 )
 from src.utils_tg import (
@@ -70,12 +70,12 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    cur_time: str = format_dt(get_now())
+    cur_time: str = format_datetime(get_now())
 
     values: list[tuple[str, str]] = [
         ("User id", update.effective_user.id),
         ("Time on server", cur_time),
-        ("DB last reload", format_dt(ud.db_cache.LAST_RELOAD_TIME)),
+        ("DB last reload", format_datetime(ud.db_cache.LAST_RELOAD_TIME)),
         ("DEBUG_SQL_OUTPUT", ud.DEBUG_SQL_OUTPUT),
         ("DEBUG_ERRORS_OUTPUT", ud.DEBUG_ERRORS_OUTPUT),
         ("", ""),

@@ -237,7 +237,7 @@ async def on_chosen_question_name_option(  # noqa: C901
         await send_ask_question(
             first_question,
             send_text_func,
-            existing_answer=ud.cur_question_existing_answer()
+            existing_answer=ud.cur_question_answer_in_db()
         )
         # fmt: on
 
@@ -398,7 +398,7 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
     await send_ask_question(
         q=q,
         send_text_func=update.message.reply_text,
-        existing_answer=ud.cur_question_existing_answer(),
+        existing_answer=ud.cur_question_answer_in_db(),
     )
 
     return ASK_QUESTION_ANSWER

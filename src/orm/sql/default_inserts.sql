@@ -1,7 +1,5 @@
 
 
-
-
 INSERT INTO question_type VALUES
     (0, 'text', '[Text]'),
     (1, 'int', '[Decimal]'),
@@ -17,6 +15,6 @@ INSERT INTO event (name, type) VALUES
 ;
 
 INSERT INTO question (name, fulltext, choices_list, type_id) VALUES
-    ('weight', '', '{65,70,75}', 1),
-    ('steps_cnt', '', '{6000,8000,1000}', 1)
+    ('weight', 'Weight', '{65,70,75}', 1),
+    ('steps_cnt', 'Steps count', '{6000,8000,1000}', 1)
 ;

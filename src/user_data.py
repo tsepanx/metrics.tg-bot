@@ -153,7 +153,7 @@ class UserData:
         self.conv_storage = ASKConversationStorage()
         self.db_cache = UserDBCache()
 
-    def cur_question_existing_answer(self) -> str | None:
+    def cur_question_answer_in_db(self) -> str | None:
         assert isinstance(self.conv_storage, ASKQuestionsConvStorage)
 
         day = self.conv_storage.day

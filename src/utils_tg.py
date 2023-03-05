@@ -14,43 +14,40 @@ from telegram.ext import (
 from src.user_data import UserData
 from src.utils import MyException
 
-
-def match_question_choice_callback_data(query: str) -> bool:
-    return bool(re.compile("^[0-9]+ (add|remove)$").match(query))
-
-
 USER_DATA_KEY = "user_data"
 CHAT_DATA_KEYS_DEFAULTS = {USER_DATA_KEY: UserData}
-RELOAD_DB_CACHE = False
 MAX_MSG_LEN = 4096
 
 
-def get_divided_long_message(text, max_size) -> Tuple[str, str]:
-    """
-    Cuts long message text with \n separator
-
-    @param text: str - given text
-    @param max_size: int - single text message max size
-
-    return: text part from start, and the rest of text
-    """
-    subtext = text[:max_size]
-    border = subtext.rfind("\n")
-
-    subtext = subtext[:border]
-    text = text[border:]
-
-    return subtext, text
-
-
 async def wrapped_send_text(send_message_func, text: str, *args, **kwargs):
-    if len(text) > MAX_MSG_LEN:
-        lpart, rpart = get_divided_long_message(text, MAX_MSG_LEN)
+    def get_divided_long_message(long_text, max_size) -> Tuple[str, str]:
+        """
+        Cuts long message text with \n separator
 
-        await send_message_func(*args, text=lpart, **kwargs)
-        await wrapped_send_text(send_message_func, rpart, *args, **kwargs)
+        @param long_text: str - given text
+        @param max_size: int - single text message max size
+
+        return: text part from start, and the rest of text
+        """
+        subtext = long_text[:max_size]
+        border = subtext.rfind("\n")
+
+        subtext = subtext[:border]
+        long_text = long_text[border:]
+
+        return subtext, long_text
+
+    if len(text) > MAX_MSG_LEN:
+        l_part, r_part = get_divided_long_message(text, MAX_MSG_LEN)
+
+        await send_message_func(*args, text=l_part, **kwargs)
+        await wrapped_send_text(send_message_func, r_part, *args, **kwargs)
     else:
         await send_message_func(*args, text=text, **kwargs)
+
+
+def match_question_choice_callback_data(query: str) -> bool:
+    return bool(re.compile("^[0-9]+ (add|remove)$").match(query))
 
 
 def handler_decorator(func):
@@ -72,14 +69,8 @@ def handler_decorator(func):
 
         ud: UserData = context.chat_data[USER_DATA_KEY]
 
-        if RELOAD_DB_CACHE:
-            print("DB Cache: RELOADING FROM DB")
-            ud.db_cache.reload_all()
-            RELOAD_DB_CACHE = False
-
         try:
-            result = await func(update, context, *args, **kwargs)
-            return result
+            return await func(update, context, *args, **kwargs)
         except MyException as e:
             await wrapped_send_text(
                 update.effective_chat.send_message,

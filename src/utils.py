@@ -15,6 +15,29 @@ from PIL import (
 DEFAULT_TZ = pytz.timezone("Europe/Moscow")
 
 
+class MyException(Exception):
+    pass
+
+
+class MyEnum(enum.Enum):
+    @classmethod
+    def values_list(cls):
+        return list(map(lambda x: x.value, cls.__members__.values()))
+
+    @classmethod
+    def enum_by_name(cls, name: str) -> Type["MyEnum"] | None:
+        return cls.__members__.get(name)
+
+
+def to_list(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> list:
+        res = list(func(*args, **kwargs))
+        return res
+
+    return wrapper
+
+
 def get_now() -> datetime.datetime:
     return datetime.datetime.now(DEFAULT_TZ).replace(tzinfo=None)
 
@@ -27,26 +50,13 @@ def get_today() -> datetime.date:
     return get_now().date()
 
 
-def format_dt(ts: datetime.datetime) -> str:
-    return ts.isoformat(sep=" ", timespec="seconds")
-
-
-class MyException(Exception):
-    pass
-
-
-def to_list(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> list:
-        res = list(func(*args, **kwargs))
-        return res
-
-    return wrapper
-
-
 def get_nth_delta_day(n: int = 0) -> datetime.date:
     date = get_today() + datetime.timedelta(days=n)
     return date
+
+
+def format_datetime(ts: datetime.datetime) -> str:
+    return ts.isoformat(sep=" ", timespec="seconds")
 
 
 def text_to_png(text: str, bold=True):
@@ -87,13 +97,3 @@ def data_to_bytesio(data: Any, fname: str) -> BytesIO:
 
     bio.seek(0)
     return bio
-
-
-class MyEnum(enum.Enum):
-    @classmethod
-    def values_list(cls):
-        return list(map(lambda x: x.value, cls.__members__.values()))
-
-    @classmethod
-    def enum_by_name(cls, name: str) -> Type["MyEnum"] | None:
-        return cls.__members__.get(name)
