@@ -21,7 +21,7 @@ from psycopg.sql import (
 PG_DB = os.environ.get("PG_DB", "postgres")
 PG_USER = os.environ.get("PG_USER", "postgres")
 PG_HOST = os.environ.get("PG_HOST", "localhost")
-PG_PASSWORD = os.environ.get("PG_PASSWORD", "")
+PG_PASSWORD = os.environ.get("PG_PASSWORD", "postgres")
 
 TableName = str
 ValueType = Any
