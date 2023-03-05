@@ -10,7 +10,8 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
-    Update, ReplyKeyboardRemove,
+    ReplyKeyboardRemove,
+    Update,
 )
 from telegram.constants import (
     ParseMode,
@@ -21,6 +22,7 @@ from src.conversations.ask_constants import (
     DEFAULT_PARSE_MODE,
     DIR_EVENT_REPR,
     DURABLE_EVENT_REPR,
+    IS_ADD_TIME_TO_QUESTIONS,
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
     SINGLE_EVENT_REPR,
@@ -52,6 +54,7 @@ from src.user_data import (
 )
 from src.utils import (
     data_to_bytesio,
+    get_now_time,
     get_today,
     text_to_png,
 )
@@ -388,12 +391,18 @@ async def on_end_asking_questions(
             if text is None:
                 continue
 
+            where_clauses: dict[ColumnDC, ValueType] = {
+                ColumnDC(column_name="date"): day,
+                ColumnDC(column_name="question_fk"): question.pk,
+            }
+
+            if IS_ADD_TIME_TO_QUESTIONS:
+                answer_time = get_now_time()
+                where_clauses[ColumnDC(column_name="time")] = answer_time
+
             update_or_insert_row(
                 tablename="answer",
-                where_clauses={
-                    ColumnDC(column_name="date"): day,
-                    ColumnDC(column_name="question_fk"): question.pk,
-                },
+                where_clauses=where_clauses,
                 set_dict={ColumnDC(column_name="text"): text},
             )
 

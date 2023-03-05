@@ -69,7 +69,7 @@ from src.user_data import (
 )
 from src.utils import (
     MyException,
-    get_now,
+    get_now_time,
     get_nth_delta_day,
     get_today,
 )
@@ -414,7 +414,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     text = update.message.text
 
     if text == EVENT_TIME_CHOICE_NOW:
-        time_answer = get_now().time().replace(microsecond=0)
+        time_answer = get_now_time()
     else:
         try:
             time_answer = datetime.time.fromisoformat(text)

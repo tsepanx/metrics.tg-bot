@@ -19,6 +19,10 @@ def get_now() -> datetime.datetime:
     return datetime.datetime.now(DEFAULT_TZ).replace(tzinfo=None)
 
 
+def get_now_time() -> datetime.time:
+    return get_now().replace(microsecond=0).time()
+
+
 def get_today() -> datetime.date:
     return get_now().date()
 
