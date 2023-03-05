@@ -391,19 +391,19 @@ async def on_end_asking_questions(
             if text is None:
                 continue
 
-            where_clauses: dict[ColumnDC, ValueType] = {
-                ColumnDC(column_name="date"): day,
-                ColumnDC(column_name="question_fk"): question.pk,
-            }
+            set_dict: dict[ColumnDC, ValueType] = {ColumnDC(column_name="text"): text}
 
             if IS_ADD_TIME_TO_QUESTIONS:
                 answer_time = get_now_time()
-                where_clauses[ColumnDC(column_name="time")] = answer_time
+                set_dict[ColumnDC(column_name="time")] = answer_time
 
             update_or_insert_row(
                 tablename="answer",
-                where_clauses=where_clauses,
-                set_dict={ColumnDC(column_name="text"): text},
+                where_clauses={
+                    ColumnDC(column_name="date"): day,
+                    ColumnDC(column_name="question_fk"): question.pk,
+                },
+                set_dict=set_dict,
             )
 
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
