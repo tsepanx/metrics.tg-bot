@@ -9,33 +9,34 @@ from telegram.constants import (
 ADD_TIME_TO_QUESTIONS = True
 
 DEFAULT_PARSE_MODE = ParseMode.HTML
-DEFAULT_REPLY_KEYBOARD = lambda buttons: ReplyKeyboardMarkup(
+DEFAULT_REPLY_KEYBOARD = lambda buttons: ReplyKeyboardMarkup(  # noqa: E731
     keyboard=buttons,
     one_time_keyboard=True,
     resize_keyboard=True,
 )
 
-QUESTION_TEXT_CHOICE_STOP_ASKING = "Stop asking"
-QUESTION_TEXT_CHOICE_SKIP_QUEST = "Skip question"
+# === Entity type ===
 
-ENTITY_TYPE_QUESTION_STR = "Question"
-ENTITY_TYPE_EVENT_STR = "Event"
-CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD = [[ENTITY_TYPE_QUESTION_STR, ENTITY_TYPE_EVENT_STR]]
-CHOOSE_ENTITY_TYPE_MSG = "Select entity type"
+ENTITY_TYPE_CHOICE_QUESTION = "Question"
+ENTITY_TYPE_CHOICE_EVENT = "Event"
+ENTITY_TYPE_MSG = "Select entity type"
 
-CHOOSE_DAY_MSG = "Select day"
+ENTITY_TYPE_KEYBOARD = [[ENTITY_TYPE_CHOICE_QUESTION, ENTITY_TYPE_CHOICE_EVENT]]
+# REGEX_ENTITY_TYPE_KEYBOARD = any_of_buttons_regex(ENTITY_TYPE_KEYBOARD)
 
-CHOOSE_DAY_OPTION_TODAY = "Today"
+# === Day ===
+
+DAY_MSG = "Select day"
+DAY_CHOICE_TODAY = "Today"
 
 ISOFORMAT_REGEX = r"^\d{4}-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
-DAY_CHOICE_REGEX = rf"(^\+|\-)[0-9]+$|({CHOOSE_DAY_OPTION_TODAY})|({ISOFORMAT_REGEX})"
+DAY_CHOICE_REGEX = rf"(^\+|\-)[0-9]+$|({DAY_CHOICE_TODAY})|({ISOFORMAT_REGEX})"
 
-CHOOSE_DAY_REPLY_KEYBOARD = [["-5", "-4", "-3", "-2", "-1", "+1"], [CHOOSE_DAY_OPTION_TODAY]]
+QUESTION_DAY_KEYBOARD = [["-5", "-4", "-3", "-2", "-1", "+1"], [DAY_CHOICE_TODAY]]
+# REGEX_QUESTION_DAY_KEYBOARD = any_of_buttons_regex(QUESTION_DAY_KEYBOARD)
 
-SELECT_QUESTION_NAMES_MSG_TEXT = "Choose question names OR other option"
-SELECT_QUESTION_ERROR_MSG = "You haven't selected any name"
 
-SELECT_EVENT_NAME_MSG = "Choose event name"
+# === Question names ===
 
 
 class SelectQuestionCallback:
@@ -58,6 +59,20 @@ class SelectQuestionButtons:
     )
 
 
+QUESTION_NAMES_MSG = "Choose question names OR other option"
+QUESTION_ERROR_MSG = "You haven't selected any name"
+
+EVENT_NAME_MSG = "Choose event name"
+
+
+# === Event names ===
+
+
+class EventType:
+    DURABLE = "Durable"
+    SINGLE = "Single"
+
+
 class SelectEventCallback:
     GO_UP = "go_up"
     END = "END"
@@ -67,20 +82,33 @@ class SelectEventButtons:
     GO_UP = InlineKeyboardButton("⬆️ Up ../", callback_data=SelectEventCallback.GO_UP)
 
 
-class EventType:
-    DURABLE = "Durable"
-    SINGLE = "Single"
-
-
 SINGLE_EVENT_REPR = lambda text: f"📍 {text}"  # noqa: E731
 DURABLE_EVENT_REPR = lambda text: f"🕓 {text}"  # noqa: E731
 DIR_EVENT_REPR = lambda cnt, text: f"🗂 [{cnt}] {text}"  # noqa: E731
 
+# === Question answer ===
+
 ERROR_PARSING_ANSWER = "Error parsing answer, try again"
+
+QUESTION_TEXT_CHOICE_STOP_ASKING = "Stop asking"
+QUESTION_TEXT_CHOICE_SKIP_QUEST = "Skip question"
+
+# === Event time answer ===
 
 EVENT_TIME_ASK_MSG = "Now send event time in `isoformat` (01:02:03)"
 EVENT_TIME_CHOICE_NOW = "Now"
+EVENT_TIME_CHOICES_DELTA = ["-15m", "-10m", "-5m", "+5m", "+10m"]
 EVENT_TIME_WRONG_FORMAT = "Wrong time format, try again"
+
+EVENT_TIME_KEYBOARD = [EVENT_TIME_CHOICES_DELTA, [EVENT_TIME_CHOICE_NOW]]
+# REGEX_EVENT_TIME_KEYBOARD = any_of_buttons_regex(EVENT_TIME_KEYBOARD)
+REGEX_EVENT_TIME_KEYBOARD = rf"^([-+]?[0-9]+[smh]|({EVENT_TIME_CHOICE_NOW}))$"
+
+# === Event text answer ===
 
 EVENT_TEXT_ASK_MSG = "Also send `text` (optionally)"
 EVENT_TEXT_CHOICE_NONE = "None"
+EVENT_TEXT_KEYBOARD = [[EVENT_TEXT_CHOICE_NONE]]
+
+# May be removed in the future, when events text suggesting keyboard will be added
+# REGEX_EVENT_TEXT_KEYBOARD = any_of_buttons_regex(EVENT_TEXT_KEYBOARD)

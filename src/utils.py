@@ -2,7 +2,11 @@ import datetime
 import enum
 import functools
 from io import BytesIO
-from typing import Any, Type
+from typing import (
+    Any,
+    Sequence,
+    Type,
+)
 
 import pytz
 from PIL import (
@@ -39,11 +43,11 @@ def to_list(func):
 
 
 def get_now() -> datetime.datetime:
-    return datetime.datetime.now(DEFAULT_TZ).replace(tzinfo=None)
+    return datetime.datetime.now(DEFAULT_TZ).replace(tzinfo=None).replace(microsecond=0)
 
 
 def get_now_time() -> datetime.time:
-    return get_now().replace(microsecond=0).time()
+    return get_now().time()
 
 
 def get_today() -> datetime.date:
@@ -57,6 +61,20 @@ def get_nth_delta_day(n: int = 0) -> datetime.date:
 
 def format_datetime(ts: datetime.datetime) -> str:
     return ts.isoformat(sep=" ", timespec="seconds")
+
+
+def any_of_strings_regex(list_str: list[str]) -> str:
+    inner_s = "|".join(list_str)
+    inner_s = inner_s.replace("+", r"\+")
+
+    s = rf"^({inner_s})$"
+    print(s)
+    return s
+
+
+def any_of_buttons_regex(keyboard: Sequence[Sequence[str]]) -> str:
+    flat_list = [j for i in keyboard for j in i]
+    return any_of_strings_regex(flat_list)
 
 
 def text_to_png(text: str, bold=True):

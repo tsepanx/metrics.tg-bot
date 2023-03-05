@@ -19,14 +19,15 @@ from telegram.constants import (
 
 from src.conversations.ask_constants import (
     ADD_TIME_TO_QUESTIONS,
-    CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
     DEFAULT_PARSE_MODE,
     DEFAULT_REPLY_KEYBOARD,
     DIR_EVENT_REPR,
     DURABLE_EVENT_REPR,
+    ENTITY_TYPE_KEYBOARD,
     EVENT_TEXT_ASK_MSG,
+    EVENT_TEXT_KEYBOARD,
     EVENT_TIME_ASK_MSG,
-    EVENT_TIME_CHOICE_NOW,
+    EVENT_TIME_KEYBOARD,
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
     SINGLE_EVENT_REPR,
@@ -72,7 +73,7 @@ from src.utils_tg import (
 
 def get_entity_type_reply_keyboard():
     reply_markup = ReplyKeyboardMarkup(
-        CHOOSE_ENTITY_TYPE_REPLY_KEYBOARD,
+        ENTITY_TYPE_KEYBOARD,
         one_time_keyboard=True,
         resize_keyboard=True,
     )
@@ -226,23 +227,19 @@ async def edit_info_msg(ud: UserData, e: EventDB):
 
 
 async def send_ask_event_time(send_text_func: Callable):
-    buttons = [[EVENT_TIME_CHOICE_NOW]]
-
     await wrapped_send_text(
         send_message_func=send_text_func,
         text=EVENT_TIME_ASK_MSG,
-        reply_markup=DEFAULT_REPLY_KEYBOARD(buttons),
+        reply_markup=DEFAULT_REPLY_KEYBOARD(EVENT_TIME_KEYBOARD),
         parse_mode=ParseMode.MARKDOWN,
     )
 
 
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
-    buttons = []
+    buttons = EVENT_TEXT_KEYBOARD
 
     if e.type == "Durable":
-        buttons.append(["start", "end"])
-
-    buttons.append(["None"])
+        buttons.insert(0, ["start", "end"])
 
     await wrapped_send_text(
         send_message_func=send_text_func,

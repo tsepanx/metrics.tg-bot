@@ -19,25 +19,26 @@ from telegram.ext import (
 )
 
 from src.conversations.ask_constants import (
-    CHOOSE_DAY_MSG,
-    CHOOSE_DAY_OPTION_TODAY,
-    CHOOSE_DAY_REPLY_KEYBOARD,
-    CHOOSE_ENTITY_TYPE_MSG,
     DAY_CHOICE_REGEX,
+    DAY_CHOICE_TODAY,
+    DAY_MSG,
     DEFAULT_PARSE_MODE,
     DEFAULT_REPLY_KEYBOARD,
-    ENTITY_TYPE_EVENT_STR,
-    ENTITY_TYPE_QUESTION_STR,
+    ENTITY_TYPE_CHOICE_EVENT,
+    ENTITY_TYPE_CHOICE_QUESTION,
+    ENTITY_TYPE_MSG,
     ERROR_PARSING_ANSWER,
+    EVENT_NAME_MSG,
     EVENT_TEXT_CHOICE_NONE,
     EVENT_TIME_CHOICE_NOW,
     EVENT_TIME_WRONG_FORMAT,
     ISOFORMAT_REGEX,
+    QUESTION_DAY_KEYBOARD,
+    QUESTION_ERROR_MSG,
+    QUESTION_NAMES_MSG,
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
-    SELECT_EVENT_NAME_MSG,
-    SELECT_QUESTION_ERROR_MSG,
-    SELECT_QUESTION_NAMES_MSG_TEXT,
+    REGEX_EVENT_TIME_KEYBOARD,
     SelectEventCallback,
     SelectQuestionCallback,
 )
@@ -72,6 +73,7 @@ from src.user_data import (
 )
 from src.utils import (
     MyException,
+    get_now,
     get_now_time,
     get_nth_delta_day,
     get_today,
@@ -108,7 +110,7 @@ async def choose_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE)
     assert update.message is not None
 
     await update.message.reply_text(
-        text=CHOOSE_ENTITY_TYPE_MSG,
+        text=ENTITY_TYPE_MSG,
         reply_markup=get_entity_type_reply_keyboard(),
     )
 
@@ -127,11 +129,11 @@ async def choose_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud.conv_storage = ASKQuestionsConvStorage(**ud.conv_storage.__dict__)
 
     text = update.message.text
-    assert text == ENTITY_TYPE_QUESTION_STR
+    assert text == ENTITY_TYPE_CHOICE_QUESTION
 
     await update.message.reply_text(
-        text=CHOOSE_DAY_MSG,
-        reply_markup=DEFAULT_REPLY_KEYBOARD(CHOOSE_DAY_REPLY_KEYBOARD),
+        text=DAY_MSG,
+        reply_markup=DEFAULT_REPLY_KEYBOARD(QUESTION_DAY_KEYBOARD),
     )
 
     return ASK_CHOOSE_QUESTION_NAMES
@@ -150,7 +152,7 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
 
     if re.compile(ISOFORMAT_REGEX).match(text):
         day = datetime.date.fromisoformat(text)
-    elif text == CHOOSE_DAY_OPTION_TODAY:
+    elif text == DAY_CHOICE_TODAY:
         day = get_today()
     else:  # +1 / -1 / ...
         day = get_nth_delta_day(int(text))
@@ -160,7 +162,7 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
     reply_markup = get_questions_select_keyboard(ud.db_cache.questions)
 
     await update.message.reply_text(
-        text=SELECT_QUESTION_NAMES_MSG_TEXT,
+        text=QUESTION_NAMES_MSG,
         reply_markup=reply_markup,
     )
 
@@ -177,14 +179,14 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     ud.conv_storage = ASKEventConvStorage(**ud.conv_storage.__dict__)
     ud.conv_storage.event_name_prefix_path = []
 
-    assert update.message.text == ENTITY_TYPE_EVENT_STR
+    assert update.message.text == ENTITY_TYPE_CHOICE_EVENT
 
     events = ud.db_cache.events
 
     reply_markup = get_event_select_keyboard(events, ud.conv_storage.event_name_prefix_path)
 
     await update.message.reply_text(
-        text=SELECT_EVENT_NAME_MSG,
+        text=EVENT_NAME_MSG,
         reply_markup=reply_markup,
     )
 
@@ -208,7 +210,7 @@ async def on_chosen_question_name_option(  # noqa: C901
 
     if query == SelectQuestionCallback.END_CHOOSING:
         if len(ud.conv_storage.include_indices) == 0:
-            raise MyException(SELECT_QUESTION_ERROR_MSG)
+            raise MyException(QUESTION_ERROR_MSG)
 
         ud.conv_storage.cur_answers = [None for _ in range(len(ud.conv_storage.include_indices))]
         include_names = [ud.db_cache.questions[i].name for i in ud.conv_storage.include_indices]
@@ -410,6 +412,19 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 
     if text == EVENT_TIME_CHOICE_NOW:
         time_answer = get_now_time()
+    elif re.compile(REGEX_EVENT_TIME_KEYBOARD).match(text):
+        if text[-1] == "m":
+            delta_type = datetime.timedelta(minutes=1)
+        elif text[-1] == "h":
+            delta_type = datetime.timedelta(hours=1)
+        else:
+            raise Exception
+
+        delta_int = int(text[:-1])  # Cut 'm'
+
+        res_timedelta = delta_type * delta_int
+
+        time_answer = (get_now() + res_timedelta).time()
     else:
         try:
             time_answer = datetime.time.fromisoformat(text)
@@ -459,8 +474,8 @@ ask_conv_handler = ConversationHandler(
     ],
     states={
         ASK_CHOOSE_ENTITY_TYPE: [
-            MessageHandler(filters.Regex(ENTITY_TYPE_QUESTION_STR), choose_day),
-            MessageHandler(filters.Regex(ENTITY_TYPE_EVENT_STR), choose_event_name),
+            MessageHandler(filters.Regex(ENTITY_TYPE_CHOICE_QUESTION), choose_day),
+            MessageHandler(filters.Regex(ENTITY_TYPE_CHOICE_EVENT), choose_event_name),
         ],
         ASK_CHOOSE_QUESTION_NAMES: [
             MessageHandler(filters.Regex(DAY_CHOICE_REGEX) & (~filters.COMMAND), choose_question_names),
@@ -468,7 +483,9 @@ ask_conv_handler = ConversationHandler(
         ],
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
         ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_question_answered)],
-        ASK_EVENT_TIME: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_event_time_answered)],
+        ASK_EVENT_TIME: [MessageHandler(
+            filters.Regex(REGEX_EVENT_TIME_KEYBOARD), on_event_time_answered)
+        ],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_event_text_answered)],
     },
     fallbacks=[
