@@ -16,7 +16,10 @@ from PIL import (
 )
 
 # DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
-DEFAULT_TZ = pytz.timezone("Europe/Moscow")
+
+LOCATION = "Europe/Moscow"
+
+DEFAULT_TZ = pytz.timezone(LOCATION)
 
 
 class MyException(Exception):
