@@ -7,6 +7,7 @@ from telegram.constants import (
 )
 
 ADD_TIME_TO_QUESTIONS = True
+ADD_EVENT_ON_TIMESTAMP_QUESTION_ANSWER = False
 
 DEFAULT_PARSE_MODE = ParseMode.HTML
 DEFAULT_REPLY_KEYBOARD = lambda buttons: ReplyKeyboardMarkup(  # noqa: E731

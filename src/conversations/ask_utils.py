@@ -19,6 +19,7 @@ from telegram.constants import (
 )
 
 from src.conversations.ask_constants import (
+    ADD_EVENT_ON_TIMESTAMP_QUESTION_ANSWER,
     ADD_TIME_TO_QUESTIONS,
     DEFAULT_PARSE_MODE,
     DEFAULT_REPLY_KEYBOARD,
@@ -431,35 +432,38 @@ async def on_end_asking_questions(
                 set_dict=set_dict,
             )
 
-            # --- Adding new event answer if question.type == "Timestamp"
-            # TODO This doesn't manage cases of re-answering the same question
+            # --- Adding new event answer if question.type == "Timestamp" TODO This doesn't manage cases of
+            # re-answering the same question
             # TODO replace this logic with... Auto-generated questions & events OR something else
-            # TODO OR mb fetch previous answered timestamp, search for event with such answer, and update only this entry
+            # TODO OR mb fetch previous answered timestamp, search for event with such answer,
+            # and update only this entry
+            # TODO No, just remove it in future and add `generated-metrics` watches events
 
-            if question.question_type == QuestionTypeEnum.TIMESTAMP.value:
-                # F.e.: sleep_start
-                question_name_regex = (
-                    rf"^[a-z0-9/]+_({EVENT_DURABLE_CHOICE_START}|{EVENT_DURABLE_CHOICE_END})$"
-                )
-                assert re.compile(question_name_regex).match(question.name)
+            if ADD_EVENT_ON_TIMESTAMP_QUESTION_ANSWER:
+                if question.question_type == QuestionTypeEnum.TIMESTAMP.value:
+                    # F.e.: sleep_start
+                    question_name_regex = (
+                        rf"^[a-z0-9/]+_({EVENT_DURABLE_CHOICE_START}|{EVENT_DURABLE_CHOICE_END})$"
+                    )
+                    assert re.compile(question_name_regex).match(question.name)
 
-                if re.compile(rf"[a-z0-9/]+_{EVENT_DURABLE_CHOICE_START}").match(question.name):
-                    event_answer_text = EVENT_DURABLE_CHOICE_START
-                else:
-                    # elif re.compile(rf"[a-z0-9/]+_{EVENT_DURABLE_CHOICE_END}").match(question.name):
-                    event_answer_text = EVENT_DURABLE_CHOICE_END
+                    if re.compile(rf"[a-z0-9/]+_{EVENT_DURABLE_CHOICE_START}").match(question.name):
+                        event_answer_text = EVENT_DURABLE_CHOICE_START
+                    else:
+                        # elif re.compile(rf"[a-z0-9/]+_{EVENT_DURABLE_CHOICE_END}").match(question.name):
+                        event_answer_text = EVENT_DURABLE_CHOICE_END
 
-                # Cutting '_start' or '_end' suffix
-                event_name = question.name[: question.name.rfind("_")]
-                event = filter(lambda x: x.name == event_name, ud.db_cache.events).__next__()
+                    # Cutting '_start' or '_end' suffix
+                    event_name = question.name[: question.name.rfind("_")]
+                    event = filter(lambda x: x.name == event_name, ud.db_cache.events).__next__()
 
-                question_answer: datetime.datetime
+                    question_answer: datetime.datetime
 
-                day = question_answer.date()
-                event_answer_time = question_answer.time()
+                    day = question_answer.date()
+                    event_answer_time = question_answer.time()
 
-                # event = ud.db_cache.events
-                insert_event_answer(event, day, event_answer_time, event_answer_text)
+                    # event = ud.db_cache.events
+                    insert_event_answer(event, day, event_answer_time, event_answer_text)
 
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
     if any(map(lambda x: x is not None, ud.conv_storage.cur_answers)):
