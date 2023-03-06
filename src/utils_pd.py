@@ -11,6 +11,7 @@ from src.tables.question import (
 
 def df_to_markdown(df: pd.DataFrame, transpose=False):
     def remove_emojis_with_space_prefix(data: str) -> str:
+        print(data)
         emojis_regex = re.compile(
             " ["
             "\U0001F600-\U0001F64F"  # emoticons
@@ -34,7 +35,7 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
             "]+",
             re.UNICODE,
         )
-        return re.sub(emojis_regex, "  ", data)
+        return re.sub(emojis_regex, "", str(data))
 
     if transpose:
         df = df.T
@@ -42,7 +43,7 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     # Replace None with np.nan for consistency
     df = df.fillna(value=np.nan)
 
-    df = df.astype(str).apply(remove_emojis_with_space_prefix)
+    df = df.applymap(remove_emojis_with_space_prefix)
 
     text = df.to_markdown(
         tablefmt="rounded_grid",
