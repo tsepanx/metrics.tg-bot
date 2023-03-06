@@ -38,6 +38,9 @@ class AnswerDB(Table):
         # return self.get_fk_value("event_fk")
         return self.get_fk_value(AnswerType.EVENT.value)
 
+    def get_timestamp(self) -> datetime.datetime:
+        return datetime.datetime.combine(date=self.date, time=self.time)
+
     @classmethod
     def select_all(cls):
         return cls.select(
@@ -45,7 +48,8 @@ class AnswerDB(Table):
             where_clauses=None,
             order_by_columns=[
                 ColumnDC(table_name=cls.Meta.tablename, column_name="date"),
-                ColumnDC(table_name="question", column_name="order_by"),
+                ColumnDC(table_name=cls.Meta.tablename, column_name="time"),
+                # ColumnDC(table_name="question", column_name="order_by"),
             ],
         )
 
