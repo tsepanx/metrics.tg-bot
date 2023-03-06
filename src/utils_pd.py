@@ -49,7 +49,13 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     )
     text = text.replace(" nan ", " --- ")
 
+    with open("1.txt", "wb") as f:
+        f.write(text.encode("utf-8"))
+
     text = remove_emojis_with_space_prefix(text)
+
+    with open("2.txt", "wb") as f:
+        f.write(text.encode("utf-8"))
 
     # text = text.replace("00:00:00", "0       ")
     # text = text.replace(":00:00", ":0c0   ")
