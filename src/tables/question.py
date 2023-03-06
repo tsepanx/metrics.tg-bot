@@ -6,6 +6,7 @@ from src.conversations.ask_constants import (
     BINARY_CHOICE_NO,
     BINARY_CHOICE_YES,
     TIME_CHOICE_NOW,
+    TIME_CHOICES_DELTA,
 )
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
@@ -61,7 +62,7 @@ class QuestionTypeEntity:
     format_str: str
 
     apply_func: Callable = lambda x: x
-    additional_keyboard_choices: list[str] | None = None
+    additional_keyboard_choices: list[list[str]] | None = None
 
 
 class QuestionTypeEnum(MyEnum):
@@ -71,18 +72,20 @@ class QuestionTypeEnum(MyEnum):
         "[0/1 Binary]",
         f"{BINARY_CHOICE_YES}/{BINARY_CHOICE_NO}/0/1",
         apply_func=binary,
-        additional_keyboard_choices=[
+        # fmt: off
+        additional_keyboard_choices=[[
             # "Да", "Нет"
             BINARY_CHOICE_YES,
             BINARY_CHOICE_NO,
-        ],
+        ]],
+        # fmt: on
     )
     HOURS = QuestionTypeEntity("[Hours (time)]", "04:35", apply_func=time_or_hours)
     TIMESTAMP = QuestionTypeEntity(
         "[Timestamp (datetime)]",
         "2023-03-23 04:35",
         apply_func=timestamp,
-        additional_keyboard_choices=[TIME_CHOICE_NOW],
+        additional_keyboard_choices=[[TIME_CHOICE_NOW]],
     )
 
 

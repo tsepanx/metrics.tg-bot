@@ -36,15 +36,15 @@ from src.conversations.ask_constants import (
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
     REGEX_DAY_ISOFORMAT,
-    REGEX_EVENT_TIME_KEYBOARD,
     REGEX_QUESTION_DAY_KEYBOARD,
+    REGEX_TIME_DELTA,
     TIME_CHOICE_NOW,
     SelectEventCallback,
     SelectQuestionCallback,
 )
 from src.conversations.ask_utils import (
     ExactPathMatched,
-    edit_info_msg,
+    edit_event_info_msg,
     get_entity_type_reply_keyboard,
     get_event_info_text,
     get_event_select_keyboard,
@@ -74,7 +74,6 @@ from src.user_data import (
 from src.utils import (
     MyException,
     get_now,
-    get_now_time,
     get_nth_delta_day,
     get_today,
 )
@@ -306,7 +305,7 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg_with_keyboard.edit_reply_markup(None)
 
         ud.conv_storage.info_msg = await update.effective_user.send_message(
-            text=get_event_info_text(event, None, None), parse_mode=DEFAULT_PARSE_MODE
+            text=get_event_info_text(event, None, None, None), parse_mode=DEFAULT_PARSE_MODE
         )
 
         await send_ask_event_time(update.effective_user.send_message)
@@ -399,7 +398,7 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 @handler_decorator
-async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def on_event_datetime_answered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ud: UserData = context.chat_data[USER_DATA_KEY]
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
     event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
@@ -408,8 +407,8 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     text = update.message.text
 
     if text == TIME_CHOICE_NOW:
-        time_answer = get_now_time()
-    elif re.compile(REGEX_EVENT_TIME_KEYBOARD).match(text):
+        answer_datetime = get_now()
+    elif re.compile(REGEX_TIME_DELTA).match(text):
         if text[-1] == "m":
             delta_type = datetime.timedelta(minutes=1)
         elif text[-1] == "h":
@@ -421,19 +420,25 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
 
         res_timedelta = delta_type * delta_int
 
-        time_answer = (get_now() + res_timedelta).time()
+        answer_datetime = get_now() + res_timedelta
     else:
         try:
-            time_answer = datetime.time.fromisoformat(text)
-        except ValueError:
-            await update.message.reply_text(
-                text=EVENT_TIME_WRONG_FORMAT, reply_markup=update.message.reply_markup
+            answer_datetime = datetime.datetime.combine(
+                date=get_now().date(), time=datetime.time.fromisoformat(text)
             )
-            return ASK_EVENT_TIME
+        except ValueError:
+            try:
+                answer_datetime = datetime.datetime.fromisoformat(text)
+            except ValueError:
+                await update.message.reply_text(
+                    text=EVENT_TIME_WRONG_FORMAT, reply_markup=update.message.reply_markup
+                )
+                return ASK_EVENT_TIME
 
-    ud.conv_storage.event_time = time_answer
+    ud.conv_storage.day = answer_datetime.date()
+    ud.conv_storage.event_time = answer_datetime.time()
 
-    await edit_info_msg(ud, event)
+    await edit_event_info_msg(ud, event)
 
     await send_ask_event_text(event, update.message.reply_text)
     return ASK_EVENT_TEXT
@@ -453,7 +458,7 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
     else:
         ud.conv_storage.event_text = text
 
-    await edit_info_msg(ud, event)
+    await edit_event_info_msg(ud, event)
 
     await on_end_asking_event(ud, update)
     return ConversationHandler.END
@@ -481,7 +486,7 @@ ask_conv_handler = ConversationHandler(
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
         ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_question_answered)],
         ASK_EVENT_TIME: [MessageHandler(
-            filters.TEXT & (~filters.COMMAND), on_event_time_answered)
+            filters.TEXT & (~filters.COMMAND), on_event_datetime_answered)
         ],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_event_text_answered)],
     },

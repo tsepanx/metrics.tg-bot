@@ -203,7 +203,7 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
     buttons = [list(map(str, q.choices_list))]
 
     if q.question_type.additional_keyboard_choices:
-        buttons.append(q.question_type.additional_keyboard_choices)
+        buttons.extend(q.question_type.additional_keyboard_choices)
 
     buttons.append([QUESTION_TEXT_CHOICE_SKIP_QUEST, QUESTION_TEXT_CHOICE_STOP_ASKING])
 
@@ -222,12 +222,16 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
 
 
 def get_event_info_text(
-    event: EventDB, answered_time: datetime.time | None = None, answered_text: str | None = None
+    event: EventDB,
+    answered_day: datetime.date | None = None,
+    answered_time: datetime.time | None = None,
+    answered_text: str | None = None,
 ):
     lines = [
         "=== Event ===",
         f"Name: {event.name}",
         "",
+        f"Date: {answered_day}" if answered_day else "",
         f"Time: {answered_time}" if answered_time else "",
         f"Text: {answered_text}" if answered_text is not None else "",
     ]
@@ -236,13 +240,14 @@ def get_event_info_text(
     return text
 
 
-async def edit_info_msg(ud: UserData, e: EventDB):
+async def edit_event_info_msg(ud: UserData, e: EventDB):
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
 
     try:
         await ud.conv_storage.info_msg.edit_text(
             text=get_event_info_text(
                 event=e,
+                answered_day=ud.conv_storage.day,
                 answered_time=ud.conv_storage.event_time,
                 answered_text=ud.conv_storage.event_text,
             ),

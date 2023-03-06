@@ -87,6 +87,11 @@ SINGLE_EVENT_REPR = lambda text: f"📍 {text}"  # noqa: E731
 DURABLE_EVENT_REPR = lambda text: f"🕓 {text}"  # noqa: E731
 DIR_EVENT_REPR = lambda cnt, text: f"🗂 [{cnt}] {text}"  # noqa: E731
 
+# === Timestamp answer ===
+
+TIME_CHOICE_NOW = "Now"
+TIME_CHOICES_DELTA = ["-10m", "-5m", "-1m", "+1m", "+5m", "+10m"]
+
 # === Question answer ===
 
 BINARY_CHOICE_YES = "Да"
@@ -100,13 +105,12 @@ QUESTION_TEXT_CHOICE_SKIP_QUEST = "Skip question"
 # === Event time answer ===
 
 EVENT_TIME_ASK_MSG = "Now send event time in `isoformat` (01:02:03)"
-TIME_CHOICE_NOW = "Now"
-EVENT_TIME_CHOICES_DELTA = ["-10m", "-5m", "-1m", "+1m", "+5m", "+10m"]
 EVENT_TIME_WRONG_FORMAT = "Wrong time format, try again"
 
-EVENT_TIME_KEYBOARD = [EVENT_TIME_CHOICES_DELTA, [TIME_CHOICE_NOW]]
+EVENT_TIME_KEYBOARD = [TIME_CHOICES_DELTA, [TIME_CHOICE_NOW]]
 # REGEX_EVENT_TIME_KEYBOARD = any_of_buttons_regex(EVENT_TIME_KEYBOARD)
-REGEX_EVENT_TIME_KEYBOARD = rf"^([-+]?[0-9]+[smh]|{REGEX_DAY_ISOFORMAT}|({TIME_CHOICE_NOW}))$"
+REGEX_TIME_DELTA = rf"^[-+]?[0-9]+[smh]$"
+# {REGEX_DAY_ISOFORMAT}|({TIME_CHOICE_NOW})
 
 # === Event text answer ===
 

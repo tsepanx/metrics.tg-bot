@@ -28,6 +28,7 @@ class ConversationsStorage:
 
 @dataclass
 class ASKConversationStorage(ConversationsStorage):
+    day: datetime.date | None = None
     entity_type: AnswerType | None = None
 
 
@@ -35,7 +36,7 @@ class ASKConversationStorage(ConversationsStorage):
 class ASKQuestionsConvStorage(ASKConversationStorage):
     entity_type = AnswerType.QUESTION
 
-    day: datetime.date | None = None
+    # day: datetime.date | None = None
     include_indices: list[int] = dataclasses.field(default_factory=list)
 
     cur_i: int = 0
