@@ -98,7 +98,7 @@ class QuestionDB(Table):
 
     name: str
     fulltext: str
-    choices_list: tuple[str]
+    choices_list: tuple[str] | None
 
     is_activated: bool
     order_by: int

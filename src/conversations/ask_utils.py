@@ -199,7 +199,10 @@ def insert_event_answer(
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
-    buttons = [list(map(str, q.choices_list))]
+    buttons = []
+
+    if q.choices_list:
+        buttons.append(q.choices_list)
 
     if q.question_type.additional_keyboard_choices:
         buttons.extend(q.question_type.additional_keyboard_choices)

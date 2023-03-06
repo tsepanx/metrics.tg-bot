@@ -19,11 +19,11 @@ CREATE TABLE tg_user (
     user_id SERIAL PRIMARY KEY
 );
 
-CREATE TABLE question_type (
-    pk SERIAL PRIMARY KEY,
-    name VARCHAR(50) UNIQUE NOT NULL,
-    notation_str VARCHAR(50) UNIQUE
-);
+-- CREATE TABLE question_type (
+--     pk SERIAL PRIMARY KEY,
+--     name VARCHAR(50) UNIQUE NOT NULL,
+--     notation_str VARCHAR(50) UNIQUE
+-- );
 
 -- DROP TABLE question;
 CREATE TABLE question(
@@ -36,12 +36,12 @@ CREATE TABLE question(
     order_by SERIAL,
     fulltext TEXT
         DEFAULT '',
-    choices_list VARCHAR(50)[],
+    choices_list VARCHAR(50)[] NULL,
     type_id INTEGER
         DEFAULT 1
-        NOT NULL
-        REFERENCES question_type
-            ON DELETE SET DEFAULT,
+        NOT NULL,
+--         REFERENCES question_type
+--             ON DELETE SET DEFAULT,
     is_activated BOOLEAN
         DEFAULT True
         NOT NULL
