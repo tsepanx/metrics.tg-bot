@@ -236,7 +236,7 @@ async def send_ask_event_time(send_text_func: Callable):
 
 
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
-    buttons = EVENT_TEXT_KEYBOARD
+    buttons = EVENT_TEXT_KEYBOARD.copy()
 
     if e.type == "Durable":
         buttons.insert(0, ["start", "end"])
