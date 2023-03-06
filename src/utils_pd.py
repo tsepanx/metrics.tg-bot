@@ -11,7 +11,6 @@ from src.tables.question import (
 
 def df_to_markdown(df: pd.DataFrame, transpose=False):
     def remove_emojis_with_space_prefix(data: str) -> str:
-        print(data)
         emojis_regex = re.compile(
             " ["
             "\U0001F600-\U0001F64F"  # emoticons
