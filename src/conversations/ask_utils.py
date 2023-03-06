@@ -1,6 +1,7 @@
 import collections
 import copy
 import datetime
+import re
 from io import BytesIO
 from typing import Callable
 
@@ -24,6 +25,8 @@ from src.conversations.ask_constants import (
     DIR_EVENT_REPR,
     DURABLE_EVENT_REPR,
     ENTITY_TYPE_KEYBOARD,
+    EVENT_DURABLE_CHOICE_END,
+    EVENT_DURABLE_CHOICE_START,
     EVENT_TEXT_ASK_MSG,
     EVENT_TEXT_KEYBOARD,
     EVENT_TIME_ASK_MSG,
@@ -51,6 +54,7 @@ from src.tables.event import (
 )
 from src.tables.question import (
     QuestionDB,
+    QuestionTypeEnum,
 )
 from src.user_data import (
     ASKEventConvStorage,
@@ -175,6 +179,26 @@ def get_questions_select_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+def insert_event_answer(
+    event: EventDB,
+    day: datetime.date | None,
+    time: datetime.time | None,
+    text: str | None,
+):
+    row_dict: dict[ColumnDC, ValueType] = {
+        ColumnDC(column_name="date"): day,
+        ColumnDC(column_name="event_fk"): event.pk,
+    }
+
+    if time:
+        row_dict[ColumnDC(column_name="time")] = time
+
+    if text:
+        row_dict[ColumnDC(column_name="text")] = text
+
+    _insert_row(tablename="answer", row_dict=row_dict)
+
+
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
     buttons = [
         list(map(str, q.choices_list)),
@@ -238,8 +262,8 @@ async def send_ask_event_time(send_text_func: Callable):
 async def send_ask_event_text(e: EventDB, send_text_func: Callable):
     buttons = EVENT_TEXT_KEYBOARD.copy()
 
-    if e.type == "Durable":
-        buttons.insert(0, ["start", "end"])
+    if e.type == EventType.DURABLE:
+        buttons.insert(0, [EVENT_DURABLE_CHOICE_START, EVENT_DURABLE_CHOICE_END])
 
     await wrapped_send_text(
         send_message_func=send_text_func,
@@ -370,7 +394,9 @@ async def on_end_asking_questions(
 
         answers = ud.conv_storage.cur_answers
 
-        for i, text in enumerate(answers):
+        # TODO: mb make as only str
+        question_answer: str | int | float | datetime.time | datetime.datetime
+        for i, question_answer in enumerate(answers):
             day = ud.conv_storage.day
 
             assert ud.conv_storage.include_indices is not None
@@ -378,14 +404,14 @@ async def on_end_asking_questions(
             question_index: int = ud.conv_storage.include_indices[i]
             question: QuestionDB = ud.db_cache.questions[question_index]
 
-            if text is None:
+            if question_answer is None:
                 continue
 
-            set_dict: dict[ColumnDC, ValueType] = {ColumnDC(column_name="text"): text}
+            set_dict: dict[ColumnDC, ValueType] = {ColumnDC(column_name="text"): question_answer}
 
             if ADD_TIME_TO_QUESTIONS:
-                answer_time = get_now_time()
-                set_dict[ColumnDC(column_name="time")] = answer_time
+                event_answer_time = get_now_time()
+                set_dict[ColumnDC(column_name="time")] = event_answer_time
 
             update_or_insert_row(
                 tablename="answer",
@@ -395,6 +421,33 @@ async def on_end_asking_questions(
                 },
                 set_dict=set_dict,
             )
+
+            # --- Adding new event answer if question.type == "Timestamp"
+
+            if question.question_type == QuestionTypeEnum.TIMESTAMP.value:
+                # F.e.: sleep_start
+                question_name_regex = (
+                    rf"^[a-z0-9/]+_({EVENT_DURABLE_CHOICE_START}|{EVENT_DURABLE_CHOICE_END})$"
+                )
+                assert re.compile(question_name_regex).match(question.name)
+
+                if re.compile(rf"[a-z0-9/]+_{EVENT_DURABLE_CHOICE_START}").match(question.name):
+                    event_answer_text = EVENT_DURABLE_CHOICE_START
+                else:
+                    # elif re.compile(rf"[a-z0-9/]+_{EVENT_DURABLE_CHOICE_END}").match(question.name):
+                    event_answer_text = EVENT_DURABLE_CHOICE_END
+
+                # Cutting '_start' or '_end' suffix
+                event_name = question.name[: question.name.rfind("_")]
+                event = filter(lambda x: x.name == event_name, ud.db_cache.events).__next__()
+
+                question_answer: datetime.datetime
+
+                day = question_answer.date()
+                event_answer_time = question_answer.time()
+
+                # event = ud.db_cache.events
+                insert_event_answer(event, day, event_answer_time, event_answer_text)
 
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
     if any(map(lambda x: x is not None, ud.conv_storage.cur_answers)):
@@ -416,18 +469,7 @@ async def on_end_asking_event(ud: UserData, update: Update):
         new_time: datetime.time = ud.conv_storage.event_time
         new_text: str | None = ud.conv_storage.event_text
 
-        row_dict: dict[ColumnDC, ValueType] = {
-            ColumnDC(column_name="date"): day,
-            ColumnDC(column_name="event_fk"): event.pk,
-        }
-
-        if new_time:
-            row_dict[ColumnDC(column_name="time")] = new_time
-
-        if new_text:
-            row_dict[ColumnDC(column_name="text")] = new_text
-
-        _insert_row(tablename="answer", row_dict=row_dict)
+        insert_event_answer(event, day, new_time, new_text)
 
     assert isinstance(ud.conv_storage, ASKEventConvStorage)
 

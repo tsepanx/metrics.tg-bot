@@ -31,12 +31,12 @@ from src.conversations.ask_constants import (
     EVENT_TEXT_CHOICE_NONE,
     EVENT_TIME_CHOICE_NOW,
     EVENT_TIME_WRONG_FORMAT,
-    ISOFORMAT_REGEX,
     QUESTION_DAY_KEYBOARD,
     QUESTION_ERROR_MSG,
     QUESTION_NAMES_MSG,
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
+    REGEX_DAY_ISOFORMAT,
     REGEX_EVENT_TIME_KEYBOARD,
     REGEX_QUESTION_DAY_KEYBOARD,
     SelectEventCallback,
@@ -150,7 +150,7 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
 
     assert re.compile(REGEX_QUESTION_DAY_KEYBOARD).match(text)  # 2023-01-01 / Today / +1
 
-    if re.compile(ISOFORMAT_REGEX).match(text):
+    if re.compile(REGEX_DAY_ISOFORMAT).match(text):
         day = datetime.date.fromisoformat(text)
     elif text == DAY_CHOICE_TODAY:
         day = get_today()
@@ -481,7 +481,7 @@ ask_conv_handler = ConversationHandler(
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
         ASK_QUESTION_ANSWER: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_question_answered)],
         ASK_EVENT_TIME: [MessageHandler(
-            filters.Regex(REGEX_EVENT_TIME_KEYBOARD), on_event_time_answered)
+            filters.TEXT & (~filters.COMMAND), on_event_time_answered)
         ],
         ASK_EVENT_TEXT: [MessageHandler(filters.TEXT & (~filters.COMMAND), on_event_text_answered)],
     },
