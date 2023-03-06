@@ -54,8 +54,13 @@ async def get_feed(
 
     cal_str = gen_ics_from_answers_db(db_cache.answers)
 
+    dirname = "gen_ics/"
     fname = f"{username}_events.ics"
-    path = os.path.join("gen_ics/", fname)
+
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+
+    path = os.path.join(dirname, fname)
 
     f = open(path, "wb")
     f.write(cal_str)
