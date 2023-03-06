@@ -12,3 +12,7 @@ This is module is only dependent on `UserDBCache` class, using which it fetches 
 ```bash
 PYTHONPATH="./" HTTP_HOST=0.0.0.0 HTTP_PORT=80 python src/ics/ics-main.py
 ```
+
+### TODO 
+
+- [ ] Mb merge with existing `src/main.py` and run in parallel using `asyncio` (#research)
