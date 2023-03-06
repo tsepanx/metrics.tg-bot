@@ -184,19 +184,26 @@ def insert_event_answer(
     day: datetime.date | None,
     time: datetime.time | None,
     text: str | None,
+    unique_on_day=False,
 ):
-    row_dict: dict[ColumnDC, ValueType] = {
+    where_dict: dict[ColumnDC, ValueType] = {
         ColumnDC(column_name="date"): day,
         ColumnDC(column_name="event_fk"): event.pk,
     }
 
+    set_dict: dict[ColumnDC, ValueType] = {}
+
     if time:
-        row_dict[ColumnDC(column_name="time")] = time
+        set_dict[ColumnDC(column_name="time")] = time
 
     if text:
-        row_dict[ColumnDC(column_name="text")] = text
+        set_dict[ColumnDC(column_name="text")] = text
 
-    _insert_row(tablename="answer", row_dict=row_dict)
+    if unique_on_day:
+        update_or_insert_row(tablename="answer", where_clauses=where_dict, set_dict=set_dict)
+    else:
+        set_dict.update(where_dict)
+        _insert_row(tablename="answer", row_dict=set_dict)
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
@@ -454,7 +461,9 @@ async def on_end_asking_questions(
                 event_answer_time = question_answer.time()
 
                 # event = ud.db_cache.events
-                insert_event_answer(event, day, event_answer_time, event_answer_text)
+                insert_event_answer(
+                    event, day, event_answer_time, event_answer_text, unique_on_day=True
+                )
 
     assert isinstance(ud.conv_storage, ASKQuestionsConvStorage)
     if any(map(lambda x: x is not None, ud.conv_storage.cur_answers)):
