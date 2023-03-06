@@ -6,7 +6,6 @@ from src.conversations.ask_constants import (
     BINARY_CHOICE_NO,
     BINARY_CHOICE_YES,
     TIME_CHOICE_NOW,
-    TIME_CHOICES_DELTA,
 )
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (

@@ -109,7 +109,7 @@ EVENT_TIME_WRONG_FORMAT = "Wrong time format, try again"
 
 EVENT_TIME_KEYBOARD = [TIME_CHOICES_DELTA, [TIME_CHOICE_NOW]]
 # REGEX_EVENT_TIME_KEYBOARD = any_of_buttons_regex(EVENT_TIME_KEYBOARD)
-REGEX_TIME_DELTA = rf"^[-+]?[0-9]+[smh]$"
+REGEX_TIME_DELTA = r"^[-+]?[0-9]+[smh]$"
 # {REGEX_DAY_ISOFORMAT}|({TIME_CHOICE_NOW})
 
 # === Event text answer ===

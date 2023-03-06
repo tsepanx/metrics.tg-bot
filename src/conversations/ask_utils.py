@@ -64,7 +64,6 @@ from src.user_data import (
 from src.utils import (
     data_to_bytesio,
     get_now_time,
-    get_today,
     text_to_png,
 )
 from src.utils_pd import (
@@ -432,6 +431,7 @@ async def on_end_asking_questions(
             # --- Adding new event answer if question.type == "Timestamp"
             # TODO This doesn't manage cases of re-answering the same question
             # TODO replace this logic with... Auto-generated questions & events OR something else
+            # TODO OR mb fetch previous answered timestamp, search for event with such answer, and update only this entry
 
             if question.question_type == QuestionTypeEnum.TIMESTAMP.value:
                 # F.e.: sleep_start
@@ -471,8 +471,8 @@ async def on_end_asking_questions(
 async def on_end_asking_event(ud: UserData, update: Update):
     def update_db_with_events():
         assert isinstance(ud.conv_storage, ASKEventConvStorage)
-        # day = ud.conv_storage.day
-        day = get_today()
+        day = ud.conv_storage.day
+        # day = get_today()
 
         event: EventDB = ud.db_cache.events[ud.conv_storage.chosen_event_index]
         new_time: datetime.time = ud.conv_storage.event_time
