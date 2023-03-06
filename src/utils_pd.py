@@ -34,7 +34,7 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
             "]+",
             re.UNICODE,
         )
-        return re.sub(emojis_regex, "", data)
+        return re.sub(emojis_regex, "  ", data)
 
     if transpose:
         df = df.T
