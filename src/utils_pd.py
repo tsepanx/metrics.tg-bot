@@ -42,6 +42,8 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     # Replace None with np.nan for consistency
     df = df.fillna(value=np.nan)
 
+    df = df.astype(str).apply(lambda x: x.str.encode("ascii", "ignore").str.decode("ascii"))
+
     text = df.to_markdown(
         tablefmt="rounded_grid",
         numalign="left",
@@ -49,13 +51,13 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     )
     text = text.replace(" nan ", " --- ")
 
-    with open("1.txt", "wb") as f:
-        f.write(text.encode("utf-8"))
+    # with open("1.txt", "wb") as f:
+    #     f.write(text.encode("utf-8"))
 
-    text = remove_emojis_with_space_prefix(text)
+    # text = remove_emojis_with_space_prefix(text)
 
-    with open("2.txt", "wb") as f:
-        f.write(text.encode("utf-8"))
+    # with open("2.txt", "wb") as f:
+    #     f.write(text.encode("utf-8"))
 
     # text = text.replace("00:00:00", "0       ")
     # text = text.replace(":00:00", ":0c0   ")
