@@ -434,8 +434,8 @@ async def on_end_asking_questions(
 
             # --- Adding new event answer if question.type == "Timestamp" TODO This doesn't manage cases of
             # re-answering the same question
-            # TODO replace this logic with... Auto-generated questions & events OR something else
-            # TODO OR mb fetch previous answered timestamp, search for event with such answer,
+            # ODO replace this logic with... Auto-generated questions & events OR something else
+            # ODO OR mb fetch previous answered timestamp, search for event with such answer,
             # and update only this entry
             # TODO No, just remove it in future and add `generated-metrics` watches events
 
