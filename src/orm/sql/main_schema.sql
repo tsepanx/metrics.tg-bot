@@ -105,3 +105,8 @@ SELECT date, time, e.name, text FROM answer
     LEFT OUTER JOIN event e on answer.event_fk = e.pk
 WHERE event_fk IS NOT NULL
 ORDER BY date, time;
+
+SELECT * FROM answer WHERE
+(SELECT name FROM event WHERE event.name = event_fk);
+
+(SELECT name FROM event WHERE event.name = event_fk);

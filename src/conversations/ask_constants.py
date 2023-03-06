@@ -98,7 +98,7 @@ QUESTION_TEXT_CHOICE_SKIP_QUEST = "Skip question"
 
 EVENT_TIME_ASK_MSG = "Now send event time in `isoformat` (01:02:03)"
 EVENT_TIME_CHOICE_NOW = "Now"
-EVENT_TIME_CHOICES_DELTA = ["-15m", "-10m", "-5m", "+5m", "+10m"]
+EVENT_TIME_CHOICES_DELTA = ["-10m", "-5m", "-1m", "+1m", "+5m", "+10m"]
 EVENT_TIME_WRONG_FORMAT = "Wrong time format, try again"
 
 EVENT_TIME_KEYBOARD = [EVENT_TIME_CHOICES_DELTA, [EVENT_TIME_CHOICE_NOW]]
