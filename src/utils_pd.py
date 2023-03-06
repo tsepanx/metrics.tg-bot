@@ -42,7 +42,7 @@ def df_to_markdown(df: pd.DataFrame, transpose=False):
     # Replace None with np.nan for consistency
     df = df.fillna(value=np.nan)
 
-    df = df.astype(str).apply(lambda x: x.str.encode("ascii", "ignore").str.decode("ascii"))
+    df = df.astype(str).apply(remove_emojis_with_space_prefix)
 
     text = df.to_markdown(
         tablefmt="rounded_grid",
