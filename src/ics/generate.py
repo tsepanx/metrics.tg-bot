@@ -1,5 +1,4 @@
 import datetime
-import logging
 from dataclasses import dataclass
 
 import icalendar
@@ -8,6 +7,9 @@ from icalendar import (
     Event,
 )
 
+from src.tables.answer import (
+    AnswerDB,
+)
 from src.utils import DEFAULT_TZ
 
 
@@ -26,18 +28,11 @@ class CalEventDC:
             event.add("description", self.desc)
         event.add("dtstart", self.start_dt.replace(tzinfo=DEFAULT_TZ))
         event.add("dtend", self.end_dt.replace(tzinfo=DEFAULT_TZ))
-        # event.add('dtstamp', datetime(2022, 10, 24, 0, 10, 0, tzinfo=pytz.utc))
-
-        # organizer = vCalAddress('MAILTO:hello@example.com')
-        # organizer.params['cn'] = vText('Sir Jon')
-        # organizer.params['role'] = vText('CEO')
-        # event['organizer'] = organizer
-        # event['location'] = vText(LOCATION)
 
         return event
 
 
-def gen_calendar_ics(events: list[CalEventDC]) -> bytes:
+def gen_calendar_ics_str(events: list[CalEventDC]) -> bytes:
     cal = Calendar()
     for e in events:
         cal.add_component(e.ical_event())
@@ -45,21 +40,11 @@ def gen_calendar_ics(events: list[CalEventDC]) -> bytes:
     return cal.to_ical()
 
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-    )
-
+def gen_ics_from_answers_db(answers: list[AnswerDB]) -> bytes:
     cal_events_list: list[CalEventDC] = []
 
-    from src.user_data import (
-        UserDBCache,
-    )
-
-    db_cache = UserDBCache()
-
     tmp_event_start_timestamps: dict[str, datetime] = {}
-    for answer_db in db_cache.answers:
+    for answer_db in answers:
         if answer_db.event:
             event_db = answer_db.event
 
@@ -78,8 +63,5 @@ if __name__ == "__main__":
                     )
                     cal_events_list.append(cal_event)
 
-    cal_str = gen_calendar_ics(cal_events_list)
-
-    f = open("example.ics", "wb")
-    f.write(cal_str)
-    f.close()
+    cal_str = gen_calendar_ics_str(cal_events_list)
+    return cal_str
