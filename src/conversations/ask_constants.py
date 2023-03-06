@@ -29,10 +29,11 @@ ENTITY_TYPE_KEYBOARD = [[ENTITY_TYPE_CHOICE_QUESTION, ENTITY_TYPE_CHOICE_EVENT]]
 DAY_MSG = "Select day"
 DAY_CHOICE_TODAY = "Today"
 
-ISOFORMAT_REGEX = r"^\d{4}-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
-DAY_CHOICE_REGEX = rf"(^\+|\-)[0-9]+$|({DAY_CHOICE_TODAY})|({ISOFORMAT_REGEX})"
 
 QUESTION_DAY_KEYBOARD = [["-5", "-4", "-3", "-2", "-1", "+1"], [DAY_CHOICE_TODAY]]
+
+ISOFORMAT_REGEX = r"^\d{4}-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$"
+REGEX_QUESTION_DAY_KEYBOARD = rf"(^\+|\-)[0-9]+$|({DAY_CHOICE_TODAY})|({ISOFORMAT_REGEX})"
 # REGEX_QUESTION_DAY_KEYBOARD = any_of_buttons_regex(QUESTION_DAY_KEYBOARD)
 
 
@@ -109,6 +110,4 @@ REGEX_EVENT_TIME_KEYBOARD = rf"^([-+]?[0-9]+[smh]|({EVENT_TIME_CHOICE_NOW}))$"
 EVENT_TEXT_ASK_MSG = "Also send `text` (optionally)"
 EVENT_TEXT_CHOICE_NONE = "None"
 EVENT_TEXT_KEYBOARD = [[EVENT_TEXT_CHOICE_NONE]]
-
-# May be removed in the future, when events text suggesting keyboard will be added
 # REGEX_EVENT_TEXT_KEYBOARD = any_of_buttons_regex(EVENT_TEXT_KEYBOARD)

@@ -19,7 +19,6 @@ from telegram.ext import (
 )
 
 from src.conversations.ask_constants import (
-    DAY_CHOICE_REGEX,
     DAY_CHOICE_TODAY,
     DAY_MSG,
     DEFAULT_PARSE_MODE,
@@ -39,6 +38,7 @@ from src.conversations.ask_constants import (
     QUESTION_TEXT_CHOICE_SKIP_QUEST,
     QUESTION_TEXT_CHOICE_STOP_ASKING,
     REGEX_EVENT_TIME_KEYBOARD,
+    REGEX_QUESTION_DAY_KEYBOARD,
     SelectEventCallback,
     SelectQuestionCallback,
 )
@@ -148,7 +148,7 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
 
     text = update.message.text
 
-    assert re.compile(DAY_CHOICE_REGEX).match(text)  # 2023-01-01 / Today / +1
+    assert re.compile(REGEX_QUESTION_DAY_KEYBOARD).match(text)  # 2023-01-01 / Today / +1
 
     if re.compile(ISOFORMAT_REGEX).match(text):
         day = datetime.date.fromisoformat(text)
@@ -166,8 +166,6 @@ async def choose_question_names(update: Update, context: ContextTypes.DEFAULT_TY
         reply_markup=reply_markup,
     )
 
-    # return ASK_CHOOSE_QUESTION_OPTION
-    # return ASK_CHOOSE_DAY
     return ASK_CHOOSE_QUESTION_NAMES
 
 
@@ -478,7 +476,7 @@ ask_conv_handler = ConversationHandler(
             MessageHandler(filters.Regex(ENTITY_TYPE_CHOICE_EVENT), choose_event_name),
         ],
         ASK_CHOOSE_QUESTION_NAMES: [
-            MessageHandler(filters.Regex(DAY_CHOICE_REGEX) & (~filters.COMMAND), choose_question_names),
+            MessageHandler(filters.Regex(REGEX_QUESTION_DAY_KEYBOARD) & (~filters.COMMAND), choose_question_names),
             CallbackQueryHandler(on_chosen_question_name_option),
         ],
         ASK_CHOOSE_EVENT_NAME: [CallbackQueryHandler(on_chosen_event_name)],
