@@ -376,8 +376,7 @@ async def on_question_answered(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
     else:
         try:
-            if q.answer_apply_func:
-                answer_text = q.answer_apply_func(answer_text)
+            answer_text = q.question_type.apply_func(answer_text)
         except Exception as exc:
             raise MyException(ERROR_PARSING_ANSWER) from exc
 

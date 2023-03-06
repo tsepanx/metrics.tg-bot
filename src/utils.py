@@ -26,6 +26,10 @@ class MyException(Exception):
     pass
 
 
+class FormatException(Exception):
+    pass
+
+
 class MyEnum(enum.Enum):
     @classmethod
     def values_list(cls):

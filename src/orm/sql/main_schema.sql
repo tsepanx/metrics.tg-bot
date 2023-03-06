@@ -109,4 +109,9 @@ ORDER BY date, time;
 SELECT * FROM answer WHERE
 (SELECT name FROM event WHERE event.name = event_fk);
 
-(SELECT name FROM event WHERE event.name = event_fk);
+-- (SELECT name FROM event WHERE event.name = event_fk);
+
+SELECT *, replace(name, 'food_eat', 'food_intake') FROM event ;
+
+UPDATE event SET name = REPLACE(name, 'foodddd', 'food')
+    WHERE name LIKE 'foodddd%';
