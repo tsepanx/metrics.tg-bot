@@ -200,10 +200,12 @@ def insert_event_answer(
 
 
 async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_answer: str = None):
-    buttons = [
-        list(map(str, q.choices_list)),
-        [QUESTION_TEXT_CHOICE_SKIP_QUEST, QUESTION_TEXT_CHOICE_STOP_ASKING],
-    ]
+    buttons = [list(map(str, q.choices_list))]
+
+    if q.question_type.additional_keyboard_choices:
+        buttons.append(q.question_type.additional_keyboard_choices)
+
+    buttons.append([QUESTION_TEXT_CHOICE_SKIP_QUEST, QUESTION_TEXT_CHOICE_STOP_ASKING])
 
     reply_markup = telegram.ReplyKeyboardMarkup(
         buttons, one_time_keyboard=True, resize_keyboard=True

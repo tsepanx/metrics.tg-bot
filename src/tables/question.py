@@ -2,6 +2,11 @@ import datetime
 from dataclasses import dataclass
 from typing import Callable
 
+from src.conversations.ask_constants import (
+    BINARY_CHOICE_NO,
+    BINARY_CHOICE_YES,
+    TIME_CHOICE_NOW,
+)
 from src.orm.base import ColumnDC
 from src.orm.dataclasses import (
     ForeignKey,
@@ -13,13 +18,14 @@ from src.tables.tg_user import (
 from src.utils import (
     FormatException,
     MyEnum,
+    get_now,
 )
 
 
 def binary(x: str) -> int:
-    if x.lower() not in ("да", "нет", "0", "1"):
+    if x.lower() not in (BINARY_CHOICE_YES, BINARY_CHOICE_NO, "0", "1"):
         raise FormatException
-    return 1 if str(x).lower() in ("да", "yes", "1") else 0
+    return 1 if x.lower() in (BINARY_CHOICE_YES, "yes", "1") else 0
 
 
 def time_or_hours(s: str) -> datetime.time:
@@ -36,6 +42,9 @@ def time_or_hours(s: str) -> datetime.time:
 
 
 def timestamp(value: str) -> datetime.datetime:
+    if value == TIME_CHOICE_NOW:
+        return get_now()
+
     try:
         # format: 2023-03-23 01:02:03
         dt = datetime.datetime.fromisoformat(value)
@@ -52,15 +61,28 @@ class QuestionTypeEntity:
     format_str: str
 
     apply_func: Callable = lambda x: x
+    additional_keyboard_choices: list[str] | None = None
 
 
 class QuestionTypeEnum(MyEnum):
     TEXT = QuestionTypeEntity("[Text]", "text123")
     INT = QuestionTypeEntity("[Integer]", "1234", apply_func=int)
-    BINARY = QuestionTypeEntity("[0/1 Binary]", "Да/Нет/0/1", apply_func=binary)
+    BINARY = QuestionTypeEntity(
+        "[0/1 Binary]",
+        f"{BINARY_CHOICE_YES}/{BINARY_CHOICE_NO}/0/1",
+        apply_func=binary,
+        additional_keyboard_choices=[
+            # "Да", "Нет"
+            BINARY_CHOICE_YES,
+            BINARY_CHOICE_NO,
+        ],
+    )
     HOURS = QuestionTypeEntity("[Hours (time)]", "04:35", apply_func=time_or_hours)
     TIMESTAMP = QuestionTypeEntity(
-        "[Timestamp (datetime)]", "2023-03-23 04:35", apply_func=timestamp
+        "[Timestamp (datetime)]",
+        "2023-03-23 04:35",
+        apply_func=timestamp,
+        additional_keyboard_choices=[TIME_CHOICE_NOW],
     )
 
 

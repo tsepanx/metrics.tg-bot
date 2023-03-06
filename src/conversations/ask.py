@@ -29,7 +29,6 @@ from src.conversations.ask_constants import (
     ERROR_PARSING_ANSWER,
     EVENT_NAME_MSG,
     EVENT_TEXT_CHOICE_NONE,
-    EVENT_TIME_CHOICE_NOW,
     EVENT_TIME_WRONG_FORMAT,
     QUESTION_DAY_KEYBOARD,
     QUESTION_ERROR_MSG,
@@ -39,6 +38,7 @@ from src.conversations.ask_constants import (
     REGEX_DAY_ISOFORMAT,
     REGEX_EVENT_TIME_KEYBOARD,
     REGEX_QUESTION_DAY_KEYBOARD,
+    TIME_CHOICE_NOW,
     SelectEventCallback,
     SelectQuestionCallback,
 )
@@ -407,7 +407,7 @@ async def on_event_time_answered(update: Update, context: ContextTypes.DEFAULT_T
     assert update.message is not None
     text = update.message.text
 
-    if text == EVENT_TIME_CHOICE_NOW:
+    if text == TIME_CHOICE_NOW:
         time_answer = get_now_time()
     elif re.compile(REGEX_EVENT_TIME_KEYBOARD).match(text):
         if text[-1] == "m":
