@@ -430,6 +430,8 @@ async def on_end_asking_questions(
             )
 
             # --- Adding new event answer if question.type == "Timestamp"
+            # TODO This doesn't manage cases of re-answering the same question
+            # TODO replace this logic with... Auto-generated questions & events OR something else
 
             if question.question_type == QuestionTypeEnum.TIMESTAMP.value:
                 # F.e.: sleep_start
