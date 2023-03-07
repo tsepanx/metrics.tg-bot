@@ -15,12 +15,7 @@ from PIL import (
     ImageFont,
 )
 
-# DEFAULT_TZ = datetime.timezone(datetime.timedelta(hours=3))
-
-LOCATION = "Europe/Moscow"
-
-DEFAULT_TZ = pytz.timezone(LOCATION)
-
+DEFAULT_TZ = pytz.timezone("Europe/Moscow")
 NO_ENTRIES_FOR_TYPE = lambda answer_type: f"No {answer_type.name} records"  # # noqa: E731
 
 
@@ -79,6 +74,10 @@ def format_datetime(ts: datetime.datetime) -> str:
     return ts.isoformat(sep=" ", timespec="seconds")
 
 
+def format_time(t: datetime.time) -> str:
+    return t.isoformat(timespec="seconds")
+
+
 def any_of_strings_regex(list_str: list[str]) -> str:
     inner_s = "|".join(list_str)
     inner_s = inner_s.replace("+", r"\+")
@@ -97,13 +96,30 @@ def text_to_png(text: str, bold=True):
     indent = 5
     indent_point = (indent, indent - 4)  # ...
 
-    bg_color = (200, 200, 200)
-    fg_color = (0, 0, 0)
+    # bg_color = (200, 200, 200)
+    bg_color = (255, 255, 255)
+    # fg_color = (0, 0, 0)
+    # fg_color = (47, 110, 165)
+
+    # Green-like
+    # fg_color = (43, 64, 50)
+    fg_color = (36, 56, 43)
+    bg_color = (167, 205, 137)
+
+    # Orange-like
+    bg_color = (200, 149, 105)
+    fg_color = (47, 32, 18)
+
+    # light Orange-like
+    # bg_color = (200, 182, 165)
+    # fg_color = (47, 32, 18)
+
+    fontsize = 25
 
     if bold:
-        font = ImageFont.truetype("assets/SourceCodePro-Bold.otf", 16)
+        font = ImageFont.truetype("assets/SourceCodePro-Bold.otf", fontsize)
     else:
-        font = ImageFont.truetype("assets/SourceCodePro-Regular.otf", 16)
+        font = ImageFont.truetype("assets/SourceCodePro-Regular.otf", fontsize)
 
     _, __, x2, y2 = ImageDraw.Draw(Image.new("RGB", (0, 0))).textbbox(indent_point, text, font)
 

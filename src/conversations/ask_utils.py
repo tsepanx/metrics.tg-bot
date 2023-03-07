@@ -40,6 +40,7 @@ from src.conversations.ask_constants import (
     SelectQuestionCallback,
 )
 from src.generated_metrics import (
+    GeneratedMetricsEnum,
     get_gen_metrics_event_df,
 )
 from src.orm.base import (
@@ -301,7 +302,9 @@ async def send_entity_answers_df(
 
     # Adding `Generated Metrics` table
     if answer_type == AnswerType.QUESTION:
-        gen_metrics_df = get_gen_metrics_event_df(db_cache)
+        gen_metrics_list = GeneratedMetricsEnum.values_list()
+        gen_metrics_df = get_gen_metrics_event_df(db_cache, gen_metrics_list)
+
         answers_df = pd.concat([answers_df, gen_metrics_df], axis=0)
 
     file_name = f"{answer_type.name.lower()}s.csv"
@@ -329,20 +332,13 @@ async def send_dataframe(
     is_with_indices_col=True,
     file_name: str = "dataframe.csv",
 ):
-    # Fix dirty function applying changes directly to passed DataFrame
-    df = df.copy()
+    if is_with_indices_col:
+        i_column = list(range(len(df.index)))
 
-    # [0, 1, 2, 3, ...]
-    i_column = list(range(len(df.index)))
-    # noinspection PyTypeChecker
-    df.insert(0, "i", i_column)
-
-    # if sort_by_quest_indices:
-    #     answers_df = answers_df.sort_values("i")
-
-    # 'i' column was used just for sorting
-    if not is_with_indices_col:
-        df = df.drop("i", axis=1)
+        df = df.copy()
+        # noinspection PyTypeChecker
+        df.insert(0, "i", i_column)
+        # df = df.drop("i", axis=1)
 
     md_text = df_to_markdown(df, transpose=is_transpose_table)
     csv_text = df.to_csv()

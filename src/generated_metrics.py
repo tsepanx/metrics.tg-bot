@@ -14,8 +14,11 @@ from src.user_data import (
 )
 from src.utils import (
     MyEnum,
+    format_time,
     format_timedelta,
 )
+
+ALIGN_NAME_PREFIX_LEN = 7
 
 
 @dataclass(frozen=True)
@@ -27,7 +30,22 @@ class GeneratedMetricEvent:
 
     @property
     def name(self):
-        return f"cum_{self.target_event_name}"
+        raise NotImplementedError
+
+    def get_value(self, answers: list[AnswerDB]):
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class CumulativeDurationGenMetric(GeneratedMetricEvent):
+    @property
+    def name(self):
+        prefix = "[CUM]"
+
+        return f"{prefix:{ALIGN_NAME_PREFIX_LEN}} {self.target_event_name}"
+
+    def get_value(self, answers: list[AnswerDB]) -> datetime.timedelta:
+        return self.cumulative_event_duration(answers)
 
     def cumulative_event_duration(self, answers: list[AnswerDB]) -> datetime.timedelta:
         sum_timedelta: datetime.timedelta = datetime.timedelta(0)
@@ -42,22 +60,54 @@ class GeneratedMetricEvent:
         return sum_timedelta
 
 
+@dataclass(frozen=True)
+class FirstOnDayGenMetric(GeneratedMetricEvent):
+    text_match: str | None = None
+
+    @property
+    def name(self):
+        prefix = "[FIRST]"
+
+        s = f"{prefix:<{ALIGN_NAME_PREFIX_LEN}} {self.target_event_name}"
+
+        if self.text_match:
+            s += f" ({self.text_match})"
+
+        return s
+
+    def __repr__(self):
+        return self.name
+
+    def get_value(self, answers: list[AnswerDB]) -> datetime.datetime:
+        return self.first_event_occurrence(answers)
+
+    def first_event_occurrence(self, answers: list[AnswerDB]) -> datetime.datetime:
+        for answer in answers:
+            if answer.event:
+                if answer.event.ascii_name() == self.target_event_name:
+                    if self.text_match:
+                        if self.text_match == answer.text:
+                            return answer.get_timestamp()
+
+
+SLEEP_DEFAULT_KWARGS = {
+    "custom_dt_start_add": datetime.timedelta(hours=-3),  # from 21:00 of prev day
+    "custom_dt_end_add": datetime.timedelta(hours=-10),  # till 14:00
+}
+
+
+# TODO Think of moving to 'generated_metric' DB table
 class GeneratedMetricsEnum(MyEnum):
-    SLEEP = GeneratedMetricEvent(
-        "sleep",
-        custom_dt_start_add=datetime.timedelta(hours=-3),
-        custom_dt_end_add=datetime.timedelta(hours=-10),
-    )
-    AT_BED = GeneratedMetricEvent(
-        "at_bed",
-        custom_dt_start_add=datetime.timedelta(hours=-3),  # from 21:00 of prev day
-        custom_dt_end_add=datetime.timedelta(hours=-10),  # till 14:00
-    )
+    SLEEP_START = FirstOnDayGenMetric("sleep", text_match="start", **SLEEP_DEFAULT_KWARGS)
+    SLEEP_END = FirstOnDayGenMetric("sleep", text_match="end", **SLEEP_DEFAULT_KWARGS)
+
+    SLEEP_DURATION = CumulativeDurationGenMetric("sleep", **SLEEP_DEFAULT_KWARGS)
+    AT_BED_DURATION = CumulativeDurationGenMetric("at_bed", **SLEEP_DEFAULT_KWARGS)
 
 
 def get_gen_metrics_event_df(
     db_cache: UserDBCache,
-    gen_metrics_event: list[GeneratedMetricEvent] = GeneratedMetricsEnum.values_list(),
+    gen_metrics_event: list[GeneratedMetricEvent],
 ) -> pd.DataFrame:
     days: list[datetime.date] = sorted(db_cache.answers_days_set)
 
@@ -75,8 +125,21 @@ def get_gen_metrics_event_df(
                 filter(lambda x: start_dt < x.get_timestamp() < end_dt, db_cache.answers)
             )
 
-            # for answer in target_answers:
-            cum_timedelta = metric.cumulative_event_duration(target_answers)
-            df[day][metric.name] = format_timedelta(cum_timedelta)
+            metric_value = metric.get_value(target_answers)
+
+            if isinstance(metric_value, datetime.datetime):
+                metric_value_str = format_time(metric_value.time())
+            elif isinstance(metric_value, datetime.timedelta):
+                metric_value_str = format_timedelta(metric_value)
+            elif isinstance(metric_value, str):
+                metric_value_str = metric_value
+            elif metric_value is None:
+                metric_value_str = ""
+            else:
+                raise Exception(
+                    f"Metric '{metric.name}': metric_value of unhandled type: {type(metric_value)}"
+                )
+
+            df[day][metric.name] = metric_value_str
 
     return df
