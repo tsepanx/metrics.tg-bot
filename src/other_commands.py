@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass
 from typing import (
     Callable,
@@ -16,7 +17,12 @@ from telegram.ext import (
 
 from src.conversations.ask_utils import (
     build_transpose_callback_data,
+    send_dataframe,
     send_entity_answers_df,
+)
+from src.generated_metrics import (
+    GeneratedMetricEvent,
+    get_gen_metrics_event_df,
 )
 from src.tables.answer import (
     AnswerType,
@@ -64,6 +70,22 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ud=ud,
         answers_entity=AnswerType.EVENT,
     )
+
+    gen_metrics_event = [
+        GeneratedMetricEvent(
+            "sleep",
+            custom_dt_start_add=datetime.timedelta(hours=-3),
+            custom_dt_end_add=datetime.timedelta(hours=-10),
+        ),
+        GeneratedMetricEvent(
+            "at_bed",
+            custom_dt_start_add=datetime.timedelta(hours=-3),  # from 21:00 of prev day
+            custom_dt_end_add=datetime.timedelta(hours=-10),  # till 14:00
+        ),
+    ]
+
+    df = get_gen_metrics_event_df(ud, gen_metrics_event)
+    await send_dataframe(update, df)
 
 
 @handler_decorator

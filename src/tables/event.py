@@ -8,6 +8,9 @@ from src.orm.dataclasses import (
 from src.tables.tg_user import (
     TgUserDB,
 )
+from src.utils_pd import (
+    remove_emojis_with_space_prefix,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +39,9 @@ class EventDB(Table):
 
     def is_dir(self) -> bool:
         return self.name.endswith("/")
+
+    def ascii_name(self) -> str:
+        return remove_emojis_with_space_prefix(self.name)
 
     class Meta(Table.Meta):
         tablename = "event"

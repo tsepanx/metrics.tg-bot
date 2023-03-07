@@ -68,6 +68,8 @@ class UserDBCache:
     events: list[EventDB] | None = None
     answers: list[AnswerDB] | None = None
 
+    answers_days_set: set[datetime.date] | None = set()
+
     LAST_RELOAD_TIME: datetime.datetime | None = None
 
     def __init__(self):
@@ -80,6 +82,8 @@ class UserDBCache:
         self.questions = QuestionDB.select_all()
         self.events = EventDB.select_all()
         self.answers = AnswerDB.select_all()
+
+        self.answers_days_set = set(map(lambda a: a.date, self.answers))
 
     def questions_names(self) -> list[str]:
         return list(map(lambda x: x.name, self.questions))

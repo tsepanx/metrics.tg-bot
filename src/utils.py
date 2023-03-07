@@ -66,6 +66,13 @@ def get_nth_delta_day(n: int = 0) -> datetime.date:
     return date
 
 
+def format_timedelta(td: datetime.timedelta) -> str:
+    days_str = f"{td.days} days, " if td.days else ""
+    time_str = str((datetime.datetime.min + td).time().replace(microsecond=0))
+
+    return days_str + time_str
+
+
 def format_datetime(ts: datetime.datetime) -> str:
     return ts.isoformat(sep=" ", timespec="seconds")
 

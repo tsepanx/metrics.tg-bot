@@ -11,36 +11,37 @@ from src.tables.answer import (
     AnswerDB,
 )
 from src.utils import DEFAULT_TZ
+from src.utils_pd import (
+    remove_emojis_with_space_prefix,
+)
 
 
-@dataclass
+@dataclass(frozen=True)
 class CalEventDC:
-    summary: str
-    desc: str | None
+    # event_db_obj: EventDB
+
+    # summary: str
+    name: str
 
     start_dt: datetime.datetime
     end_dt: datetime.datetime
 
     def ical_event(self) -> icalendar.Event:
         event = Event()
-        event.add("summary", self.summary)
-        if self.desc:
-            event.add("description", self.desc)
+        # event.add("summary", self.summary)
+        event.add("summary", self.name)
+        # if self.desc:
+        #     event.add("description", self.desc)
         event.add("dtstart", self.start_dt.replace(tzinfo=DEFAULT_TZ))
         event.add("dtend", self.end_dt.replace(tzinfo=DEFAULT_TZ))
 
         return event
 
-
-def gen_calendar_ics_str(events: list[CalEventDC]) -> bytes:
-    cal = Calendar()
-    for e in events:
-        cal.add_component(e.ical_event())
-
-    return cal.to_ical()
+    def ascii_name(self) -> str:
+        return remove_emojis_with_space_prefix(self.name)
 
 
-def gen_ics_from_answers_db(answers: list[AnswerDB]) -> bytes:
+def gen_calendar_events_from_db_event(answers: list[AnswerDB]) -> list[CalEventDC]:
     cal_events_list: list[CalEventDC] = []
 
     tmp_event_start_timestamps: dict[str, datetime] = {}
@@ -56,12 +57,20 @@ def gen_ics_from_answers_db(answers: list[AnswerDB]) -> bytes:
                 )
                 if start_event_timestamp:
                     cal_event = CalEventDC(
-                        summary=event_db.name,
-                        desc=None,
+                        name=event_db.name,
                         start_dt=start_event_timestamp,
                         end_dt=answer_db.get_timestamp(),
                     )
                     cal_events_list.append(cal_event)
+    return cal_events_list
 
-    cal_str = gen_calendar_ics_str(cal_events_list)
-    return cal_str
+
+def gen_ics_from_answers_db(answers: list[AnswerDB]) -> bytes:
+    cal_events = gen_calendar_events_from_db_event(answers)
+
+    cal = Calendar()
+    for e in cal_events:
+        cal.add_component(e.ical_event())
+
+    ics_file_bytes = cal.to_ical()
+    return ics_file_bytes

@@ -82,12 +82,12 @@ class QuestionTypeEnum(MyEnum):
     HOURS = QuestionTypeEntity("[Hours (time)]", "04:35", apply_func=time_or_hours)
 
     # TODO To be removed, as it duplicates `Events` functionality
-    TIMESTAMP = QuestionTypeEntity(
-        "[Timestamp (datetime)]",
-        "2000-01-23 04:56",
-        apply_func=timestamp,
-        additional_keyboard_choices=[[TIME_CHOICE_NOW]],
-    )
+    # TIMESTAMP = QuestionTypeEntity(
+    #     "[Timestamp (datetime)]",
+    #     "2000-01-23 04:56",
+    #     apply_func=timestamp,
+    #     additional_keyboard_choices=[[TIME_CHOICE_NOW]],
+    # )
 
 
 @dataclass(frozen=True, slots=True)

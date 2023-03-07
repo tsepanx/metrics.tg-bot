@@ -39,6 +39,7 @@ class AnswerDB(Table):
         return self.get_fk_value(AnswerType.EVENT.value)
 
     def get_timestamp(self) -> datetime.datetime:
+        print(datetime.datetime.combine(date=self.date, time=self.time))
         return datetime.datetime.combine(date=self.date, time=self.time)
 
     @classmethod
