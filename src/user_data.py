@@ -146,6 +146,18 @@ class UserDBCache:
         df.columns = [for_day]
         return df
 
+    def get_entity_answers_df(self, answers_entity: AnswerType):
+        if answers_entity is AnswerType.QUESTION:
+            # transpose_callback_data = build_transpose_callback_data(answers_entity)
+            answers_df = self.questions_answers_df()
+        elif answers_entity is AnswerType.EVENT:
+            # transpose_callback_data = None
+            answers_df = self.events_answers_df()
+        else:
+            raise Exception
+
+        return answers_df
+
 
 class UserData:
     conv_storage: ASKConversationStorage

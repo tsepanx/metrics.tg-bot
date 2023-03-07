@@ -1,4 +1,3 @@
-import datetime
 from dataclasses import dataclass
 from typing import (
     Callable,
@@ -17,12 +16,7 @@ from telegram.ext import (
 
 from src.conversations.ask_utils import (
     build_transpose_callback_data,
-    send_dataframe,
     send_entity_answers_df,
-)
-from src.generated_metrics import (
-    GeneratedMetricEvent,
-    get_gen_metrics_event_df,
 )
 from src.tables.answer import (
     AnswerType,
@@ -59,33 +53,8 @@ class TgCommand:
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud: UserData = context.chat_data[USER_DATA_KEY]
 
-    await send_entity_answers_df(
-        update=update,
-        ud=ud,
-        answers_entity=AnswerType.QUESTION,
-    )
-
-    await send_entity_answers_df(
-        update=update,
-        ud=ud,
-        answers_entity=AnswerType.EVENT,
-    )
-
-    gen_metrics_event = [
-        GeneratedMetricEvent(
-            "sleep",
-            custom_dt_start_add=datetime.timedelta(hours=-3),
-            custom_dt_end_add=datetime.timedelta(hours=-10),
-        ),
-        GeneratedMetricEvent(
-            "at_bed",
-            custom_dt_start_add=datetime.timedelta(hours=-3),  # from 21:00 of prev day
-            custom_dt_end_add=datetime.timedelta(hours=-10),  # till 14:00
-        ),
-    ]
-
-    df = get_gen_metrics_event_df(ud, gen_metrics_event)
-    await send_dataframe(update, df)
+    for answer_type in AnswerType.QUESTION, AnswerType.EVENT:
+        await send_entity_answers_df(update, ud.db_cache, answer_type)
 
 
 @handler_decorator
@@ -164,13 +133,13 @@ async def on_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await send_entity_answers_df(
             update,
-            ud=ud,
-            answers_entity=answers_type,
-            send_csv=False,
-            send_img=True,
-            send_text=False,
-            transpose_table=True,
-            with_question_indices=False,
+            db_cache=ud.db_cache,
+            answer_type=answers_type,
+            is_send_csv=False,
+            is_send_img=True,
+            is_send_text=False,
+            is_transpose_table=True,
+            is_with_indices_col=False,
         )
 
 

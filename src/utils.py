@@ -21,6 +21,8 @@ LOCATION = "Europe/Moscow"
 
 DEFAULT_TZ = pytz.timezone(LOCATION)
 
+NO_ENTRIES_FOR_TYPE = lambda answer_type: f"No {answer_type.name} records"
+
 
 class MyException(Exception):
     pass

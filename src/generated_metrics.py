@@ -9,8 +9,12 @@ from src.ics.generate import (
 from src.tables.answer import (
     AnswerDB,
 )
-from src.user_data import UserData
+from src.user_data import (
+    UserData,
+    UserDBCache,
+)
 from src.utils import (
+    MyEnum,
     format_timedelta,
 )
 
@@ -39,10 +43,24 @@ class GeneratedMetricEvent:
         return sum_timedelta
 
 
+class GeneratedMetricsEnum(MyEnum):
+    SLEEP = GeneratedMetricEvent(
+        "sleep",
+        custom_dt_start_add=datetime.timedelta(hours=-3),
+        custom_dt_end_add=datetime.timedelta(hours=-10),
+    )
+    AT_BED = GeneratedMetricEvent(
+        "at_bed",
+        custom_dt_start_add=datetime.timedelta(hours=-3),  # from 21:00 of prev day
+        custom_dt_end_add=datetime.timedelta(hours=-10),  # till 14:00
+    )
+
+
 def get_gen_metrics_event_df(
-    ud: UserData, gen_metrics_event: list[GeneratedMetricEvent]
+    db_cache: UserDBCache,
+    gen_metrics_event: list[GeneratedMetricEvent] = GeneratedMetricsEnum.values_list(),
 ) -> pd.DataFrame:
-    days: list[datetime.date] = sorted(ud.db_cache.answers_days_set)
+    days: list[datetime.date] = sorted(db_cache.answers_days_set)
 
     df = pd.DataFrame(columns=days, index=list(map(lambda x: x.name, gen_metrics_event)))
 
@@ -55,7 +73,7 @@ def get_gen_metrics_event_df(
             end_dt = day_end + metric.custom_dt_end_add
 
             target_answers = list(
-                filter(lambda x: start_dt < x.get_timestamp() < end_dt, ud.db_cache.answers)
+                filter(lambda x: start_dt < x.get_timestamp() < end_dt, db_cache.answers)
             )
 
             # for answer in target_answers:

@@ -39,6 +39,9 @@ from src.conversations.ask_constants import (
     SelectQuestionButtons,
     SelectQuestionCallback,
 )
+from src.generated_metrics import (
+    get_gen_metrics_event_df,
+)
 from src.orm.base import (
     ColumnDC,
     ValueType,
@@ -58,8 +61,10 @@ from src.user_data import (
     ASKEventConvStorage,
     ASKQuestionsConvStorage,
     UserData,
+    UserDBCache,
 )
 from src.utils import (
+    NO_ENTRIES_FOR_TYPE,
     data_to_bytesio,
     get_now_time,
     text_to_png,
@@ -285,26 +290,29 @@ def build_transpose_callback_data(answer_type: AnswerType) -> str:
 
 
 async def send_entity_answers_df(
-    update: Update, ud: UserData, answers_entity: AnswerType, **kwargs
+    update: Update, db_cache: UserDBCache, answer_type: AnswerType, **kwargs
 ):
-    file_name = f"{answers_entity.name.lower()}s.csv"
+    answers_df = db_cache.get_entity_answers_df(answers_entity=answer_type)
 
-    if answers_entity is AnswerType.QUESTION:
-        transpose_callback_data = build_transpose_callback_data(answers_entity)
-        answers_df = ud.db_cache.questions_answers_df()
-    elif answers_entity is AnswerType.EVENT:
-        transpose_callback_data = None
-        answers_df = ud.db_cache.events_answers_df()
+    if answer_type == AnswerType.QUESTION:
+        callback_data = build_transpose_callback_data(answer_type)
     else:
-        raise Exception
+        callback_data = None
+
+    # Adding `Generated Metrics` table
+    if answer_type == AnswerType.QUESTION:
+        gen_metrics_df = get_gen_metrics_event_df(db_cache)
+        answers_df = pd.concat([answers_df, gen_metrics_df], axis=0)
+
+    file_name = f"{answer_type.name.lower()}s.csv"
 
     if answers_df is None:
-        return await update.message.reply_text(f"No {answers_entity.name} records")
+        return await update.message.reply_text(NO_ENTRIES_FOR_TYPE(answer_type))
     else:
         return await send_dataframe(
             update=update,
             df=answers_df,
-            transpose_button_callback_data=transpose_callback_data,
+            transpose_button_callback_data=callback_data,
             file_name=file_name,
             **kwargs,
         )
@@ -313,12 +321,12 @@ async def send_entity_answers_df(
 async def send_dataframe(
     update: Update,
     df: pd.DataFrame,
-    send_csv=False,
-    send_img=True,
-    send_text=False,
-    transpose_table=False,
+    is_send_csv=False,
+    is_send_img=True,
+    is_send_text=False,
+    is_transpose_table=False,
     transpose_button_callback_data: str = None,
-    with_indices_col=True,
+    is_with_indices_col=True,
     file_name: str = "dataframe.csv",
 ):
     # Fix dirty function applying changes directly to passed DataFrame
@@ -333,13 +341,13 @@ async def send_dataframe(
     #     answers_df = answers_df.sort_values("i")
 
     # 'i' column was used just for sorting
-    if not with_indices_col:
+    if not is_with_indices_col:
         df = df.drop("i", axis=1)
 
-    md_text = df_to_markdown(df, transpose=transpose_table)
+    md_text = df_to_markdown(df, transpose=is_transpose_table)
     csv_text = df.to_csv()
 
-    if not transpose_table:
+    if not is_transpose_table:
         assert update.message is not None
         message_object = update.message
     else:
@@ -347,11 +355,11 @@ async def send_dataframe(
         assert update.callback_query.message is not None
         message_object = update.callback_query.message
 
-    if send_csv:
+    if is_send_csv:
         bytes_io = data_to_bytesio(csv_text, file_name)
         await message_object.reply_document(document=bytes_io)
 
-    if send_img:
+    if is_send_img:
         img = text_to_png(md_text)
 
         bio = BytesIO()
@@ -362,7 +370,7 @@ async def send_dataframe(
 
         bio2 = copy.copy(bio)
 
-        if not transpose_table and transpose_button_callback_data:
+        if not is_transpose_table and transpose_button_callback_data:
             keyboard = [
                 [
                     telegram.InlineKeyboardButton(
@@ -379,7 +387,7 @@ async def send_dataframe(
             await message_object.reply_photo(bio, reply_markup=reply_markup)  # type: ignore
         except telegram.error.BadRequest:
             await message_object.reply_document(bio2, reply_markup=reply_markup)  # type: ignore
-    if send_text:
+    if is_send_text:
         html_table_text = f"<pre>\n{md_text}\n</pre>"
 
         # fmt: off
@@ -435,7 +443,7 @@ async def on_end_asking_questions(
         ud.db_cache.reload_all()
 
     await send_entity_answers_df(
-        update=update, ud=ud, answers_entity=AnswerType.QUESTION, send_csv=True
+        update=update, db_cache=ud.db_cache, answer_type=AnswerType.QUESTION, is_send_csv=True
     )
 
 
@@ -457,5 +465,5 @@ async def on_end_asking_event(ud: UserData, update: Update):
     ud.db_cache.reload_all()
 
     await send_entity_answers_df(
-        update=update, ud=ud, answers_entity=AnswerType.EVENT, send_csv=True
+        update=update, db_cache=ud.db_cache, answer_type=AnswerType.EVENT, is_send_csv=True
     )
