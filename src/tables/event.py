@@ -40,8 +40,8 @@ class EventDB(Table):
     def is_dir(self) -> bool:
         return self.name.endswith("/")
 
-    def ascii_name(self) -> str:
-        return remove_emojis_with_space_prefix(self.name)
+    def ascii_lower_name(self) -> str:
+        return remove_emojis_with_space_prefix(self.name).lower()
 
     class Meta(Table.Meta):
         tablename = "event"

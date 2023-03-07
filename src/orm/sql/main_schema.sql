@@ -113,5 +113,10 @@ SELECT * FROM answer WHERE
 
 SELECT *, replace(name, 'food_eat', 'food_intake') FROM event ;
 
-UPDATE event SET name = REPLACE(name, 'foodddd', 'food')
-    WHERE name LIKE 'foodddd%';
+-- UPDATE event SET name = REPLACE(name, 'cereals', 'Cereals');
+UPDATE event SET name = initcap(name);
+--     WHERE name LIKE '%food%';
+
+
+-- UPDATE event SET order_by = capi;
+-- SELECT initcap(event.name) as Nname FROM event ORDER BY order_by;

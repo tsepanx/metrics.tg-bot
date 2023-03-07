@@ -7,21 +7,23 @@ from icalendar import (
     Event,
 )
 
+from src.conversations.ask_constants import (
+    EVENT_DURABLE_CHOICE_END,
+    EVENT_DURABLE_CHOICE_START,
+)
 from src.tables.answer import (
     AnswerDB,
 )
-from src.utils import DEFAULT_TZ
-from src.utils_pd import (
-    remove_emojis_with_space_prefix,
+from src.tables.event import (
+    EventDB,
 )
+from src.utils import DEFAULT_TZ
 
 
 @dataclass(frozen=True)
 class CalEventDC:
-    # event_db_obj: EventDB
-
-    # summary: str
-    name: str
+    # name: str
+    event_obj: EventDB
 
     start_dt: datetime.datetime
     end_dt: datetime.datetime
@@ -29,16 +31,13 @@ class CalEventDC:
     def ical_event(self) -> icalendar.Event:
         event = Event()
         # event.add("summary", self.summary)
-        event.add("summary", self.name)
+        event.add("summary", self.event_obj.name)
         # if self.desc:
         #     event.add("description", self.desc)
         event.add("dtstart", self.start_dt.replace(tzinfo=DEFAULT_TZ))
         event.add("dtend", self.end_dt.replace(tzinfo=DEFAULT_TZ))
 
         return event
-
-    def ascii_name(self) -> str:
-        return remove_emojis_with_space_prefix(self.name)
 
 
 def gen_calendar_events_from_db_event(answers: list[AnswerDB]) -> list[CalEventDC]:
@@ -49,15 +48,15 @@ def gen_calendar_events_from_db_event(answers: list[AnswerDB]) -> list[CalEventD
         if answer_db.event:
             event_db = answer_db.event
 
-            if answer_db.text == "start":
+            if answer_db.text == EVENT_DURABLE_CHOICE_START:
                 tmp_event_start_timestamps[event_db.name] = answer_db.get_timestamp()
-            elif answer_db.text == "end":
+            elif answer_db.text == EVENT_DURABLE_CHOICE_END:
                 start_event_timestamp: datetime.datetime | None = tmp_event_start_timestamps.pop(
                     event_db.name, None
                 )
                 if start_event_timestamp:
                     cal_event = CalEventDC(
-                        name=event_db.name,
+                        event_obj=event_db,
                         start_dt=start_event_timestamp,
                         end_dt=answer_db.get_timestamp(),
                     )
