@@ -23,9 +23,9 @@ from src.utils import (
 
 
 def binary(x: str) -> int:
-    if x.lower() not in (BINARY_CHOICE_YES, BINARY_CHOICE_NO, "0", "1"):
+    if x.lower() not in (BINARY_CHOICE_YES.lower(), BINARY_CHOICE_NO.lower(), "0", "1"):
         raise FormatException
-    return 1 if x.lower() in (BINARY_CHOICE_YES, "yes", "1") else 0
+    return 1 if x.lower() in (BINARY_CHOICE_YES.lower(), "yes", "1") else 0
 
 
 def time_or_hours(s: str) -> datetime.time:
