@@ -42,7 +42,7 @@ class BackForeignKey(ForeignKey):
 @dataclass(frozen=True, slots=False)
 class Table:
     """
-    TODO cache objects with the same parameterers
+    TODO cache objects with the same parameters
     TODO https://stackoverflow.com/questions/73184156/return-cached-object-for-same-initialization-arguments
     """
 

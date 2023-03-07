@@ -10,7 +10,6 @@ from src.tables.answer import (
     AnswerDB,
 )
 from src.user_data import (
-    UserData,
     UserDBCache,
 )
 from src.utils import (
