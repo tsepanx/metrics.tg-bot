@@ -2,6 +2,7 @@ import enum
 import logging
 import os
 from dataclasses import dataclass
+from time import sleep
 from typing import (
     Any,
     Callable,
@@ -117,16 +118,23 @@ def dict_cols_to_str(
     return new_d
 
 
-def retry_if_failed(func: Callable, conn: psycopg.Connection):
+def retry_if_failed(func: Callable, conn: psycopg.Connection, cnt_tryed: int = 0):
+    if cnt_tryed >= 5:
+        raise psycopg.errors.InFailedSqlTransaction
     try:
         return func(conn)
     except psycopg.errors.OperationalError:
         logger.warning("psycopg.OperationalError occurred, retrying..")
-        return func(conn)
+        sleep(3)
+        return retry_if_failed(func, conn, cnt_tryed=cnt_tryed + 1)
+        # return func(conn)
     except psycopg.errors.InFailedSqlTransaction:
         conn.close()
         new_conn = get_psql_conn()
-        return func(new_conn)
+
+        sleep(3)
+        return retry_if_failed(func, new_conn, cnt_tryed=cnt_tryed + 1)
+        # return func(new_conn)
 
 
 def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> list[tuple]:
