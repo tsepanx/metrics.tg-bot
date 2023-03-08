@@ -86,7 +86,7 @@ class CumulativeIntAnswersGenMetric(GeneratedMetricEvent):
         for answer in matched_answers:
             try:
                 sum_val += int(answer.text)
-            except ValueError:
+            except (ValueError, TypeError):
                 continue
 
         return sum_val

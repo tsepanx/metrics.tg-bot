@@ -26,6 +26,8 @@ PG_PASSWORD = os.environ.get("PG_PASSWORD", "postgres")
 TableName = str
 ValueType = Any
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class ColumnDC:
@@ -115,7 +117,19 @@ def dict_cols_to_str(
     return new_d
 
 
-def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Sequence:
+def retry_if_failed(func: Callable, conn: psycopg.Connection):
+    try:
+        return func(conn)
+    except psycopg.errors.OperationalError:
+        logger.warning("psycopg.OperationalError occurred, retrying..")
+        return func(conn)
+    except psycopg.errors.InFailedSqlTransaction:
+        conn.close()
+        new_conn = get_psql_conn()
+        return func(new_conn)
+
+
+def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> list[tuple]:
     query_for_print = query
     query_for_print = query_for_print.replace('"question"', "q")
     query_for_print = query_for_print.replace('"answer"', "a")
@@ -123,42 +137,27 @@ def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> Seque
 
     # print(sqlparse.format(query_for_print, reindent=True))
     # print("Params:", params)
-    logger = logging.getLogger(__name__)
-    logger.info(f"{query_for_print}, {params}")
+    logger.debug(f"{query_for_print}, {params}")
 
-    conn = get_psql_conn()
-    cur = conn.cursor()
-
-    try:
-        cur.execute(query, params)
-    except psycopg.errors.OperationalError:
-        cur.execute(query, params)
-    except psycopg.errors.InFailedSqlTransaction:
-        conn.close()
-        conn = get_psql_conn()
-        cur = conn.cursor()
-
-        cur.execute(query, params)
-
-    results = cur.fetchall()
-    return results
-
-
-def _query_set(query: str, params: Optional[dict | Sequence] = tuple()):
-    logger = logging.getLogger(__name__)
-    logger.info(f"{query}, {params}")
-
-    conn = get_psql_conn()
-    with conn.cursor() as cur:
-        try:
-            cur.execute(query, params)
-        except psycopg.errors.InFailedSqlTransaction:
-            conn.close()
-            conn = get_psql_conn()
-            cur = conn.cursor()
+    def try_func(conn: psycopg.Connection) -> list[tuple]:
+        with conn.cursor() as cur:
             cur.execute(query, params)
 
-        conn.commit()
+            results = cur.fetchall()
+            return results
+
+    return retry_if_failed(try_func, get_psql_conn())
+
+
+def _query_set(query: str, params: Optional[dict | Sequence] = tuple()) -> None:
+    logger.debug(f"{query}, {params}")
+
+    def try_func(conn: psycopg.Connection):
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            conn.commit()
+
+    retry_if_failed(try_func, get_psql_conn())
 
 
 def _select(
