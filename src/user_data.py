@@ -124,7 +124,7 @@ class UserDBCache:
 
         return df
 
-    def events_answers_df(self, for_day: datetime.date = get_today()) -> pd.DataFrame | None:
+    def events_answers_df(self) -> pd.DataFrame | None:
         """
         A table consists of only 1 column
         Each row format is described as:
@@ -137,13 +137,13 @@ class UserDBCache:
 
         event_answers = sorted(filter(filter_answers, self.answers), key=lambda x: x.time)
 
-        row_list = list(map(lambda x: [x.time, (x.event.name, x.text)], event_answers))
+        row_list = list(map(lambda x: [x.time, x.event.name, x.text], event_answers))
 
         if len(row_list) == 0:
             return None
 
         df = pd.DataFrame(row_list).set_index(0)
-        df.columns = [for_day]
+        df.columns = ("name", "text")
         return df
 
     def get_entity_answers_df(self, answers_entity: AnswerType):
