@@ -119,20 +119,21 @@ def dict_cols_to_str(
 
 
 def retry_if_failed(func: Callable, conn: psycopg.Connection, cnt_tryed: int = 0):
-    if cnt_tryed >= 5:
-        raise psycopg.errors.InFailedSqlTransaction
+    if cnt_tryed >= 3:
+        raise psycopg.errors.OperationalError
+
+    conn.close()
+    new_conn = get_psql_conn()
+
     try:
-        return func(conn)
+        return func(new_conn)
     except psycopg.errors.OperationalError:
         logger.warning("psycopg.OperationalError occurred, retrying..")
-        sleep(3)
-        return retry_if_failed(func, conn, cnt_tryed=cnt_tryed + 1)
+        sleep(1)
+        return retry_if_failed(func, new_conn, cnt_tryed=cnt_tryed + 1)
         # return func(conn)
     except psycopg.errors.InFailedSqlTransaction:
-        conn.close()
-        new_conn = get_psql_conn()
-
-        sleep(3)
+        sleep(1)
         return retry_if_failed(func, new_conn, cnt_tryed=cnt_tryed + 1)
         # return func(new_conn)
 
