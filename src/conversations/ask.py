@@ -25,9 +25,10 @@ from src.conversations.ask_constants import (
     DEFAULT_REPLY_KEYBOARD,
     ENTITY_TYPE_CHOICE_EVENT,
     ENTITY_TYPE_CHOICE_QUESTION,
+    ENTITY_TYPE_KEYBOARD,
     ENTITY_TYPE_MSG,
     ERROR_PARSING_ANSWER,
-    EVENT_NAME_MSG,
+    EVENT_NAMES_PATH_MSG,
     EVENT_TEXT_CHOICE_NONE,
     EVENT_TIME_WRONG_FORMAT,
     QUESTION_DAY_KEYBOARD,
@@ -45,7 +46,6 @@ from src.conversations.ask_constants import (
 from src.conversations.ask_utils import (
     ExactPathMatched,
     edit_event_info_msg,
-    get_entity_type_reply_keyboard,
     get_event_info_text,
     get_event_select_keyboard,
     get_questions_list_html,
@@ -110,7 +110,7 @@ async def choose_entity_type(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(
         text=ENTITY_TYPE_MSG,
-        reply_markup=get_entity_type_reply_keyboard(),
+        reply_markup=DEFAULT_REPLY_KEYBOARD(ENTITY_TYPE_KEYBOARD),
     )
 
     return ASK_CHOOSE_ENTITY_TYPE
@@ -180,11 +180,9 @@ async def choose_event_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     events = ud.db_cache.events
 
-    reply_markup = get_event_select_keyboard(events, ud.conv_storage.event_name_prefix_path)
-
     await update.message.reply_text(
-        text=EVENT_NAME_MSG,
-        reply_markup=reply_markup,
+        text=EVENT_NAMES_PATH_MSG([]),
+        reply_markup=get_event_select_keyboard(events, ud.conv_storage.event_name_prefix_path),
     )
 
     return ASK_CHOOSE_EVENT_NAME
@@ -343,7 +341,7 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
 
     try:
         reply_keyboard = get_event_select_keyboard(ud.db_cache.events, cur_path)
-        new_text = f"Cur path: {cur_path}"
+        new_text = EVENT_NAMES_PATH_MSG(cur_path)
 
         await update.callback_query.message.edit_text(text=new_text, reply_markup=reply_keyboard)
         return ASK_CHOOSE_EVENT_NAME
@@ -459,6 +457,8 @@ async def on_event_text_answered(update: Update, context: ContextTypes.DEFAULT_T
         ud.conv_storage.event_text = text
 
     await edit_event_info_msg(ud, event)
+
+    # await remove_keyboard(update, EVENT_DONE_MSG)
 
     await on_end_asking_event(ud, update)
     return ConversationHandler.END

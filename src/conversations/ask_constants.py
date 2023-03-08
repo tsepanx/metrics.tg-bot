@@ -11,7 +11,7 @@ ADD_TIME_TO_QUESTIONS = True
 DEFAULT_PARSE_MODE = ParseMode.HTML
 DEFAULT_REPLY_KEYBOARD = lambda buttons: ReplyKeyboardMarkup(  # noqa: E731
     keyboard=buttons,
-    one_time_keyboard=True,
+    one_time_keyboard=False,
     resize_keyboard=True,
 )
 
@@ -63,8 +63,6 @@ class SelectQuestionButtons:
 QUESTION_NAMES_MSG = "Choose question names OR other option"
 QUESTION_ERROR_MSG = "You haven't selected any name"
 
-EVENT_NAME_MSG = "Choose event name"
-
 
 # === Event names ===
 
@@ -82,6 +80,8 @@ class SelectEventCallback:
 class SelectEventButtons:
     GO_UP = InlineKeyboardButton("⬆️ Up ../", callback_data=SelectEventCallback.GO_UP)
 
+
+EVENT_NAMES_PATH_MSG = lambda cur_path: f"Cur path: {cur_path}"
 
 SINGLE_EVENT_REPR = lambda text: f"📍 {text}"  # noqa: E731
 DURABLE_EVENT_REPR = lambda text: f"🕓 {text}"  # noqa: E731
@@ -120,3 +120,7 @@ EVENT_TEXT_KEYBOARD = [[EVENT_TEXT_CHOICE_NONE]]
 EVENT_DURABLE_CHOICE_START = "start"
 EVENT_DURABLE_CHOICE_END = "end"
 # REGEX_EVENT_TEXT_KEYBOARD = any_of_buttons_regex(EVENT_TEXT_KEYBOARD)
+
+# === Done ===
+
+EVENT_DONE_MSG = "Done"

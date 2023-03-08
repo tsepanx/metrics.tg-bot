@@ -9,7 +9,6 @@ import telegram
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
 )
@@ -23,7 +22,6 @@ from src.conversations.ask_constants import (
     DEFAULT_REPLY_KEYBOARD,
     DIR_EVENT_REPR,
     DURABLE_EVENT_REPR,
-    ENTITY_TYPE_KEYBOARD,
     EVENT_DURABLE_CHOICE_END,
     EVENT_DURABLE_CHOICE_START,
     EVENT_TEXT_ASK_MSG,
@@ -78,13 +76,8 @@ from src.utils_tg import (
 )
 
 
-def get_entity_type_reply_keyboard():
-    reply_markup = ReplyKeyboardMarkup(
-        ENTITY_TYPE_KEYBOARD,
-        one_time_keyboard=True,
-        resize_keyboard=True,
-    )
-    return reply_markup
+async def remove_keyboard(update: Update, msg_text: str):
+    await update.message.reply_text(text=msg_text, reply_markup=ReplyKeyboardRemove())
 
 
 def get_questions_list_html(include_names: list[str]):
@@ -213,16 +206,12 @@ async def send_ask_question(q: QuestionDB, send_text_func: Callable, existing_an
 
     buttons.append([QUESTION_TEXT_CHOICE_SKIP_QUEST, QUESTION_TEXT_CHOICE_STOP_ASKING])
 
-    reply_markup = telegram.ReplyKeyboardMarkup(
-        buttons, one_time_keyboard=True, resize_keyboard=True
-    )
-
     text = q.html_full(existing_answer)
 
     await wrapped_send_text(
         send_message_func=send_text_func,
         text=text,
-        reply_markup=reply_markup,
+        reply_markup=DEFAULT_REPLY_KEYBOARD(buttons),
         parse_mode=DEFAULT_PARSE_MODE,
     )
 
