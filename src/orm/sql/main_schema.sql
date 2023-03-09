@@ -120,3 +120,9 @@ UPDATE event SET name = initcap(name);
 
 -- UPDATE event SET order_by = capi;
 -- SELECT initcap(event.name) as Nname FROM event ORDER BY order_by;
+
+
+SELECT * FROM answer a
+    JOIN event e on e.pk = a.event_fk
+WHERE e.name LIKE 'Finances 🏦/Spend%'
+ORDER BY a.date, a.time;

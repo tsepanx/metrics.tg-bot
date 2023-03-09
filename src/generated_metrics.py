@@ -169,7 +169,7 @@ class MarginalOccurrenceGenMetric(GeneratedMetricEvent, TextMatchMixin):
 
 
 @dataclass
-class DependentGeneratedMetric(NameableMixin, ValueMixin):
+class CombineOtherMetrics(NameableMixin, ValueMixin):
     """
     Depends on other's metrics values.
     Represents any relations between `GeneratedMetrics` on given day, i.e. '-', '+'
@@ -195,7 +195,7 @@ class DependentGeneratedMetric(NameableMixin, ValueMixin):
 
 
 @dataclass
-class MetricsDifference(DependentGeneratedMetric):
+class MetricsDifference(CombineOtherMetrics):
     prefix = "[DIFF]"
 
     @staticmethod
@@ -205,7 +205,7 @@ class MetricsDifference(DependentGeneratedMetric):
 
 
 @dataclass
-class MetricsAddition(DependentGeneratedMetric):
+class MetricsAddition(CombineOtherMetrics):
     prefix = "[PLUS]"
 
     @staticmethod
@@ -285,7 +285,7 @@ def get_gen_metrics_event_df(
     db_cache: UserDBCache,
     gen_metrics: list[MetricType],
 ) -> pd.DataFrame:
-    days: list[datetime.date] = sorted(db_cache.answers_days_set)
+    days: list[datetime.date] = sorted(db_cache.question_answers_days_set)
 
     df = pd.DataFrame(columns=days, index=list(map(lambda x: x.fullname, gen_metrics)))
 
