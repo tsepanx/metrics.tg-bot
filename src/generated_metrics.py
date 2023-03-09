@@ -1,7 +1,11 @@
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import (
+    Any,
+    Literal,
+    TypeVar,
+)
 
 import pandas as pd
 
@@ -30,7 +34,7 @@ SLEEP_DEFAULT_KWARGS = {
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass
 class NameableMixin:
     name: str
 
@@ -44,7 +48,21 @@ class NameableMixin:
         return self.fullname
 
 
-@dataclass(frozen=True)
+@dataclass
+class TextMatchMixin(NameableMixin):
+    text_match: str | None = None
+
+    @property
+    def fullname(self):
+        s = super().fullname
+
+        if self.text_match:
+            s += f" ({self.text_match})"
+
+        return s
+
+
+@dataclass
 class ValueMixin:
     def value_on_day(self, all_answers: list[AnswerDB], on_day: datetime.date) -> str:
         raise NotImplementedError
@@ -53,7 +71,7 @@ class ValueMixin:
 MetricType = TypeVar("MetricType", ValueMixin, NameableMixin)
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeneratedMetricEvent(NameableMixin, ValueMixin):
     target_event_id: int | None = None
     target_event_name: str | None = None
@@ -97,7 +115,7 @@ class GeneratedMetricEvent(NameableMixin, ValueMixin):
         return metric_value
 
 
-@dataclass(frozen=True)
+@dataclass
 class CumulativeDurationGenMetric(GeneratedMetricEvent):
     prefix = "[CUM]"
 
@@ -114,7 +132,7 @@ class CumulativeDurationGenMetric(GeneratedMetricEvent):
         return sum_timedelta
 
 
-@dataclass(frozen=True)
+@dataclass
 class SumIntAnswersGenMetric(GeneratedMetricEvent):
     prefix = "[SUM INT]"
 
@@ -131,29 +149,26 @@ class SumIntAnswersGenMetric(GeneratedMetricEvent):
         return sum_val
 
 
-@dataclass(frozen=True)
-class FirstOnDayGenMetric(GeneratedMetricEvent):
-    text_match: str | None = None
+@dataclass
+class MarginalOccurrenceGenMetric(GeneratedMetricEvent, TextMatchMixin):
+    first_or_last: Literal["first", "last"] = "first"
 
-    prefix = "[FIRST]"
-
-    @property
-    def fullname(self):
-        s = super().fullname
-
-        if self.text_match:
-            s += f" ({self.text_match})"
-
-        return s
+    def __post_init__(self):
+        self.prefix = "[FIRST]" if self.first_or_last == "first" else "[LAST]"
 
     def _value_on_target_answers(self, matched_answers: list[AnswerDB]) -> datetime.datetime | None:
-        for answer in matched_answers:
+        if self.first_or_last == "first":
+            answers_to_iter = matched_answers
+        else:
+            answers_to_iter = reversed(matched_answers)
+
+        for answer in answers_to_iter:
             if self.text_match:
                 if self.text_match == answer.text:
                     return answer.get_timestamp()
 
 
-@dataclass(frozen=True)
+@dataclass
 class DependentGeneratedMetric(NameableMixin, ValueMixin):
     """
     Depends on other's metrics values.
@@ -179,7 +194,7 @@ class DependentGeneratedMetric(NameableMixin, ValueMixin):
         raise NotImplementedError
 
 
-@dataclass(frozen=True)
+@dataclass
 class MetricsDifference(DependentGeneratedMetric):
     prefix = "[DIFF]"
 
@@ -189,7 +204,7 @@ class MetricsDifference(DependentGeneratedMetric):
         return values[0] - values[1]
 
 
-@dataclass(frozen=True)
+@dataclass
 class MetricsAddition(DependentGeneratedMetric):
     prefix = "[PLUS]"
 
@@ -199,23 +214,47 @@ class MetricsAddition(DependentGeneratedMetric):
         return values[0] + values[1]
 
 
+def build_first_occurrence_metric(**kwargs) -> GeneratedMetricEvent:
+    assert "text_match" not in kwargs
+    assert "first_or_last" not in kwargs
+
+    return MarginalOccurrenceGenMetric(
+        **kwargs,
+        text_match="start",
+        first_or_last="first",
+    )
+
+
+def build_last_occurrence_metric(**kwargs) -> GeneratedMetricEvent:
+    kwargs.pop("text_match", None)
+    kwargs.pop("first_or_last", None)
+
+    mo = MarginalOccurrenceGenMetric(
+        **kwargs,
+        text_match="end",
+        first_or_last="last",
+    )
+    return mo
+
+
 # TODO Think of moving to 'generated_metric' DB table
 class GeneratedMetricsEnum(MyEnum):
-    SLEEP_START = FirstOnDayGenMetric(
-        target_event_id=46, name="sleep", text_match="start", **SLEEP_DEFAULT_KWARGS
+    SLEEP_START = build_first_occurrence_metric(
+        target_event_id=46, name="sleep", **SLEEP_DEFAULT_KWARGS
     )
-    SLEEP_END = FirstOnDayGenMetric(
-        target_event_id=46, name="sleep", text_match="end", **SLEEP_DEFAULT_KWARGS
+    SLEEP_END = build_last_occurrence_metric(
+        target_event_id=46, name="sleep", **SLEEP_DEFAULT_KWARGS
     )
+
     SLEEP_DURATION = CumulativeDurationGenMetric(
         target_event_id=46, name="sleep", **SLEEP_DEFAULT_KWARGS
     )
 
-    AT_BED_START = FirstOnDayGenMetric(
-        target_event_id=25, name="at bed", text_match="start", **SLEEP_DEFAULT_KWARGS
+    AT_BED_START = build_first_occurrence_metric(
+        target_event_id=25, name="at bed", **SLEEP_DEFAULT_KWARGS
     )
-    AT_BED_END = FirstOnDayGenMetric(
-        target_event_id=25, name="at bed", text_match="end", **SLEEP_DEFAULT_KWARGS
+    AT_BED_END = build_last_occurrence_metric(
+        target_event_id=25, name="at bed", **SLEEP_DEFAULT_KWARGS
     )
 
     AT_BED_DURATION = CumulativeDurationGenMetric(
@@ -223,7 +262,6 @@ class GeneratedMetricsEnum(MyEnum):
     )
 
     KESHIY_SUM = SumIntAnswersGenMetric(target_event_id=7, name="keshiuy")
-
     SLEEP_START_WASTE = MetricsDifference("sleep [waste]", [SLEEP_START, AT_BED_START])
 
 
