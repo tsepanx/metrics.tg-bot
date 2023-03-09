@@ -131,11 +131,9 @@ def retry_if_failed(func: Callable, conn: psycopg.Connection, cnt_tryed: int = 0
         logger.warning("psycopg.OperationalError occurred, retrying..")
         sleep(1)
         return retry_if_failed(func, new_conn, cnt_tryed=cnt_tryed + 1)
-        # return func(conn)
     except psycopg.errors.InFailedSqlTransaction:
         sleep(1)
         return retry_if_failed(func, new_conn, cnt_tryed=cnt_tryed + 1)
-        # return func(new_conn)
 
 
 def _query_get(query: str, params: Optional[dict | Sequence] = tuple()) -> list[tuple]:

@@ -350,6 +350,8 @@ async def on_chosen_event_name(update: Update, context: ContextTypes.DEFAULT_TYP
         found_e_index = exc.i
 
         return await end_state(found_e_index, found_event)
+    except Exception as exc:
+        logger.error(f"Caught unwanted exception with callback_data: {query}; {exc}")
 
 
 # === ANSWER VALUE(S) ====

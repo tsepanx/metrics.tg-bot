@@ -1,6 +1,7 @@
 import datetime
 import logging
 from dataclasses import dataclass
+from typing import Any, TypeVar
 
 import pandas as pd
 
@@ -30,14 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class GeneratedMetricEvent:
+class NameableMixin:
     name: str
-
-    target_event_id: int | None = None
-    target_event_name: str | None = None
-
-    custom_dt_start_add: datetime.timedelta = datetime.timedelta(0)
-    custom_dt_end_add: datetime.timedelta = datetime.timedelta(0)
 
     prefix = "[PLN]"
 
@@ -45,25 +40,72 @@ class GeneratedMetricEvent:
     def fullname(self):
         return f"{self.prefix:{ALIGN_NAME_PREFIX_LEN}}" + self.name
 
-    def get_value(self, answers: list[AnswerDB]):
-        raise NotImplementedError
-
     def __repr__(self):
         return self.fullname
+
+
+@dataclass(frozen=True)
+class ValueMixin:
+    def value_on_day(self, all_answers: list[AnswerDB], on_day: datetime.date) -> str:
+        raise NotImplementedError
+
+
+MetricType = TypeVar("MetricType", ValueMixin, NameableMixin)
+
+
+@dataclass(frozen=True)
+class GeneratedMetricEvent(NameableMixin, ValueMixin):
+    target_event_id: int | None = None
+    target_event_name: str | None = None
+
+    custom_dt_start_add: datetime.timedelta = datetime.timedelta(0)
+    custom_dt_end_add: datetime.timedelta = datetime.timedelta(0)
+
+    def __match_answer(self, answer: AnswerDB) -> bool:
+        if answer.event:
+            if self.target_event_id:
+                return self.target_event_id == answer.event.pk
+            if self.target_event_name:
+                return self.target_event_name == answer.event.ascii_lower_name()
+            raise Exception(
+                "You need to either specify metric.target_event_name or metric.target_event_id"
+            )
+        return False
+
+    def __filter_answers(self, all_answers: list[AnswerDB], on_day: datetime.date):
+        day_start = datetime.datetime.combine(date=on_day, time=datetime.time.min)
+        day_end = day_start + datetime.timedelta(days=1)
+
+        # metric: Union[ValueMixin, NameableMixin]
+        # for metric in gen_metrics_event:
+        start_dt = day_start + self.custom_dt_start_add
+        end_dt = day_end + self.custom_dt_end_add
+
+        bound_by_dt = lambda x: start_dt < x.get_timestamp() < end_dt
+        apply_filter = lambda x: bound_by_dt(x) and self.__match_answer(x)
+
+        return list(filter(apply_filter, all_answers))
+
+    # @staticmethod
+    def _value_on_target_answers(self, target_answers: list[AnswerDB]):
+        raise NotImplementedError
+
+    def value_on_day(self, all_answers: list[AnswerDB], on_day: datetime.date):
+        target_answers = self.__filter_answers(all_answers, on_day)
+        metric_value = self._value_on_target_answers(target_answers)
+
+        return metric_value
 
 
 @dataclass(frozen=True)
 class CumulativeDurationGenMetric(GeneratedMetricEvent):
     prefix = "[CUM]"
 
-    def get_value(self, answers: list[AnswerDB]) -> datetime.timedelta | None:
-        return self.cumulative_event_duration(answers)
-
-    @staticmethod
-    def cumulative_event_duration(matched_answers: list[AnswerDB]) -> datetime.timedelta | None:
+    # @staticmethod
+    def _value_on_target_answers(self, target_answers: list[AnswerDB]) -> datetime.timedelta | None:
         sum_timedelta: datetime.timedelta = datetime.timedelta(0)
 
-        cal_events = gen_calendar_events_from_db_event(matched_answers)
+        cal_events = gen_calendar_events_from_db_event(target_answers)
 
         for c_event in cal_events:
             duration_delta = c_event.end_dt - c_event.start_dt
@@ -73,17 +115,14 @@ class CumulativeDurationGenMetric(GeneratedMetricEvent):
 
 
 @dataclass(frozen=True)
-class CumulativeIntAnswersGenMetric(GeneratedMetricEvent):
-    prefix = "[CUM INT]"
+class SumIntAnswersGenMetric(GeneratedMetricEvent):
+    prefix = "[SUM INT]"
 
-    def get_value(self, answers: list[AnswerDB]) -> int:
-        return self.cumulative_event_answers_int(answers)
-
-    @staticmethod
-    def cumulative_event_answers_int(matched_answers: list[AnswerDB]) -> int:
+    # @staticmethod
+    def _value_on_target_answers(self, target_answers: list[AnswerDB]) -> int:
         sum_val: int = 0
 
-        for answer in matched_answers:
+        for answer in target_answers:
             try:
                 sum_val += int(answer.text)
             except (ValueError, TypeError):
@@ -107,14 +146,57 @@ class FirstOnDayGenMetric(GeneratedMetricEvent):
 
         return s
 
-    def get_value(self, answers: list[AnswerDB]) -> datetime.datetime | None:
-        return self.first_event_occurrence(answers)
-
-    def first_event_occurrence(self, matched_answers: list[AnswerDB]) -> datetime.datetime | None:
+    def _value_on_target_answers(self, matched_answers: list[AnswerDB]) -> datetime.datetime | None:
         for answer in matched_answers:
             if self.text_match:
                 if self.text_match == answer.text:
                     return answer.get_timestamp()
+
+
+@dataclass(frozen=True)
+class DependentGeneratedMetric(NameableMixin, ValueMixin):
+    """
+    Depends on other's metrics values.
+    Represents any relations between `GeneratedMetrics` on given day, i.e. '-', '+'
+
+    TODO Add ability to depend on `Question` also (needs to rewrite forming table logic)
+    """
+
+    metrics_list: list[GeneratedMetricEvent]
+
+    prefix = "[FIRST]"
+
+    def value_on_day(self, all_answers: list[AnswerDB], on_day: datetime.date):
+        metrics_values = list(map(lambda x: x.value_on_day(all_answers, on_day), self.metrics_list))
+
+        if None in metrics_values:
+            return None
+
+        return self.apply_func(metrics_values)
+
+    @staticmethod
+    def apply_func(values):
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class MetricsDifference(DependentGeneratedMetric):
+    prefix = "[DIFF]"
+
+    @staticmethod
+    def apply_func(values):
+        assert len(values) == 2
+        return values[0] - values[1]
+
+
+@dataclass(frozen=True)
+class MetricsAddition(DependentGeneratedMetric):
+    prefix = "[PLUS]"
+
+    @staticmethod
+    def apply_func(values):
+        assert len(values) == 2
+        return values[0] + values[1]
 
 
 # TODO Think of moving to 'generated_metric' DB table
@@ -125,67 +207,55 @@ class GeneratedMetricsEnum(MyEnum):
     SLEEP_END = FirstOnDayGenMetric(
         target_event_id=46, name="sleep", text_match="end", **SLEEP_DEFAULT_KWARGS
     )
-
     SLEEP_DURATION = CumulativeDurationGenMetric(
         target_event_id=46, name="sleep", **SLEEP_DEFAULT_KWARGS
     )
+
+    AT_BED_START = FirstOnDayGenMetric(
+        target_event_id=25, name="at bed", text_match="start", **SLEEP_DEFAULT_KWARGS
+    )
+    AT_BED_END = FirstOnDayGenMetric(
+        target_event_id=25, name="at bed", text_match="end", **SLEEP_DEFAULT_KWARGS
+    )
+
     AT_BED_DURATION = CumulativeDurationGenMetric(
         target_event_id=25, name="at_bed", **SLEEP_DEFAULT_KWARGS
     )
 
-    KESHIY_SUM = CumulativeIntAnswersGenMetric(target_event_id=7, name="keshiuy")
+    KESHIY_SUM = SumIntAnswersGenMetric(target_event_id=7, name="keshiuy")
+
+    SLEEP_START_WASTE = MetricsDifference("sleep [waste]", [SLEEP_START, AT_BED_START])
+
+
+def format_metric_value(metric: MetricType, metric_value: Any) -> str:
+    if isinstance(metric_value, datetime.datetime):
+        metric_value_str = format_time(metric_value.time())
+    elif isinstance(metric_value, datetime.timedelta):
+        metric_value_str = format_timedelta(metric_value)
+    elif isinstance(metric_value, str):
+        metric_value_str = metric_value
+    elif metric_value is None:
+        metric_value_str = ""
+    else:
+        metric_value_str = str(metric_value)
+        logger.info(f"Metric '{metric.name}': metric_value of unhandled type: {type(metric_value)}")
+
+    return metric_value_str
 
 
 def get_gen_metrics_event_df(
     db_cache: UserDBCache,
-    gen_metrics_event: list[GeneratedMetricEvent],
+    gen_metrics: list[MetricType],
 ) -> pd.DataFrame:
     days: list[datetime.date] = sorted(db_cache.answers_days_set)
 
-    df = pd.DataFrame(columns=days, index=list(map(lambda x: x.fullname, gen_metrics_event)))
+    df = pd.DataFrame(columns=days, index=list(map(lambda x: x.fullname, gen_metrics)))
 
     for day in days:
-        day_start = datetime.datetime.combine(date=day, time=datetime.time.min)
-        day_end = day_start + datetime.timedelta(days=1)
-
-        for metric in gen_metrics_event:
-            start_dt = day_start + metric.custom_dt_start_add
-            end_dt = day_end + metric.custom_dt_end_add
-
-            bound_by_dt = lambda x: start_dt < x.get_timestamp() < end_dt
-
-            def match_answer(answer: AnswerDB) -> bool:
-                if answer.event:
-                    if metric.target_event_id:
-                        return metric.target_event_id == answer.event.pk
-                    if metric.target_event_name:
-                        return metric.target_event_name == answer.event.ascii_lower_name()
-                    raise Exception(
-                        "You need to either specify metric.target_event_name or metric.target_event_id"
-                    )
-                return False
-
-            target_answers = list(
-                filter(lambda x: bound_by_dt(x) and match_answer(x), db_cache.answers)
-            )
-
-            metric_value = metric.get_value(target_answers)
-
-            if isinstance(metric_value, datetime.datetime):
-                metric_value_str = format_time(metric_value.time())
-            elif isinstance(metric_value, datetime.timedelta):
-                metric_value_str = format_timedelta(metric_value)
-            elif isinstance(metric_value, str):
-                metric_value_str = metric_value
-            elif metric_value is None:
-                metric_value_str = ""
-            else:
-                metric_value_str = str(metric_value)
-                logger.info(
-                    f"Metric '{metric.name}': metric_value of unhandled type: {type(metric_value)}"
-                )
+        for metric in gen_metrics:
+            metric_value = metric.value_on_day(db_cache.answers, day)
+            formatted_value: str = format_metric_value(metric, metric_value)
 
             index = metric.fullname
-            df[day][index] = metric_value_str
-
+            df[day][index] = formatted_value
     return df
