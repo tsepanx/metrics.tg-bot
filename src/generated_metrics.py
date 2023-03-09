@@ -227,7 +227,7 @@ class GeneratedMetricsEnum(MyEnum):
     SLEEP_START_WASTE = MetricsDifference("sleep [waste]", [SLEEP_START, AT_BED_START])
 
 
-def format_metric_value(metric: MetricType, metric_value: Any) -> str:
+def format_metric_value(metric: MetricType, metric_value: Any) -> str | None:
     if isinstance(metric_value, datetime.datetime):
         metric_value_str = format_time(metric_value.time())
     elif isinstance(metric_value, datetime.timedelta):
@@ -235,7 +235,7 @@ def format_metric_value(metric: MetricType, metric_value: Any) -> str:
     elif isinstance(metric_value, str):
         metric_value_str = metric_value
     elif metric_value is None:
-        metric_value_str = ""
+        metric_value_str = None
     else:
         metric_value_str = str(metric_value)
         logger.info(f"Metric '{metric.name}': metric_value of unhandled type: {type(metric_value)}")
@@ -254,7 +254,7 @@ def get_gen_metrics_event_df(
     for day in days:
         for metric in gen_metrics:
             metric_value = metric.value_on_day(db_cache.answers, day)
-            formatted_value: str = format_metric_value(metric, metric_value)
+            formatted_value: str | None = format_metric_value(metric, metric_value)
 
             index = metric.fullname
             df[day][index] = formatted_value
