@@ -13,3 +13,4 @@ dump.sql
 data*.sql
 .token
 persitencebot
+vars*

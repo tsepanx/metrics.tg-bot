@@ -65,9 +65,9 @@ class QuestionTypeEntity:
 
 
 class QuestionTypeEnum(MyEnum):
-    TEXT = QuestionTypeEntity("[Text]", "text123")
-    INT = QuestionTypeEntity("[Integer]", "1234", apply_func=int)
-    BINARY = QuestionTypeEntity(
+    TEXT = QuestionTypeEntity("[Text]", "text123")  # 0
+    INT = QuestionTypeEntity("[Integer]", "1234", apply_func=int)  # 1
+    BINARY = QuestionTypeEntity(  # 2
         "[0/1 Binary]",
         f"{BINARY_CHOICE_YES}/{BINARY_CHOICE_NO}/0/1",
         apply_func=binary,
@@ -79,15 +79,7 @@ class QuestionTypeEnum(MyEnum):
         ]],
         # fmt: on
     )
-    HOURS = QuestionTypeEntity("[Hours (time)]", "04:35", apply_func=time_or_hours)
-
-    # TODO To be removed, as it duplicates `Events` functionality
-    # TIMESTAMP = QuestionTypeEntity(
-    #     "[Timestamp (datetime)]",
-    #     "2000-01-23 04:56",
-    #     apply_func=timestamp,
-    #     additional_keyboard_choices=[[TIME_CHOICE_NOW]],
-    # )
+    HOURS = QuestionTypeEntity("[Hours (time)]", "04:35", apply_func=time_or_hours)  # 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +97,7 @@ class QuestionDB(Table):
     is_activated: bool
     order_by: int
 
-    type_id: int  # ForeignKey : 'QuestionTypeDB'
+    type_id: int
 
     @property
     def question_type(self) -> QuestionTypeEntity:
